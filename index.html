@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#05080b" />
+  <title>TERRA-WATCH // ORBITAL RECON</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- 3D globe canvas (full-viewport background) -->
+  <canvas id="scene"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <!-- Boot / uplink overlay -->
+  <div id="boot" class="boot">
+    <div class="boot-inner">
+      <div class="boot-title">TERRA-WATCH</div>
+      <div class="boot-sub">ESTABLISHING UPLINK<span class="dots"></span></div>
+      <div class="boot-bar"><span id="bootbar"></span></div>
+      <div id="boot-log" class="boot-log"></div>
+    </div>
+  </div>
+
+  <!-- Classification banner -->
+  <div class="classbar" id="classbar-top">UNCLASSIFIED // FOR OFFICIAL USE ONLY</div>
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar hud">
+    <div class="tb-left">
+      <div class="sysmark">
+        <span class="sysmark-glyph">◈</span>
+        <div>
+          <div class="sysmark-name">TERRA&#8209;WATCH</div>
+          <div class="sysmark-sub">ORBITAL RECON · GEOSPATIAL C2</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tb-center">
+      <div class="clock-label">ZULU / DTG</div>
+      <div class="clock" id="dtg">--------Z --- --</div>
+      <div class="clock-zulu" id="zulu">00:00:00</div>
+    </div>
+
+    <div class="tb-right">
+      <div class="stat" id="stat-fix"><span class="dot"></span><span class="stat-k">GPS</span><span class="stat-v">ACQ…</span></div>
+      <div class="stat" id="stat-sat"><span class="dot ok"></span><span class="stat-k">LINK</span><span class="stat-v">SECURE</span></div>
+      <div class="stat" id="stat-mode"><span class="dot ok"></span><span class="stat-k">MODE</span><span class="stat-v">RECON</span></div>
+      <div class="stat sid"><span class="stat-k">SID</span><span class="stat-v" id="sid">----</span></div>
+    </div>
+  </header>
+
+  <!-- ============ LEFT SIDEBAR — COMPASS ============ -->
+  <aside class="panel panel-left hud">
+    <div class="panel-head">
+      <span class="ph-title">HEADING / AZIMUTH</span>
+      <span class="ph-tag" id="hdg-src">N&#8209;UP</span>
+    </div>
+
+    <div class="compass-wrap">
+      <div class="compass" id="compass">
+        <svg viewBox="0 0 240 240" id="compass-svg" aria-hidden="true">
+          <defs>
+            <radialGradient id="cg" cx="50%" cy="50%" r="50%">
+              <stop offset="60%" stop-color="rgba(8,16,18,0)"/>
+              <stop offset="100%" stop-color="rgba(8,16,18,0.55)"/>
+            </radialGradient>
+          </defs>
+          <circle cx="120" cy="120" r="112" class="c-ring outer"/>
+          <circle cx="120" cy="120" r="92"  class="c-ring inner"/>
+          <circle cx="120" cy="120" r="112" fill="url(#cg)"/>
+          <!-- rotating rose -->
+          <g id="rose"></g>
+          <!-- center reticle -->
+          <g class="reticle">
+            <circle cx="120" cy="120" r="3.2"/>
+            <line x1="120" y1="104" x2="120" y2="136"/>
+            <line x1="104" y1="120" x2="136" y2="120"/>
+          </g>
+        </svg>
+        <!-- fixed lubber line / aircraft index -->
+        <div class="lubber"></div>
+      </div>
+    </div>
+
+    <div class="hdg-readout">
+      <div class="hdg-deg" id="hdg-deg">---°</div>
+      <div class="hdg-card" id="hdg-card">--</div>
+    </div>
+
+    <button id="compass-enable" class="enable-btn" hidden>ENABLE LIVE COMPASS</button>
+
+    <div class="panel-foot">
+      <div class="kv"><span>TILT</span><b id="tilt">--</b></div>
+      <div class="kv"><span>DECL</span><b id="decl">AUTO</b></div>
+    </div>
+  </aside>
+
+  <!-- ============ RIGHT SIDEBAR — TELEMETRY ============ -->
+  <aside class="panel panel-right hud">
+    <div class="panel-head">
+      <span class="ph-title">POSITION TELEMETRY</span>
+      <span class="ph-tag warn" id="fix-tag">NO FIX</span>
+    </div>
+
+    <div class="tele-block primary">
+      <div class="tele-row big">
+        <span class="t-k">LAT</span>
+        <span class="t-v" id="lat">--.------</span>
+      </div>
+      <div class="tele-sub" id="lat-dms">--</div>
+
+      <div class="tele-row big">
+        <span class="t-k">LON</span>
+        <span class="t-v" id="lon">--.------</span>
+      </div>
+      <div class="tele-sub" id="lon-dms">--</div>
+    </div>
+
+    <div class="tele-block">
+      <div class="tele-row">
+        <span class="t-k">ALT MSL</span>
+        <span class="t-v" id="alt">-- m</span>
+      </div>
+      <div class="tele-sub" id="alt-ft">-- ft</div>
+    </div>
+
+    <div class="grid2">
+      <div class="cell"><span class="c-k">ACCURACY</span><span class="c-v" id="acc">-- m</span></div>
+      <div class="cell"><span class="c-k">SPEED</span><span class="c-v" id="spd">-- m/s</span></div>
+      <div class="cell"><span class="c-k">COURSE</span><span class="c-v" id="crs">---°</span></div>
+      <div class="cell"><span class="c-k">V&#8209;ACC</span><span class="c-v" id="vacc">-- m</span></div>
+    </div>
+
+    <div class="tele-block">
+      <div class="tele-row">
+        <span class="t-k">UTM GRID</span>
+        <span class="t-v" id="grid">--</span>
+      </div>
+      <div class="tele-sub" id="hemi">GRID ZONE DESIGNATOR</div>
+    </div>
+
+    <div class="panel-foot col">
+      <div class="kv"><span>SOURCE</span><b id="src">DEVICE GNSS</b></div>
+      <div class="kv"><span>UPDATED</span><b id="upd">--:--:--</b></div>
+    </div>
+  </aside>
+
+  <!-- ============ BOTTOM STATUS TICKER ============ -->
+  <footer class="statusbar hud">
+    <div class="sb-left">
+      <span class="sb-led"></span>
+      <span id="sb-msg">SYSTEM NOMINAL · AWAITING POSITION FIX</span>
+    </div>
+    <div class="sb-right">
+      <span class="sb-item">RNG <b id="sb-rng">--</b></span>
+      <span class="sb-item">FPS <b id="sb-fps">--</b></span>
+      <span class="sb-item">v1.0.0</span>
+    </div>
+  </footer>
+
+  <div class="classbar bottom" id="classbar-bot">UNCLASSIFIED // FOR OFFICIAL USE ONLY</div>
+
+  <!-- corner brackets -->
+  <span class="corner tl"></span><span class="corner tr"></span>
+  <span class="corner bl"></span><span class="corner br"></span>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
