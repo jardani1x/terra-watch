@@ -611,6 +611,53 @@ controls.addEventListener('start', () => {
 });
 
 // ============================================================
+//  STREET MAP INSET (Leaflet + OpenStreetMap)
+//  Real street-level view that follows the live fix. Leaflet is loaded as a
+//  classic script in index.html (global `L`); the map is built lazily the
+//  first time the inset is shown so tiles only load on demand.
+// ============================================================
+const smapEl = $('streetmap');
+let smap = null, smapMarker = null;
+
+function initStreetMap(lon, lat) {
+  if (smap || !window.L) return;
+  smap = window.L.map('sm-canvas', { zoomControl: true, attributionControl: true })
+    .setView([lat, lon], 16);
+  window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors',
+  }).addTo(smap);
+  smapMarker = window.L.marker([lat, lon]).addTo(smap);
+}
+
+function updateStreetMap(lon, lat) {
+  if (!smap) return;
+  smapMarker.setLatLng([lat, lon]);
+  smap.setView([lat, lon], smap.getZoom(), { animate: true });
+}
+
+// Called from onPosition so the inset tracks the device while it's open.
+function syncStreetMap(lon, lat) {
+  if (!smapEl || smapEl.hasAttribute('hidden')) return;
+  if (!smap) { initStreetMap(lon, lat); setTimeout(() => smap && smap.invalidateSize(), 60); }
+  else updateStreetMap(lon, lat);
+}
+
+function toggleStreetMap() {
+  if (!smapEl) return;
+  const opening = smapEl.hasAttribute('hidden');
+  smapEl.toggleAttribute('hidden', !opening);
+  $('street-toggle')?.classList.toggle('active', opening);
+  if (opening && lastFix) {
+    initStreetMap(lastFix.lon, lastFix.lat);
+    // Leaflet must recompute size once the container is actually visible.
+    setTimeout(() => { if (smap) { smap.invalidateSize(); smap.setView([lastFix.lat, lastFix.lon], 16); } }, 60);
+  }
+}
+$('street-toggle')?.addEventListener('click', toggleStreetMap);
+$('sm-close')?.addEventListener('click', toggleStreetMap);
+
+// ============================================================
 //  HUD STATE + UPDATES
 // ============================================================
 const sid = (Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 4)).toUpperCase();
@@ -636,6 +683,7 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
   buildSignalArcs(lon, lat);
   if (!hasAutoFocused) { steerTo(lon, lat); hasAutoFocused = true; }
   else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
+  syncStreetMap(lon, lat);                  // keep the street inset on the device
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
   $('lon').textContent = (lon >= 0 ? '+' : '') + lon.toFixed(6);

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <script type="importmap">
   {
@@ -19,6 +20,9 @@
     }
   }
   </script>
+
+  <!-- Leaflet (street-map inset) — classic script: defines global L before the module runs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
   <!-- 3D globe canvas (full-viewport background) -->
@@ -156,6 +160,7 @@
     </div>
 
     <button id="goto-loc" class="enable-btn">◎ ZOOM TO MY LOCATION</button>
+    <button id="street-toggle" class="enable-btn">▣ STREET MAP</button>
 
     <div class="panel-foot col">
       <div class="kv"><span>SOURCE</span><b id="src">DEVICE GNSS</b></div>
@@ -183,6 +188,12 @@
     <button class="ss-btn" data-style="political">POLITICAL</button>
     <button class="ss-btn" data-style="radar">RADAR</button>
     <button class="ss-btn" data-style="threat">THREAT</button>
+  </div>
+
+  <!-- ============ STREET MAP INSET (Leaflet + OpenStreetMap) ============ -->
+  <div class="streetmap hud" id="streetmap" hidden>
+    <div class="sm-head"><span>STREET · LIVE</span><button id="sm-close" aria-label="close street map">✕</button></div>
+    <div id="sm-canvas"></div>
   </div>
 
   <div class="classbar bottom" id="classbar-bot">UNCLASSIFIED // FOR OFFICIAL USE ONLY</div>

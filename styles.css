@@ -200,6 +200,23 @@ html, body {
   font-weight: 700; box-shadow: 0 0 10px rgba(69, 224, 176, 0.4);
 }
 
+/* ---------- Street map inset (Leaflet) ---------- */
+.enable-btn.active { background: #5ff0c0; box-shadow: 0 0 10px var(--accent); }
+.streetmap {
+  position: fixed; z-index: 24; right: 8px; bottom: 55px; width: 300px;
+  padding: 0; overflow: hidden; border-radius: 3px;
+}
+.streetmap[hidden] { display: none; }
+.sm-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 9px; font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: var(--accent); border-bottom: 1px solid var(--line-2);
+}
+#sm-canvas { width: 100%; height: 220px; background: #0a0f12; }
+#sm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-family: var(--mono); font-size: 13px; line-height: 1; }
+#sm-close:hover { color: var(--text); }
+.leaflet-container { background: #0a0f12; font-family: var(--mono); }
+
 /* ---------- Boot overlay ---------- */
 .boot {
   position: fixed; inset: 0; z-index: 50; background: var(--bg);
@@ -218,12 +235,41 @@ html, body {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 760px) {
-  .panel { width: 168px; padding: 10px; }
-  .compass { width: 150px; height: 150px; }
-  .tb-center .clock { font-size: 14px; }
+  /* compact top bar */
+  .tb-center .clock { font-size: 13px; }
   .sysmark-sub { display: none; }
+  .sysmark-name { font-size: 15px; letter-spacing: 2px; }
+  .tb-right { gap: 9px; }
+  .stat.sid { display: none; }
   .ph-title { font-size: 10px; letter-spacing: 1.5px; }
-  .t-v { font-size: 16px; }
-  .tele-row.big .t-v { font-size: 17px; }
   .sb-right .sb-item:first-child { display: none; }
+
+  /* Side panels become top/bottom bars so the globe's centre stays clear. */
+  .panel { width: auto; left: 8px; right: 8px; padding: 8px 10px; gap: 7px; overflow-y: auto; }
+
+  /* NAVIGATION / position telemetry → top (just under the top bar) */
+  .panel-right { top: 78px; bottom: auto; max-height: 30vh; }
+  .panel-right .t-v { font-size: 14px; }
+  .panel-right .tele-row.big .t-v { font-size: 15px; }
+  .panel-right .tele-sub { font-size: 9px; }
+  .panel-right .grid2 { gap: 6px; }
+  .panel-right .cell { padding: 5px 6px; }
+  #goto-loc { padding: 6px; font-size: 10px; }
+
+  /* COMPASS → bottom, compact */
+  .panel-left { top: auto; bottom: 92px; max-height: 42vh; }
+  .compass { width: 92px; height: 92px; }
+  .compass-wrap { padding: 2px 0; }
+  .hdg-deg { font-size: 20px; }
+  .hdg-card { font-size: 13px; }
+  .panel-left .panel-foot { padding-top: 6px; }
+
+  /* style switcher → slim centred row above the status bar */
+  .style-switch { left: 8px; right: 8px; bottom: 52px; max-width: none; justify-content: center; gap: 5px; padding: 5px 6px; }
+  .ss-label { display: none; }
+  .ss-btn { font-size: 9px; padding: 3px 6px; }
+
+  /* street inset → full-width overlay */
+  .streetmap { left: 8px; right: 8px; width: auto; bottom: 88px; }
+  #sm-canvas { height: 40vh; }
 }
