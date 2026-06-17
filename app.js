@@ -79,17 +79,13 @@ controls.autoRotateSpeed = 0.32;
 const earth = new THREE.Group();
 scene.add(earth);
 
-// --- ocean sphere ---
-earth.add(new THREE.Mesh(
-  new THREE.SphereGeometry(CFG.radius, 96, 96),
-  new THREE.MeshBasicMaterial({ color: 0x0a151c })
-));
-
-// --- subtle inner shell for depth ---
-earth.add(new THREE.Mesh(
-  new THREE.SphereGeometry(CFG.radius * 0.995, 64, 64),
-  new THREE.MeshBasicMaterial({ color: 0x0d2a26 })
-));
+// --- globe sphere ---
+// Starts as a uniform dark ocean; loadWorld() paints filled countries onto
+// an equirectangular canvas texture and swaps it in once topojson arrives.
+const OCEAN = 0x06121a;
+const globeMat = new THREE.MeshBasicMaterial({ color: OCEAN });
+const globe = new THREE.Mesh(new THREE.SphereGeometry(CFG.radius, 128, 128), globeMat);
+earth.add(globe);
 
 // --- graticule (lat/long grid) ---
 function buildGraticule() {
@@ -151,15 +147,87 @@ scene.add(atmosphere);
   scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x6f8a82, size: 0.06, transparent: true, opacity: 0.7 })));
 })();
 
-// --- country borders (loaded async) ---
-async function loadBorders() {
+// --- filled-country globe texture (built from the same topojson) ---
+// Rasterizes countries onto an equirectangular canvas: dark ocean, filled
+// landmasses tinted in a cohesive teal palette (varied per country for a
+// high-contrast political-map look), and crisp accent borders on top. The
+// pixel projection px=(lon+180)/360·W, py=(90-lat)/180·H matches the default
+// SphereGeometry UVs and lonLatToVec3, so the marker lands in the right place.
+function buildEarthTexture(geo) {
+  const W = 4096, H = 2048;
+  const cvs = document.createElement('canvas');
+  cvs.width = W; cvs.height = H;
+  const ctx = cvs.getContext('2d');
+
+  ctx.fillStyle = '#06121a';
+  ctx.fillRect(0, 0, W, H);
+
+  const project = (lon, lat) => [ (lon + 180) / 360 * W, (90 - lat) / 180 * H ];
+  const tracePoly = (poly) => {
+    ctx.beginPath();
+    for (const ring of poly) {
+      ring.forEach(([lon, lat], k) => {
+        const [x, y] = project(lon, lat);
+        k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+    }
+  };
+  const polysOf = (gm) =>
+    gm.type === 'Polygon' ? [gm.coordinates]
+    : gm.type === 'MultiPolygon' ? gm.coordinates
+    : [];
+
+  // Per-country teal tint: cohesive hue, varied lightness so neighbours read apart.
+  const landColor = (i) => {
+    const h = 150 + ((i * 53) % 36);   // 150–186  (teal → green-cyan)
+    const s = 32 + ((i * 17) % 22);    // 32–54 %
+    const l = 24 + ((i * 29) % 20);    // 24–44 %
+    return `hsl(${h}, ${s}%, ${l}%)`;
+  };
+
+  geo.features.forEach((f, i) => {
+    if (!f.geometry) return;
+    ctx.fillStyle = landColor(i);
+    for (const poly of polysOf(f.geometry)) {
+      tracePoly(poly);
+      ctx.fill('evenodd');
+    }
+  });
+
+  // Crisp country borders.
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = 'rgba(120, 240, 205, 0.85)';
+  geo.features.forEach((f) => {
+    if (!f.geometry) return;
+    for (const poly of polysOf(f.geometry)) {
+      tracePoly(poly);
+      ctx.stroke();
+    }
+  });
+
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// --- world data (loaded async): paints the globe + glowing edge borders ---
+async function loadWorld() {
   try {
     const topo = await fetch(CFG.worldData).then(r => r.json());
     const geo = topojson.feature(topo, topo.objects.countries);
-    const mat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.55 });
-    const group = new THREE.Group();
-    const r = CFG.radius * 1.002;
 
+    globeMat.map = buildEarthTexture(geo);
+    globeMat.color.set(0xffffff);   // show texture at true colour
+    globeMat.needsUpdate = true;
+
+    // Subtle 3D border lines just above the surface add an accent glow on top
+    // of the painted edges and stay razor-sharp at any zoom.
+    const mat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.35 });
+    const group = new THREE.Group();
+    const r = CFG.radius * 1.0015;
     const addRing = (ring) => {
       const pts = ring.map(([lon, lat]) => lonLatToVec3(lon, lat, r));
       group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), mat));
@@ -170,10 +238,11 @@ async function loadBorders() {
       else if (gm.type === 'MultiPolygon') gm.coordinates.forEach(poly => poly.forEach(addRing));
     }
     earth.add(group);
+
     bootLog('LANDMASS VECTORS LOADED · ' + geo.features.length + ' FEATURES');
     return true;
   } catch (e) {
-    bootLog('! BORDER DATA UNREACHABLE — GRID ONLY');
+    bootLog('! WORLD DATA UNREACHABLE — GRID ONLY');
     return false;
   }
 }
@@ -405,9 +474,10 @@ function initCompass() {
   } else if (typeof window.DeviceOrientationEvent !== 'undefined') {
     window.addEventListener('deviceorientationabsolute', onOrient, true);
     window.addEventListener('deviceorientation', onOrient, true);
-  } else {
-    $('hdg-src').textContent = 'N-UP';
   }
+  // Until a real magnetometer event arrives (never, on a laptop), the compass
+  // tracks the camera's bearing around the globe — see the render loop.
+  if (!headingLive) $('hdg-src').textContent = 'VIEW';
 }
 
 // ============================================================
@@ -436,7 +506,7 @@ async function boot() {
     bootLog(msg);
     await new Promise(r => setTimeout(r, 280));
   }
-  await loadBorders();
+  await loadWorld();
   bar.style.width = '100%';
   bootLog('UPLINK ESTABLISHED');
   initCompass();
@@ -468,6 +538,14 @@ function animate(now) {
   }
 
   controls.update();
+
+  // No device magnetometer (e.g. desktop/laptop): derive heading from the
+  // camera's azimuth so the rose responds live as the user orbits the globe.
+  if (!headingLive) {
+    heading = (THREE.MathUtils.radToDeg(controls.getAzimuthalAngle()) + 360) % 360;
+    renderCompass();
+  }
+
   renderer.render(scene, camera);
 
   $('sb-rng').textContent = camera.position.length().toFixed(2) + ' R';
