@@ -15,8 +15,23 @@ const CFG = {
   fallback: { lat: 38.9072, lon: -77.0369, alt: 17, sim: true },
 };
 
+// ACCENT is mutable: applyStyle() retints it (and the CSS --accent var) so the
+// whole HUD + globe re-theme from one place. Keep in sync with styles.css.
 const ACCENT = new THREE.Color('#45e0b0');
 const $ = (id) => document.getElementById(id);
+
+// ------------------------------------------------------------
+//  Visual styles (the 4 switcher presets). `accent` drives both the
+//  JS materials and the CSS --accent var; `border3d` tints the raised
+//  border lines; `arc` (threat only) tints the signal arcs.
+// ------------------------------------------------------------
+const THEMES = {
+  daynight:  { accent: '#46f08a', border3d: '#9bffc0' },   // NORAD amber/green (default)
+  political: { accent: '#45e0b0', border3d: '#45e0b0' },   // current teal baseline
+  radar:     { accent: '#39ff88', border3d: '#39ff88' },   // phosphor sweep
+  threat:    { accent: '#ff5a52', border3d: '#ff8a5a', arc: '#ff7a4a' }, // red board
+};
+let currentStyle = 'political';
 
 // ------------------------------------------------------------
 //  Coordinate helpers
@@ -53,6 +68,23 @@ function gridZone(lat, lon) {
 const CARDINALS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 const cardinal = (deg) => CARDINALS[Math.round(((deg % 360) / 22.5)) % 16];
 
+// Equirectangular canvas helpers (shared by the day/night texture builders).
+// px = (lon+180)/360·W, py = (90-lat)/180·H matches SphereGeometry UVs.
+const polysOf = (gm) =>
+  gm.type === 'Polygon' ? [gm.coordinates]
+  : gm.type === 'MultiPolygon' ? gm.coordinates
+  : [];
+function tracePoly(ctx, poly, W, H) {
+  ctx.beginPath();
+  for (const ring of poly) {
+    ring.forEach(([lon, lat], k) => {
+      const x = (lon + 180) / 360 * W, y = (90 - lat) / 180 * H;
+      k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  }
+}
+
 // ============================================================
 //  THREE.JS SCENE
 // ============================================================
@@ -80,37 +112,43 @@ const earth = new THREE.Group();
 scene.add(earth);
 
 // --- globe sphere ---
-// Starts as a uniform dark ocean; loadWorld() paints filled countries onto
-// an equirectangular canvas texture and swaps it in once topojson arrives.
+// Starts as a uniform dark ocean; loadWorld() builds the per-style materials
+// (political / day-night / radar / threat) and applyStyle() swaps them in.
 const OCEAN = 0x06121a;
 const globeMat = new THREE.MeshBasicMaterial({ color: OCEAN });
 const globe = new THREE.Mesh(new THREE.SphereGeometry(CFG.radius, 128, 128), globeMat);
 earth.add(globe);
 
+// Per-style globe materials, populated once world data arrives.
+const globeMaterials = { political: globeMat };
+
 // --- graticule (lat/long grid) ---
+const graticuleMat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.10 });
 function buildGraticule() {
   const g = new THREE.Group();
-  const mat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.10 });
   const r = CFG.radius * 1.001;
   for (let lat = -80; lat <= 80; lat += 20) {
     const pts = [];
     for (let lon = -180; lon <= 180; lon += 4) pts.push(lonLatToVec3(lon, lat, r));
-    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), graticuleMat));
   }
   for (let lon = -180; lon < 180; lon += 20) {
     const pts = [];
     for (let lat = -90; lat <= 90; lat += 4) pts.push(lonLatToVec3(lon, lat, r));
-    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), graticuleMat));
   }
   return g;
 }
 earth.add(buildGraticule());
 
+// 3D border lines (assigned in loadWorld; retinted by applyStyle).
+let borderMat = null;
+
 // --- atmosphere fresnel glow ---
 const atmosphere = new THREE.Mesh(
   new THREE.SphereGeometry(CFG.radius * 1.16, 64, 64),
   new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: ACCENT } },
+    uniforms: { uColor: { value: ACCENT.clone() } },
     vertexShader: `
       varying vec3 vNormal;
       void main() {
@@ -147,62 +185,49 @@ scene.add(atmosphere);
   scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x6f8a82, size: 0.06, transparent: true, opacity: 0.7 })));
 })();
 
-// --- filled-country globe texture (built from the same topojson) ---
-// Rasterizes countries onto an equirectangular canvas: dark ocean, filled
-// landmasses tinted in a cohesive teal palette (varied per country for a
-// high-contrast political-map look), and crisp accent borders on top. The
-// pixel projection px=(lon+180)/360·W, py=(90-lat)/180·H matches the default
-// SphereGeometry UVs and lonLatToVec3, so the marker lands in the right place.
-function buildEarthTexture(geo) {
+// ============================================================
+//  GLOBE TEXTURES + STYLE LAYERS
+// ============================================================
+
+// --- filled-country day texture (built from topojson) ---
+// Rasterizes countries onto an equirectangular canvas: ocean fill, filled
+// landmasses tinted via `landFn`, and crisp `border` strokes on top. Pass
+// `outlineOnly` to skip the fills (radar look).
+function buildEarthTexture(geo, opts = {}) {
+  const {
+    ocean = '#06121a',
+    landFn = (i) => `hsl(${150 + ((i*53)%36)}, ${32 + ((i*17)%22)}%, ${24 + ((i*29)%20)}%)`,
+    border = 'rgba(120, 240, 205, 0.85)',
+    borderWidth = 1.6,
+    outlineOnly = false,
+  } = opts;
+
   const W = 4096, H = 2048;
   const cvs = document.createElement('canvas');
   cvs.width = W; cvs.height = H;
   const ctx = cvs.getContext('2d');
 
-  ctx.fillStyle = '#06121a';
+  ctx.fillStyle = ocean;
   ctx.fillRect(0, 0, W, H);
 
-  const project = (lon, lat) => [ (lon + 180) / 360 * W, (90 - lat) / 180 * H ];
-  const tracePoly = (poly) => {
-    ctx.beginPath();
-    for (const ring of poly) {
-      ring.forEach(([lon, lat], k) => {
-        const [x, y] = project(lon, lat);
-        k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      });
-      ctx.closePath();
-    }
-  };
-  const polysOf = (gm) =>
-    gm.type === 'Polygon' ? [gm.coordinates]
-    : gm.type === 'MultiPolygon' ? gm.coordinates
-    : [];
+  if (!outlineOnly) {
+    geo.features.forEach((f, i) => {
+      if (!f.geometry) return;
+      ctx.fillStyle = landFn(i);
+      for (const poly of polysOf(f.geometry)) {
+        tracePoly(ctx, poly, W, H);
+        ctx.fill('evenodd');
+      }
+    });
+  }
 
-  // Per-country teal tint: cohesive hue, varied lightness so neighbours read apart.
-  const landColor = (i) => {
-    const h = 150 + ((i * 53) % 36);   // 150–186  (teal → green-cyan)
-    const s = 32 + ((i * 17) % 22);    // 32–54 %
-    const l = 24 + ((i * 29) % 20);    // 24–44 %
-    return `hsl(${h}, ${s}%, ${l}%)`;
-  };
-
-  geo.features.forEach((f, i) => {
-    if (!f.geometry) return;
-    ctx.fillStyle = landColor(i);
-    for (const poly of polysOf(f.geometry)) {
-      tracePoly(poly);
-      ctx.fill('evenodd');
-    }
-  });
-
-  // Crisp country borders.
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 1.6;
-  ctx.strokeStyle = 'rgba(120, 240, 205, 0.85)';
+  ctx.lineWidth = borderWidth;
+  ctx.strokeStyle = border;
   geo.features.forEach((f) => {
     if (!f.geometry) return;
     for (const poly of polysOf(f.geometry)) {
-      tracePoly(poly);
+      tracePoly(ctx, poly, W, H);
       ctx.stroke();
     }
   });
@@ -213,24 +238,271 @@ function buildEarthTexture(geo) {
   return tex;
 }
 
-// --- world data (loaded async): paints the globe + glowing edge borders ---
+// --- night texture: dark land + scattered amber city lights ---
+// Paints dark land, samples the pixels back to build a land mask, then
+// scatters soft glowing dots that fall only on land (no external city DB).
+function buildNightTexture(geo) {
+  const W = 4096, H = 2048;
+  const cvs = document.createElement('canvas');
+  cvs.width = W; cvs.height = H;
+  const ctx = cvs.getContext('2d');
+
+  ctx.fillStyle = '#020806';                 // near-black ocean (g≈8)
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#06160d';                 // dark land (g≈22)
+  geo.features.forEach((f) => {
+    if (!f.geometry) return;
+    for (const poly of polysOf(f.geometry)) {
+      tracePoly(ctx, poly, W, H);
+      ctx.fill('evenodd');
+    }
+  });
+
+  const img = ctx.getImageData(0, 0, W, H).data;
+  const isLand = (x, y) => img[(y * W + x) * 4 + 1] > 14;   // land green-channel > ocean
+
+  let placed = 0, tries = 0;
+  ctx.fillStyle = 'rgba(255, 200, 110, 1)';
+  while (placed < 3500 && tries < 60000) {
+    tries++;
+    const x = (Math.random() * W) | 0, y = (Math.random() * H) | 0;
+    if (!isLand(x, y)) continue;
+    const r = Math.random() < 0.15 ? 2.4 : 1.1;
+    ctx.globalAlpha = 0.35 + Math.random() * 0.6;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    placed++;
+  }
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// --- day/night blended globe material ---
+// Mixes day/night textures by the sun direction (sub-solar point) with a
+// glowing terminator band where the two meet.
+function makeDayNightMaterial(dayTex, nightTex) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uDay:   { value: dayTex },
+      uNight: { value: nightTex },
+      uSunDir:{ value: new THREE.Vector3(1, 0, 0) },
+      uTerm:  { value: new THREE.Color('#ffb454') },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormalW;
+      void main() {
+        vUv = uv;
+        vNormalW = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform sampler2D uDay;
+      uniform sampler2D uNight;
+      uniform vec3 uSunDir;
+      uniform vec3 uTerm;
+      varying vec2 vUv;
+      varying vec3 vNormalW;
+      void main() {
+        float d = dot(normalize(vNormalW), normalize(uSunDir));
+        float dayAmt = smoothstep(-0.12, 0.15, d);
+        vec3 day = texture2D(uDay, vUv).rgb;
+        vec3 night = texture2D(uNight, vUv).rgb;
+        vec3 col = mix(night, day, dayAmt);
+        float term = smoothstep(0.12, 0.0, abs(d));   // bright band at d≈0
+        col += uTerm * term * 0.45;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+}
+
+// Sub-solar point → world-space sun direction (consistent with lonLatToVec3).
+function sunDirection(date = new Date()) {
+  const rad = Math.PI / 180;
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const dayOfYear = (date - start) / 86400000;
+  const decl = -23.44 * Math.cos(rad * (360 / 365) * (dayOfYear + 10));
+  const hours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const slon = -15 * (hours - 12);
+  return lonLatToVec3(slon, decl, 1).normalize();
+}
+function updateSun() {
+  if (globeMaterials.daynight) globeMaterials.daynight.uniforms.uSunDir.value.copy(sunDirection());
+}
+
+// --- rotating radar sweep (additive band sweeping around the polar axis) ---
+let sweep = null;
+function buildRadarSweep() {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uAngle: { value: 0 }, uColor: { value: new THREE.Color(THEMES.radar.accent) } },
+    vertexShader: `
+      varying vec3 vPos;
+      void main() {
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uAngle;
+      uniform vec3 uColor;
+      varying vec3 vPos;
+      void main() {
+        float a = atan(vPos.z, vPos.x);                 // angle around Y axis
+        float dist = mod(uAngle - a, 6.2831853);        // distance behind the sweep
+        float intensity = smoothstep(2.4, 0.0, dist) * 0.5;
+        gl_FragColor = vec4(uColor * intensity, intensity);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(CFG.radius * 1.004, 96, 96), mat);
+  mesh.userData.mat = mat;
+  mesh.visible = false;
+  return mesh;
+}
+sweep = buildRadarSweep();
+earth.add(sweep);
+
+// --- great-circle signal arcs (threat preset) ---
+// Arcs from the live fix to a set of stations, each with a traveling glow dot
+// and a pulsing target ring. Rebuilt whenever the GPS origin changes.
+const STATIONS = [
+  [ -0.13,  51.51], [139.69,  35.69], [ -43.17, -22.91],
+  [151.21, -33.87], [ 37.62,  55.75], [-157.86,  21.31],
+];
+let arcsGroup = null;
+const arcDots = [];
+const arcRings = [];
+
+function buildSignalArcs(originLon, originLat) {
+  if (arcsGroup) { earth.remove(arcsGroup); arcsGroup.traverse(o => o.geometry?.dispose?.()); }
+  arcsGroup = new THREE.Group();
+  arcDots.length = 0; arcRings.length = 0;
+  const col = new THREE.Color(THEMES.threat.arc);
+  const origin = lonLatToVec3(originLon, originLat, CFG.radius);
+
+  for (const [lon, lat] of STATIONS) {
+    const b = lonLatToVec3(lon, lat, CFG.radius);
+    const lift = 1 + origin.distanceTo(b) * 0.38;
+    const mid = origin.clone().add(b).multiplyScalar(0.5).normalize().multiplyScalar(CFG.radius * lift);
+    const curve = new THREE.QuadraticBezierCurve3(origin.clone(), mid, b);
+
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(curve.getPoints(48)),
+      new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 })
+    );
+    arcsGroup.add(line);
+
+    const dot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.012, 8, 8),
+      new THREE.MeshBasicMaterial({ color: col })
+    );
+    dot.userData = { curve, phase: Math.random() };
+    arcDots.push(dot);
+    arcsGroup.add(dot);
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.018, 0.024, 32),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+    );
+    ring.position.copy(b);
+    ring.lookAt(b.clone().multiplyScalar(2));
+    ring.userData.phase = Math.random();
+    arcRings.push(ring);
+    arcsGroup.add(ring);
+  }
+
+  arcsGroup.visible = (currentStyle === 'threat');
+  earth.add(arcsGroup);
+}
+
+// ============================================================
+//  STYLE SWITCHER
+// ============================================================
+function retintMarkerAndArcs() {
+  for (const m of markerAccentMats) m.color.set(ACCENT);
+}
+
+function applyStyle(name) {
+  const t = THEMES[name];
+  if (!t) return;
+  currentStyle = name;
+
+  // accent sync (JS + CSS)
+  ACCENT.set(t.accent);
+  document.documentElement.style.setProperty('--accent', t.accent);
+
+  // globe surface
+  if (globeMaterials[name]) globe.material = globeMaterials[name];
+  if (name === 'daynight') updateSun();
+
+  // shared materials
+  graticuleMat.color.set(ACCENT);
+  graticuleMat.opacity = (name === 'radar') ? 0.26 : 0.10;
+  atmosphere.material.uniforms.uColor.value.set(ACCENT);
+  if (borderMat) borderMat.color.set(t.border3d);
+  retintMarkerAndArcs();
+
+  // layer visibility
+  if (sweep) sweep.visible = (name === 'radar');
+  if (arcsGroup) arcsGroup.visible = (name === 'threat');
+
+  // button UI
+  document.querySelectorAll('#style-switch .ss-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.style === name);
+  });
+}
+
+function setupStyleSwitch() {
+  document.querySelectorAll('#style-switch .ss-btn').forEach((b) => {
+    b.addEventListener('click', () => applyStyle(b.dataset.style));
+  });
+}
+
+// --- world data (loaded async): builds all per-style globe materials ---
 async function loadWorld() {
   try {
     const topo = await fetch(CFG.worldData).then(r => r.json());
     const geo = topojson.feature(topo, topo.objects.countries);
 
-    globeMat.map = buildEarthTexture(geo);
-    globeMat.color.set(0xffffff);   // show texture at true colour
-    globeMat.needsUpdate = true;
+    // political (teal baseline) — replaces the plain ocean material.
+    globeMaterials.political = new THREE.MeshBasicMaterial({ map: buildEarthTexture(geo) });
 
-    // Subtle 3D border lines just above the surface add an accent glow on top
-    // of the painted edges and stay razor-sharp at any zoom.
-    const mat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.35 });
+    // day/night (NORAD amber/green): green day map + amber night lights.
+    const dayTex = buildEarthTexture(geo, {
+      ocean: '#04160d',
+      landFn: (i) => `hsl(${120 + ((i*47)%34)}, ${42 + ((i*17)%22)}%, ${22 + ((i*29)%16)}%)`,
+      border: 'rgba(120, 255, 160, 0.85)',
+    });
+    globeMaterials.daynight = makeDayNightMaterial(dayTex, buildNightTexture(geo));
+
+    // radar: dark globe, outline-only land.
+    globeMaterials.radar = new THREE.MeshBasicMaterial({
+      map: buildEarthTexture(geo, { ocean: '#03100a', outlineOnly: true, border: 'rgba(70, 255, 150, 0.7)', borderWidth: 1.4 }),
+    });
+
+    // threat: dim red land.
+    globeMaterials.threat = new THREE.MeshBasicMaterial({
+      map: buildEarthTexture(geo, {
+        ocean: '#100406',
+        landFn: (i) => `hsl(${(i*23)%18}, ${38 + ((i*17)%20)}%, ${16 + ((i*29)%14)}%)`,
+        border: 'rgba(255, 120, 90, 0.8)',
+      }),
+    });
+
+    // Raised accent border lines (retinted per style by applyStyle).
+    borderMat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.35 });
     const group = new THREE.Group();
     const r = CFG.radius * 1.0015;
     const addRing = (ring) => {
       const pts = ring.map(([lon, lat]) => lonLatToVec3(lon, lat, r));
-      group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), mat));
+      group.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), borderMat));
     };
     for (const f of geo.features) {
       const gm = f.geometry; if (!gm) continue;
@@ -252,10 +524,12 @@ async function loadWorld() {
 // ============================================================
 let marker = null;
 const rings = [];
+const markerAccentMats = [];   // accent-tinted marker materials (retinted on style switch)
 
 function placeMarker(lon, lat) {
   if (marker) earth.remove(marker);
   marker = new THREE.Group();
+  markerAccentMats.length = 0;
   const surface = lonLatToVec3(lon, lat, CFG.radius);
   marker.position.copy(surface);
   marker.lookAt(surface.clone().multiplyScalar(2)); // +Z points outward
@@ -265,30 +539,27 @@ function placeMarker(lon, lat) {
     new THREE.MeshBasicMaterial({ color: 0xffffff })
   ));
 
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0015, 0.0015, 0.32, 6),
-    new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.7 })
-  );
+  const beamMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.7 });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.0015, 0.32, 6), beamMat);
   beam.rotation.x = Math.PI / 2;
   beam.position.z = 0.16;
   marker.add(beam);
+  markerAccentMats.push(beamMat);
 
-  const tip = new THREE.Mesh(
-    new THREE.SphereGeometry(0.008, 12, 12),
-    new THREE.MeshBasicMaterial({ color: ACCENT })
-  );
+  const tipMat = new THREE.MeshBasicMaterial({ color: ACCENT });
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.008, 12, 12), tipMat);
   tip.position.z = 0.32;
   marker.add(tip);
+  markerAccentMats.push(tipMat);
 
   rings.length = 0;
   for (let i = 0; i < 3; i++) {
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.02, 0.026, 48),
-      new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
-    );
+    const ringMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.02, 0.026, 48), ringMat);
     ring.userData.phase = i / 3;
     marker.add(ring);
     rings.push(ring);
+    markerAccentMats.push(ringMat);
   }
   earth.add(marker);
 }
@@ -328,6 +599,7 @@ function setStatus(msg) { $('sb-msg').textContent = msg; }
 
 function onPosition(lon, lat, alt, extra = {}, sim = false) {
   placeMarker(lon, lat);
+  buildSignalArcs(lon, lat);
   focusOn(lon, lat);
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
@@ -507,6 +779,8 @@ async function boot() {
     await new Promise(r => setTimeout(r, 280));
   }
   await loadWorld();
+  setupStyleSwitch();
+  applyStyle('daynight');          // default preset
   bar.style.width = '100%';
   bootLog('UPLINK ESTABLISHED');
   initCompass();
@@ -535,6 +809,25 @@ function animate(now) {
     const s = 1 + ring.userData.phase * 7;
     ring.scale.set(s, s, s);
     ring.material.opacity = 0.9 * (1 - ring.userData.phase);
+  }
+
+  // --- per-style animation (only the active layer does work) ---
+  if (currentStyle === 'daynight') {
+    updateSun();
+  } else if (currentStyle === 'radar' && sweep) {
+    const u = sweep.userData.mat.uniforms.uAngle;
+    u.value = (u.value + dt * 1.1) % (Math.PI * 2);
+  } else if (currentStyle === 'threat' && arcsGroup) {
+    for (const d of arcDots) {
+      d.userData.phase = (d.userData.phase + dt * 0.18) % 1;
+      d.position.copy(d.userData.curve.getPointAt(d.userData.phase));
+    }
+    for (const r of arcRings) {
+      r.userData.phase = (r.userData.phase + dt * 0.6) % 1;
+      const s = 1 + r.userData.phase * 3;
+      r.scale.set(s, s, s);
+      r.material.opacity = 0.9 * (1 - r.userData.phase);
+    }
   }
 
   controls.update();
