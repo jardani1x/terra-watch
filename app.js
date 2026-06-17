@@ -11,6 +11,7 @@ const CFG = {
   worldData: 'https://unpkg.com/world-atlas@2.0.2/countries-110m.json',
   radius: 1,
   focusDist: 2.25,
+  zoomDist: 1.7,     // closer fly-in used by the "zoom to my location" button
   // Used only if geolocation is denied/unavailable (flagged "SIM" in UI).
   fallback: { lat: 38.9072, lon: -77.0369, alt: 17, sim: true },
 };
@@ -569,13 +570,20 @@ function placeMarker(lon, lat) {
 // ============================================================
 let focusing = false;
 const focusTarget = new THREE.Vector3();
+let lastFix = null;          // {lon, lat} of the most recent position fix
+let hasAutoFocused = false;  // auto-fly only to the first fix, not every update
 
-function focusOn(lon, lat) {
+function focusOn(lon, lat, dist = CFG.focusDist) {
   const dir = lonLatToVec3(lon, lat, 1).normalize();
-  focusTarget.copy(dir.multiplyScalar(CFG.focusDist));
+  focusTarget.copy(dir.multiplyScalar(dist));
   focusing = true;
   controls.autoRotate = false;
 }
+
+// "Zoom to my location" — fly in closer than the default focus, on demand.
+$('goto-loc')?.addEventListener('click', () => {
+  if (lastFix) focusOn(lastFix.lon, lastFix.lat, CFG.zoomDist);
+});
 
 // ============================================================
 //  HUD STATE + UPDATES
