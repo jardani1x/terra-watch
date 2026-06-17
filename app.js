@@ -568,21 +568,46 @@ function placeMarker(lon, lat) {
 // ============================================================
 //  CAMERA FOCUS (fly to coordinate)
 // ============================================================
-let focusing = false;
-const focusTarget = new THREE.Vector3();
+// --- camera "fly to / track" (Google-Maps-style locate) ---
 let lastFix = null;          // {lon, lat} of the most recent position fix
-let hasAutoFocused = false;  // auto-fly only to the first fix, not every update
+let hasAutoFocused = false;  // gently centre the first fix automatically
+let steering = false;        // easing the camera toward a target each frame
+let following = false;       // keep re-centring on every new fix (track mode)
+const targetDir = new THREE.Vector3();
+let targetR = CFG.focusDist;
 
-function focusOn(lon, lat, dist = CFG.focusDist) {
-  const dir = lonLatToVec3(lon, lat, 1).normalize();
-  focusTarget.copy(dir.multiplyScalar(dist));
-  focusing = true;
+// Geometric slerp between two unit vectors — arcs the camera around the globe
+// at a controlled radius (no chord cutting through the surface).
+const _rel = new THREE.Vector3();
+function slerpDir(out, a, b, t) {
+  const dot = THREE.MathUtils.clamp(a.dot(b), -1, 1);
+  if (dot > 0.9999) { out.copy(b); return; }
+  const theta = Math.acos(dot) * t;
+  _rel.copy(b).addScaledVector(a, -dot).normalize();
+  out.copy(a).multiplyScalar(Math.cos(theta)).addScaledVector(_rel, Math.sin(theta));
+}
+
+// Aim the camera at a coordinate; the render loop eases it there. While
+// `following`, this is re-issued on every fix so the location stays centred.
+function steerTo(lon, lat, dist) {
+  targetDir.copy(lonLatToVec3(lon, lat, 1)).normalize();
+  if (dist != null) targetR = dist;
+  steering = true;
   controls.autoRotate = false;
 }
 
-// "Zoom to my location" — fly in closer than the default focus, on demand.
+// Locate button → recentre, zoom in, and enter track mode.
 $('goto-loc')?.addEventListener('click', () => {
-  if (lastFix) focusOn(lastFix.lon, lastFix.lat, CFG.zoomDist);
+  if (!lastFix) return;
+  following = true;
+  $('goto-loc').classList.add('active');
+  steerTo(lastFix.lon, lastFix.lat, CFG.zoomDist);
+});
+
+// Any manual orbit/zoom drops track mode and hands control back (like a map).
+controls.addEventListener('start', () => {
+  steering = false;
+  if (following) { following = false; $('goto-loc')?.classList.remove('active'); }
 });
 
 // ============================================================
@@ -609,7 +634,8 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
   lastFix = { lon, lat };
   placeMarker(lon, lat);
   buildSignalArcs(lon, lat);
-  if (!hasAutoFocused) { focusOn(lon, lat); hasAutoFocused = true; }
+  if (!hasAutoFocused) { steerTo(lon, lat); hasAutoFocused = true; }
+  else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
   $('lon').textContent = (lon >= 0 ? '+' : '') + lon.toFixed(6);
@@ -808,9 +834,15 @@ function animate(now) {
   requestAnimationFrame(animate);
   const dt = (now - last) / 1000; last = now;
 
-  if (focusing) {
-    camera.position.lerp(focusTarget, 0.045);
-    if (camera.position.distanceTo(focusTarget) < 0.008) focusing = false;
+  if (steering) {
+    const curDir = camera.position.clone().normalize();
+    const curR = camera.position.length();
+    const newDir = new THREE.Vector3();
+    slerpDir(newDir, curDir, targetDir, 0.09);
+    const newR = curR + (targetR - curR) * 0.09;
+    camera.position.copy(newDir.multiplyScalar(newR));
+    // Stop once settled — unless we're tracking, where steering stays live.
+    if (!following && curDir.angleTo(targetDir) < 0.002 && Math.abs(newR - targetR) < 0.004) steering = false;
   }
 
   // Keep the location pin readable: it shrinks as you zoom in and grows as you
