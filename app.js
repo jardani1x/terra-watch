@@ -144,6 +144,7 @@ earth.add(buildGraticule());
 
 // 3D border lines (assigned in loadWorld; retinted by applyStyle).
 let borderMat = null;
+let worldGeo = null;   // topojson country features — used for click → country lookup
 
 // --- atmosphere fresnel glow ---
 const atmosphere = new THREE.Mesh(
@@ -471,6 +472,7 @@ async function loadWorld() {
   try {
     const topo = await fetch(CFG.worldData).then(r => r.json());
     const geo = topojson.feature(topo, topo.objects.countries);
+    worldGeo = geo;   // expose for click → country detection
 
     // political (teal baseline) — replaces the plain ocean material.
     globeMaterials.political = new THREE.MeshBasicMaterial({ map: buildEarthTexture(geo) });
@@ -656,6 +658,101 @@ function toggleStreetMap() {
 }
 $('street-toggle')?.addEventListener('click', toggleStreetMap);
 $('sm-close')?.addEventListener('click', toggleStreetMap);
+
+// ============================================================
+//  COUNTRY NEWS (click a country → lightbox of top-10 headlines)
+//  Raycast the click onto the globe → lon/lat → point-in-polygon against the
+//  loaded country features → fetch recent articles from GDELT (no API key).
+// ============================================================
+
+// Inverse of lonLatToVec3 (earth group is unrotated, so world == local).
+function vec3ToLonLat(p) {
+  const v = p.clone().normalize();
+  const lat = 90 - THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(v.y, -1, 1)));
+  let lon = THREE.MathUtils.radToDeg(Math.atan2(v.z, -v.x)) - 180;
+  lon = ((lon + 540) % 360) - 180;
+  return { lon, lat };
+}
+
+function pointInRing(lon, lat, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function polyContains(poly, lon, lat) {       // poly[0] outer ring, rest are holes
+  if (!pointInRing(lon, lat, poly[0])) return false;
+  for (let k = 1; k < poly.length; k++) if (pointInRing(lon, lat, poly[k])) return false;
+  return true;
+}
+function countryAt(lon, lat) {
+  if (!worldGeo) return null;
+  for (const f of worldGeo.features) {
+    const gm = f.geometry; if (!gm) continue;
+    const polys = gm.type === 'Polygon' ? [gm.coordinates] : gm.type === 'MultiPolygon' ? gm.coordinates : [];
+    for (const poly of polys) if (polyContains(poly, lon, lat)) return f.properties?.name || null;
+  }
+  return null;
+}
+
+// --- click vs. drag detection on the globe ---
+const raycaster = new THREE.Raycaster();
+const _ndc = new THREE.Vector2();
+let _downX = 0, _downY = 0, _downT = 0;
+canvas.addEventListener('pointerdown', (e) => { _downX = e.clientX; _downY = e.clientY; _downT = performance.now(); });
+canvas.addEventListener('pointerup', (e) => {
+  if (Math.hypot(e.clientX - _downX, e.clientY - _downY) > 6 || performance.now() - _downT > 500) return; // a drag
+  const rect = canvas.getBoundingClientRect();
+  _ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  _ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(_ndc, camera);
+  const hit = raycaster.intersectObject(globe, false)[0];
+  if (!hit) return;
+  const { lon, lat } = vec3ToLonLat(hit.point);
+  const name = countryAt(lon, lat);
+  if (name) openNews(name);
+  else setStatus('NO COUNTRY UNDER CURSOR · OCEAN OR UNMAPPED');
+});
+
+// --- GDELT fetch + lightbox ---
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+function renderNews(country, articles, state) {
+  const lb = $('news-lb'); if (!lb) return;
+  lb.removeAttribute('hidden');
+  $('lb-country').textContent = country.toUpperCase();
+  const body = $('lb-body');
+  if (state === 'loading') { body.innerHTML = '<div class="lb-msg">ACQUIRING FEED…</div>'; return; }
+  if (state === 'error')   { body.innerHTML = '<div class="lb-msg warn">FEED UNREACHABLE · GDELT REQUEST FAILED</div>'; return; }
+  if (state === 'empty')   { body.innerHTML = '<div class="lb-msg warn">NO RECENT ARTICLES FOUND</div>'; return; }
+  body.innerHTML = articles.map((a, i) => {
+    const d = (a.seendate || '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
+    return `<a class="lb-item" href="${encodeURI(a.url || '#')}" target="_blank" rel="noopener noreferrer">
+      <span class="lb-num">${String(i + 1).padStart(2, '0')}</span>
+      <span class="lb-text"><span class="lb-ttl">${escapeHtml(a.title || '(untitled)')}</span>
+      <span class="lb-meta">${escapeHtml(a.domain || '')} · ${d}</span></span></a>`;
+  }).join('');
+}
+
+async function openNews(country) {
+  renderNews(country, null, 'loading');
+  try {
+    const q = encodeURIComponent(`"${country}" sourcelang:eng`);
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=ArtList&format=json&maxrecords=10&sortby=DateDesc&timespan=14d`;
+    const data = await fetch(url).then(r => r.json());
+    const articles = (data.articles || []).slice(0, 10);
+    renderNews(country, articles, articles.length ? 'ok' : 'empty');
+  } catch (e) {
+    renderNews(country, null, 'error');
+  }
+}
+
+function closeNews() { $('news-lb')?.setAttribute('hidden', ''); }
+$('lb-close')?.addEventListener('click', closeNews);
+$('lb-backdrop')?.addEventListener('click', closeNews);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNews(); });
 
 // ============================================================
 //  HUD STATE + UPDATES
