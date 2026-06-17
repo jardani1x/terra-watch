@@ -606,9 +606,10 @@ tickClock();
 function setStatus(msg) { $('sb-msg').textContent = msg; }
 
 function onPosition(lon, lat, alt, extra = {}, sim = false) {
+  lastFix = { lon, lat };
   placeMarker(lon, lat);
   buildSignalArcs(lon, lat);
-  focusOn(lon, lat);
+  if (!hasAutoFocused) { focusOn(lon, lat); hasAutoFocused = true; }
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
   $('lon').textContent = (lon >= 0 ? '+' : '') + lon.toFixed(6);
@@ -811,6 +812,10 @@ function animate(now) {
     camera.position.lerp(focusTarget, 0.045);
     if (camera.position.distanceTo(focusTarget) < 0.008) focusing = false;
   }
+
+  // Keep the location pin readable: it shrinks as you zoom in and grows as you
+  // pull back (clamped), so a close-in view isn't swamped by the marker.
+  if (marker) marker.scale.setScalar(THREE.MathUtils.clamp(camera.position.length() * 0.44, 0.5, 1.35));
 
   for (const ring of rings) {
     ring.userData.phase = (ring.userData.phase + dt * 0.5) % 1;
