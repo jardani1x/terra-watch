@@ -249,6 +249,17 @@ html, body {
 .lb-msg { font-family: var(--mono); font-size: 12px; letter-spacing: 1px; color: var(--muted); padding: 28px 12px; text-align: center; }
 .lb-msg.warn { color: var(--amber); }
 
+/* ---------- Mobile panel tray + panel lightbox (mobile only) ---------- */
+/* Hidden on desktop; the @media block below turns it on and relocates the
+   compass + telemetry docks into it (app.js moves the actual nodes). */
+.panel-tray { display: none; }
+.panel-backdrop {
+  position: fixed; inset: 0; z-index: 58;
+  background: rgba(2, 6, 9, 0.72);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.panel-backdrop[hidden] { display: none; }
+
 /* ---------- Boot overlay ---------- */
 .boot {
   position: fixed; inset: 0; z-index: 50; background: var(--bg);
@@ -276,28 +287,56 @@ html, body {
   .ph-title { font-size: 10px; letter-spacing: 1.5px; }
   .sb-right .sb-item:first-child { display: none; }
 
-  /* Side panels become top/bottom bars so the globe's centre stays clear. */
-  .panel { width: auto; left: 8px; right: 8px; padding: 8px 10px; gap: 7px; overflow-y: auto; }
+  /* --- Bottom collapse tray takes over from the fixed side docks --- */
+  /* Free the globe: the docks are relocated into the tray by app.js. */
+  .panel-tray {
+    display: block; position: fixed; z-index: 21;
+    left: 8px; right: 8px; bottom: 52px; padding: 0;
+  }
+  .tray-bar { display: flex; align-items: stretch; gap: 6px; padding: 6px; }
+  .tray-btn {
+    flex: 1; font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+    color: var(--muted); background: transparent; border: 1px solid var(--line-2);
+    border-radius: 2px; padding: 7px 4px; cursor: pointer;
+  }
+  .tray-btn:hover { color: var(--text); border-color: var(--accent); }
+  .tray-toggle { color: var(--accent); border-color: rgba(69,224,176,0.4); font-weight: 700; }
 
-  /* NAVIGATION / position telemetry → top (just under the top bar) */
-  .panel-right { top: 78px; bottom: auto; max-height: 30vh; }
-  .panel-right .t-v { font-size: 14px; }
-  .panel-right .tele-row.big .t-v { font-size: 15px; }
-  .panel-right .tele-sub { font-size: 9px; }
-  .panel-right .grid2 { gap: 6px; }
-  .panel-right .cell { padding: 5px 6px; }
-  #goto-loc { padding: 6px; font-size: 10px; }
+  /* tray body sits ABOVE the bar (bar is last child); collapsed by default */
+  .tray-body {
+    display: none; gap: 8px; padding: 0 6px 8px;
+    max-height: 46vh; overflow-y: auto;
+  }
+  body.tray-open .tray-body { display: flex; }
 
-  /* COMPASS → bottom, compact */
-  .panel-left { top: auto; bottom: 92px; max-height: 42vh; }
-  .compass { width: 92px; height: 92px; }
-  .compass-wrap { padding: 2px 0; }
-  .hdg-deg { font-size: 20px; }
-  .hdg-card { font-size: 13px; }
-  .panel-left .panel-foot { padding-top: 6px; }
+  /* panels relocated into the tray: static flow, two-up, scaled down */
+  #tray-body .panel:not(.as-lightbox) {
+    position: static; width: auto; flex: 1 1 0; min-width: 0;
+    top: auto; bottom: auto; left: auto; right: auto;
+    padding: 8px 10px; gap: 8px; max-height: none;
+  }
+  #tray-body .panel:not(.as-lightbox) .compass { width: 112px; height: 112px; }
+  #tray-body .panel:not(.as-lightbox) .compass-wrap { padding: 2px 0; }
+  #tray-body .panel:not(.as-lightbox) .hdg-deg { font-size: 18px; }
+  #tray-body .panel:not(.as-lightbox) .hdg-card { font-size: 12px; }
+  #tray-body .panel:not(.as-lightbox) .t-v { font-size: 13px; }
+  #tray-body .panel:not(.as-lightbox) .tele-row.big .t-v { font-size: 14px; }
+  #tray-body .panel:not(.as-lightbox) .tele-sub { font-size: 8.5px; }
+  #tray-body .panel:not(.as-lightbox) .grid2 { gap: 5px; }
+  #tray-body .panel:not(.as-lightbox) .cell { padding: 4px 5px; }
+  #tray-body .panel:not(.as-lightbox) .c-v { font-size: 12px; }
+  #tray-body .panel:not(.as-lightbox) .enable-btn { padding: 6px; font-size: 9px; }
 
-  /* style switcher → slim centred row above the status bar */
-  .style-switch { left: 8px; right: 8px; bottom: 52px; max-width: none; justify-content: center; gap: 5px; padding: 5px 6px; }
+  /* a panel popped out as a centered lightbox — full, readable size (base sizes apply) */
+  .panel.as-lightbox {
+    position: fixed; z-index: 60; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92vw, 320px); max-height: 84vh; overflow-y: auto;
+    bottom: auto; right: auto; padding: 14px 16px;
+  }
+
+  /* style switcher → slim centred row above the tray */
+  .style-switch { left: 8px; right: 8px; bottom: 96px; max-width: none; justify-content: center; gap: 5px; padding: 5px 6px; }
   .ss-label { display: none; }
   .ss-btn { font-size: 9px; padding: 3px 6px; }
 

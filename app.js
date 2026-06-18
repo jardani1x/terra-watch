@@ -628,8 +628,8 @@ controls.addEventListener('start', () => {
 //  "BACK TO GLOBE" button) returns to the globe. Leaflet is loaded as a classic
 //  script in index.html (global `L`); the map is built lazily on first handoff.
 // ============================================================
-const KEYZOOM = 6;                                 // globe → tiles handoff level
-const STREET_MAX = 19;                             // Esri imagery street cap
+const KEYZOOM = 10;                                // globe → tiles handoff level (globe owns Z02–Z10)
+const STREET_MAX = 22;                             // satellite zoom cap (over-zooms past native 19)
 const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
 const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
 const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
@@ -812,12 +812,42 @@ function renderNews(country, articles, state) {
   }).join('');
 }
 
+// GDELT sends no CORS headers, so a direct browser fetch is blocked. Route the
+// request through a chain of public CORS proxies, trying each until one returns
+// usable JSON. `raw`/`quest` proxies pass the body through verbatim; the
+// allorigins `get` wrapper nests it under `.contents` as a string.
+const NEWS_PROXIES = [
+  (u) => ({ url: `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }),
+  (u) => ({ url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` }),
+  (u) => ({ url: `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, wrapped: true }),
+];
+
+// Fetch the GDELT JSON via the proxy chain; returns the parsed object or throws
+// if every proxy fails / yields unparseable data.
+async function fetchNewsJSON(gdeltUrl) {
+  let lastErr = null;
+  for (const make of NEWS_PROXIES) {
+    const { url, wrapped } = make(gdeltUrl);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) { lastErr = new Error('HTTP ' + res.status); continue; }
+      let data = await res.json();
+      if (wrapped) data = JSON.parse(data.contents);   // allorigins /get nests the body
+      if (data && Array.isArray(data.articles)) return data;
+      lastErr = new Error('no articles field');
+    } catch (e) {
+      lastErr = e;   // network/CORS/parse error — try the next proxy
+    }
+  }
+  throw lastErr || new Error('all proxies failed');
+}
+
 async function openNews(country) {
   renderNews(country, null, 'loading');
   try {
     const q = encodeURIComponent(`"${country}" sourcelang:eng`);
     const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=ArtList&format=json&maxrecords=10&sortby=DateDesc&timespan=14d`;
-    const data = await fetch(url).then(r => r.json());
+    const data = await fetchNewsJSON(url);
     const articles = (data.articles || []).slice(0, 10);
     renderNews(country, articles, articles.length ? 'ok' : 'empty');
   } catch (e) {
@@ -829,6 +859,78 @@ function closeNews() { $('news-lb')?.setAttribute('hidden', ''); }
 $('lb-close')?.addEventListener('click', closeNews);
 $('lb-backdrop')?.addEventListener('click', closeNews);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNews(); });
+
+// ============================================================
+//  MOBILE PANEL TRAY + PANEL LIGHTBOX
+//  On narrow screens the fixed compass/telemetry docks are relocated into the
+//  bottom tray (collapse to free the globe). The COMPASS / TELEMETRY buttons
+//  pop a single panel up as a centered, full-size lightbox. Desktop is untouched
+//  — the panels move back to <body> and keep their fixed docks. The panel nodes
+//  are *moved*, never duplicated, so every id app.js writes into stays live.
+// ============================================================
+(function setupTray() {
+  const trayBody = $('tray-body');
+  const toggle   = $('tray-toggle');
+  const backdrop = $('panel-backdrop');
+  const compass   = document.querySelector('.panel-left');
+  const telemetry = document.querySelector('.panel-right');
+  if (!trayBody || !toggle || !backdrop || !compass || !telemetry) return;
+
+  const mq = window.matchMedia('(max-width: 760px)');
+
+  function closeLightbox() {
+    compass.classList.remove('as-lightbox');
+    telemetry.classList.remove('as-lightbox');
+    backdrop.setAttribute('hidden', '');
+    if (mq.matches) { trayBody.appendChild(compass); trayBody.appendChild(telemetry); }
+  }
+
+  // Pop one panel as a lightbox. Lift it out of the (possibly collapsed) tray to
+  // <body> first, else a display:none tray ancestor would keep it invisible.
+  function openLightbox(panel) {
+    if (!mq.matches) return;
+    const wasOpen = panel.classList.contains('as-lightbox');
+    closeLightbox();
+    if (!wasOpen) {
+      document.body.appendChild(panel);
+      panel.classList.add('as-lightbox');
+      backdrop.removeAttribute('hidden');
+    }
+  }
+
+  // Place the docks for the current breakpoint: into the tray on mobile, back to
+  // their fixed positions on desktop.
+  function applyLayout() {
+    if (mq.matches) {
+      trayBody.appendChild(compass);
+      trayBody.appendChild(telemetry);
+    } else {
+      compass.classList.remove('as-lightbox');
+      telemetry.classList.remove('as-lightbox');
+      backdrop.setAttribute('hidden', '');
+      document.body.classList.remove('tray-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = '▲ PANELS';
+      document.body.appendChild(compass);
+      document.body.appendChild(telemetry);
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    const open = document.body.classList.toggle('tray-open');
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = (open ? '▼' : '▲') + ' PANELS';
+    if (!open) closeLightbox();
+  });
+
+  $('open-compass')?.addEventListener('click', () => openLightbox(compass));
+  $('open-telemetry')?.addEventListener('click', () => openLightbox(telemetry));
+  backdrop.addEventListener('click', closeLightbox);
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+  mq.addEventListener('change', applyLayout);
+  applyLayout();
+})();
 
 // ============================================================
 //  HUD STATE + UPDATES
