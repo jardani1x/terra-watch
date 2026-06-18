@@ -51,7 +51,8 @@ Three top-level files plus a small ES-module tree under `js/`:
   - `js/ontology/model.js` — the entity/relation graph + market-center metadata
     (`MARKET_CENTERS`, `isMarketOpen`).
   - `js/ui/` — the panel widgets: `shell.js`, `layers.js`, `commandPalette.js`,
-    `inspector.js`, `marketFeed.js`, each exposing an `init*` entry point.
+    `inspector.js`, `marketFeed.js`, each exposing an `init*` entry point, plus
+    `news.js` (the country-headlines lightbox: `openNews` / `initNews`).
 
 The refactoring direction is to keep pulling pure, self-contained logic out of
 `app.js` into `js/`; what remains in `app.js` is the code that shares mutable

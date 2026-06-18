@@ -15,6 +15,7 @@ import { initCommandPalette } from './js/ui/commandPalette.js';
 import { initInspector } from './js/ui/inspector.js';
 import { initMarketFeed } from './js/ui/marketFeed.js';
 import { initShell } from './js/ui/shell.js';
+import { openNews, initNews } from './js/ui/news.js';
 
 // ============================================================
 //  TERRA-WATCH — Orbital Recon HUD
@@ -841,59 +842,9 @@ canvas.addEventListener('pointerup', (e) => {
   else setStatus('NO COUNTRY UNDER CURSOR · OCEAN OR UNMAPPED');
 });
 
-// --- news fetch + lightbox ---
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-
-function renderNews(country, articles, state) {
-  const lb = $('news-lb'); if (!lb) return;
-  lb.removeAttribute('hidden');
-  $('lb-country').textContent = country.toUpperCase();
-  const body = $('lb-body');
-  if (state === 'loading') { body.innerHTML = '<div class="lb-msg">ACQUIRING FEED…</div>'; return; }
-  if (state === 'error')   { body.innerHTML = '<div class="lb-msg warn">FEED UNREACHABLE · NEWS REQUEST FAILED</div>'; return; }
-  if (state === 'empty')   { body.innerHTML = '<div class="lb-msg warn">NO RECENT ARTICLES FOUND</div>'; return; }
-  body.innerHTML = articles.map((a, i) => {
-    const d = (a.seendate || '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
-    return `<a class="lb-item" href="${encodeURI(a.url || '#')}" target="_blank" rel="noopener noreferrer">
-      <span class="lb-num">${String(i + 1).padStart(2, '0')}</span>
-      <span class="lb-text"><span class="lb-ttl">${escapeHtml(a.title || '(untitled)')}</span>
-      <span class="lb-meta">${escapeHtml(a.domain || '')} · ${d}</span></span></a>`;
-  }).join('');
-}
-
-// Country headlines come from Google News RSS via rss2json. GDELT was unusable
-// from the browser: it sends no CORS headers AND rate-limits to 1 request / 5s
-// per IP, so shared public CORS proxies are permanently throttled (HTTP 429).
-// rss2json fetches the RSS server-side and returns CORS-friendly JSON, keyless —
-// reliable for a static site.
-async function openNews(country) {
-  renderNews(country, null, 'loading');
-  try {
-    const rss = `https://news.google.com/rss/search?q=${encodeURIComponent(country)}&hl=en-US&gl=US&ceid=US:en`;
-    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=10`;
-    const data = await fetch(url).then(r => r.json());
-    if (data.status !== 'ok') throw new Error(data.message || 'feed error');
-    // Google News titles read "Headline - Source"; split off the source for the
-    // meta line and normalize to the shape renderNews already expects.
-    const articles = (data.items || []).slice(0, 10).map((it) => {
-      const m = /^(.*?) - ([^-]+)$/.exec(it.title || '');
-      return {
-        title: m ? m[1] : (it.title || ''),
-        url: it.link || '#',
-        domain: (m ? m[2] : (it.author || '')).trim(),
-        seendate: (it.pubDate || '').slice(0, 10),   // YYYY-MM-DD; renderNews passes it through
-      };
-    });
-    renderNews(country, articles, articles.length ? 'ok' : 'empty');
-  } catch (e) {
-    renderNews(country, null, 'error');
-  }
-}
-
-function closeNews() { $('news-lb')?.setAttribute('hidden', ''); }
-$('lb-close')?.addEventListener('click', closeNews);
-$('lb-backdrop')?.addEventListener('click', closeNews);
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNews(); });
+// --- news fetch + lightbox (moved to js/ui/news.js) ---
+// openNews() is imported at the top; wire its close/backdrop/Escape handlers.
+initNews();
 
 // ============================================================
 //  MOBILE PANEL TRAY + PANEL LIGHTBOX
