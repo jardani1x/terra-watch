@@ -700,13 +700,19 @@ controls.addEventListener('start', () => {
 //  STREET-LEVEL MAP / KEYZOOM HANDOFF (Leaflet + Esri imagery)
 //  Google-Maps-style continuous zoom. The 3D globe owns the low zoom levels
 //  (world → country); once you zoom in past the KEYZOOM the view hands off to a
-//  full-viewport satellite tile map that goes down to street level (z19) and
-//  keeps tracking the live GPS fix. Zooming back out past the keyzoom (or the
+//  full-viewport satellite tile map that goes down to street level and keeps
+//  tracking the live GPS fix. Zooming back out past the keyzoom (or the
 //  "BACK TO GLOBE" button) returns to the globe. Leaflet is loaded as a classic
 //  script in index.html (global `L`); the map is built lazily on first handoff.
 // ============================================================
 const KEYZOOM = 10;                                // globe → tiles handoff level (globe owns Z02–Z10)
-const STREET_MAX = 22;                             // satellite zoom cap (over-zooms past native 19)
+// Esri World Imagery's deepest real tile varies by region: z19 in well-mapped
+// metros but only ~z17 in remote areas (rural/desert/ocean). Past a region's
+// native level Esri returns a "Map data not available" placeholder (a 200, so
+// Leaflet can't detect it). z17 is the level present everywhere we probed, so we
+// cap native requests there and upscale to the display cap — blurry, never blank.
+const SAT_NATIVE_MAX = 17;                         // globally-guaranteed Esri imagery level
+const STREET_MAX = 19;                             // display zoom cap (upscales z17 tiles ≤4×)
 const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
 const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
 const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
@@ -741,13 +747,15 @@ function buildStreetMap(lon, lat, zoom) {
   window.L.control.zoom({ position: 'bottomright' }).addTo(smap);
 
   // Esri World Imagery (satellite) + a transparent place/road labels overlay
-  // so streets stay legible over the aerial photography. Both keyless.
+  // so streets stay legible over the aerial photography. Both keyless. Native
+  // requests are capped at SAT_NATIVE_MAX so Leaflet upscales the real tile past
+  // it instead of fetching Esri's "Map data not available" placeholder.
   window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: STREET_MAX, maxNativeZoom: 19,
+    maxZoom: STREET_MAX, maxNativeZoom: SAT_NATIVE_MAX, errorTileUrl: '',
     attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
   }).addTo(smap);
   window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: STREET_MAX, maxNativeZoom: 19, opacity: 0.9,
+    maxZoom: STREET_MAX, maxNativeZoom: SAT_NATIVE_MAX, opacity: 0.9,
   }).addTo(smap);
 
   smapAcc = window.L.circle([lat, lon], { radius: 0, color: '#45e0b0', weight: 1, fillColor: '#45e0b0', fillOpacity: 0.12 }).addTo(smap);
