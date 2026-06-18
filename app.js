@@ -3,8 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as topojson from 'https://esm.sh/topojson-client@3';
 
 // --- Terra-Watch dashboard modules (build-free local ESM) ---
-import { load as lsLoad, save as lsSave, clearAll as lsClear, persistenceEnabled } from './js/util/storage.js';
+import { load as lsLoad, save as lsSave, clearAll as lsClear } from './js/util/storage.js';
 import { haversineKm, fmtKm } from './js/util/distance.js';
+import { lonLatToVec3, vec3ToLonLat, toDMS, gridZone, cardinal, polysOf, polyContains } from './js/util/geo.js';
 import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
 import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
 import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
@@ -47,47 +48,11 @@ const THEMES = {
 };
 let currentStyle = 'political';
 
-// ------------------------------------------------------------
-//  Coordinate helpers
-// ------------------------------------------------------------
-function lonLatToVec3(lon, lat, r = 1) {
-  const phi = (90 - lat) * Math.PI / 180;
-  const theta = (lon + 180) * Math.PI / 180;
-  return new THREE.Vector3(
-    -r * Math.sin(phi) * Math.cos(theta),
-     r * Math.cos(phi),
-     r * Math.sin(phi) * Math.sin(theta)
-  );
-}
+// Coordinate helpers (lonLatToVec3 / vec3ToLonLat / toDMS / gridZone /
+// cardinal / polysOf / pointInRing / polyContains) live in js/util/geo.js.
 
-function toDMS(value, [pos, neg]) {
-  const hemi = value >= 0 ? pos : neg;
-  const abs = Math.abs(value);
-  const d = Math.floor(abs);
-  const mFloat = (abs - d) * 60;
-  const m = Math.floor(mFloat);
-  const s = ((mFloat - m) * 60).toFixed(1);
-  return `${d}°${String(m).padStart(2, '0')}'${String(s).padStart(4, '0')}"${hemi}`;
-}
-
-// Grid Zone Designator (UTM zone number + MGRS latitude band).
-function gridZone(lat, lon) {
-  const zone = Math.floor((lon + 180) / 6) + 1;
-  const bands = 'CDEFGHJKLMNPQRSTUVWX';
-  let idx = Math.floor((lat + 80) / 8);
-  idx = Math.max(0, Math.min(bands.length - 1, idx));
-  return `${String(zone).padStart(2, '0')}${bands[idx]}`;
-}
-
-const CARDINALS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-const cardinal = (deg) => CARDINALS[Math.round(((deg % 360) / 22.5)) % 16];
-
-// Equirectangular canvas helpers (shared by the day/night texture builders).
+// Equirectangular canvas helper (shared by the day/night texture builders).
 // px = (lon+180)/360·W, py = (90-lat)/180·H matches SphereGeometry UVs.
-const polysOf = (gm) =>
-  gm.type === 'Polygon' ? [gm.coordinates]
-  : gm.type === 'MultiPolygon' ? gm.coordinates
-  : [];
 function tracePoly(ctx, poly, W, H) {
   ctx.beginPath();
   for (const ring of poly) {
@@ -839,34 +804,12 @@ $('sm-exit')?.addEventListener('click', exitStreet);
 //  loaded country features → fetch recent headlines from Google News (no API key).
 // ============================================================
 
-// Inverse of lonLatToVec3 (earth group is unrotated, so world == local).
-function vec3ToLonLat(p) {
-  const v = p.clone().normalize();
-  const lat = 90 - THREE.MathUtils.radToDeg(Math.acos(THREE.MathUtils.clamp(v.y, -1, 1)));
-  let lon = THREE.MathUtils.radToDeg(Math.atan2(v.z, -v.x)) - 180;
-  lon = ((lon + 540) % 360) - 180;
-  return { lon, lat };
-}
-
-function pointInRing(lon, lat, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
-  }
-  return inside;
-}
-function polyContains(poly, lon, lat) {       // poly[0] outer ring, rest are holes
-  if (!pointInRing(lon, lat, poly[0])) return false;
-  for (let k = 1; k < poly.length; k++) if (pointInRing(lon, lat, poly[k])) return false;
-  return true;
-}
+// vec3ToLonLat / polyContains (and pointInRing) live in js/util/geo.js.
 function countryAt(lon, lat) {
   if (!worldGeo) return null;
   for (const f of worldGeo.features) {
     const gm = f.geometry; if (!gm) continue;
-    const polys = gm.type === 'Polygon' ? [gm.coordinates] : gm.type === 'MultiPolygon' ? gm.coordinates : [];
-    for (const poly of polys) if (polyContains(poly, lon, lat)) return f.properties?.name || null;
+    for (const poly of polysOf(gm)) if (polyContains(poly, lon, lat)) return f.properties?.name || null;
   }
   return null;
 }

@@ -28,7 +28,7 @@ There are no tests, no linter, and no build/CI commands.
 
 ## Architecture
 
-Three files do everything:
+Three top-level files plus a small ES-module tree under `js/`:
 
 - **`index.html`** — the entire DOM skeleton. Every dynamic value lives in an
   element with a stable `id` (e.g. `lat`, `lon`, `dtg`, `hdg-deg`, `sb-fps`).
@@ -37,13 +37,33 @@ Three files do everything:
 - **`styles.css`** — all styling, driven by CSS custom properties in `:root`
   (`--accent`, `--bg`, `--panel`, fonts). The HUD "glass panel" look is the
   shared `.hud` class.
-- **`app.js`** — all logic, an ES module with no exports that runs on load.
+- **`app.js`** — the entry module (no exports) that runs on load. It owns the
+  Three.js scene, the globe, the location/compass/HUD logic, and the render
+  loop, and orchestrates everything else by importing the `js/` modules below.
+- **`js/`** — extracted, mostly-pure modules that `app.js` composes:
+  - `js/util/` — leaf helpers with no scene state: `geo.js` (lat/lon ↔ sphere
+    projection and point-in-polygon picking), `distance.js` (haversine),
+    `format.js` (price/percent/time formatting), `storage.js` (localStorage
+    persistence wrapper).
+  - `js/data/` — `feeds.js` plus `providers/` (market, earthquake, weather,
+    mock) behind a shared `http.js`; the live data layer with graceful
+    `markStale` fallback when a fetch fails.
+  - `js/ontology/model.js` — the entity/relation graph + market-center metadata
+    (`MARKET_CENTERS`, `isMarketOpen`).
+  - `js/ui/` — the panel widgets: `shell.js`, `layers.js`, `commandPalette.js`,
+    `inspector.js`, `marketFeed.js`, each exposing an `init*` entry point.
+
+The refactoring direction is to keep pulling pure, self-contained logic out of
+`app.js` into `js/`; what remains in `app.js` is the code that shares mutable
+Three.js scene state (scene, camera, the `earth` group, materials, marker).
 
 `app.js` is organized into commented banner sections that map to the UI:
 
-- **Coordinate helpers** — `lonLatToVec3` (the projection from lat/lon to a point
-  on the sphere; shared by the marker, graticule, and borders), `toDMS`,
-  `gridZone` (UTM/MGRS designator), `cardinal`.
+- **Coordinate helpers** — the pure lat/lon math lives in `js/util/geo.js`
+  (imported by `app.js`): `lonLatToVec3` (the projection from lat/lon to a point
+  on the sphere; shared by the marker, graticule, and borders) and its inverse
+  `vec3ToLonLat`, `toDMS`, `gridZone` (UTM/MGRS designator), `cardinal`, plus the
+  point-in-polygon picker helpers `polysOf` / `pointInRing` / `polyContains`.
 - **Three.js scene** — renderer/camera/`OrbitControls`, the `earth` group (ocean
   sphere, graticule, async-loaded country borders), atmosphere fresnel shader,
   starfield. `loadBorders()` fetches the `world-atlas` topojson and degrades
