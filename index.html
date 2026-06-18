@@ -159,8 +159,14 @@
       <div class="tele-sub" id="hemi">GRID ZONE DESIGNATOR</div>
     </div>
 
+    <div class="zoom-readout">
+      <span class="zr-k">ZOOM LVL</span>
+      <span class="zr-v" id="zoom-lvl">Z--</span>
+      <span class="zr-mode" id="zoom-mode">ORBIT</span>
+    </div>
+
     <button id="goto-loc" class="enable-btn">◎ ZOOM TO MY LOCATION</button>
-    <button id="street-toggle" class="enable-btn">▣ STREET MAP</button>
+    <button id="street-toggle" class="enable-btn">▣ STREET LEVEL</button>
 
     <div class="panel-foot col">
       <div class="kv"><span>SOURCE</span><b id="src">DEVICE GNSS</b></div>
@@ -190,10 +196,12 @@
     <button class="ss-btn" data-style="threat">THREAT</button>
   </div>
 
-  <!-- ============ STREET MAP INSET (Leaflet + OpenStreetMap) ============ -->
-  <div class="streetmap hud" id="streetmap" hidden>
-    <div class="sm-head"><span>STREET · LIVE</span><button id="sm-close" aria-label="close street map">✕</button></div>
+  <!-- ============ STREET-LEVEL MAP (keyzoom handoff: globe → tiles) ============ -->
+  <!-- Full-viewport slippy map (behind the HUD panels) that takes over once you
+       zoom past the keyzoom level; returns to the globe when you zoom back out. -->
+  <div class="streetmap" id="streetmap" hidden>
     <div id="sm-canvas"></div>
+    <button id="sm-exit" class="sm-exit hud">◄ BACK TO GLOBE</button>
   </div>
 
   <!-- ============ COUNTRY NEWS LIGHTBOX ============ -->

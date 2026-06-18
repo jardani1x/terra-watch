@@ -601,6 +601,13 @@ function steerTo(lon, lat, dist) {
 // Locate button → recentre, zoom in, and enter track mode.
 $('goto-loc')?.addEventListener('click', () => {
   if (!lastFix) return;
+  // In street mode, recenter the tile map on the fix and resume tracking.
+  if (streetActive) {
+    streetFollow = true;
+    smap.setView([lastFix.lat, lastFix.lon], Math.max(smap.getZoom(), 16), { animate: true });
+    $('goto-loc').classList.add('active');
+    return;
+  }
   following = true;
   $('goto-loc').classList.add('active');
   steerTo(lastFix.lon, lastFix.lat, CFG.zoomDist);
@@ -613,51 +620,120 @@ controls.addEventListener('start', () => {
 });
 
 // ============================================================
-//  STREET MAP INSET (Leaflet + OpenStreetMap)
-//  Real street-level view that follows the live fix. Leaflet is loaded as a
-//  classic script in index.html (global `L`); the map is built lazily the
-//  first time the inset is shown so tiles only load on demand.
+//  STREET-LEVEL MAP / KEYZOOM HANDOFF (Leaflet + Esri imagery)
+//  Google-Maps-style continuous zoom. The 3D globe owns the low zoom levels
+//  (world → country); once you zoom in past the KEYZOOM the view hands off to a
+//  full-viewport satellite tile map that goes down to street level (z19) and
+//  keeps tracking the live GPS fix. Zooming back out past the keyzoom (or the
+//  "BACK TO GLOBE" button) returns to the globe. Leaflet is loaded as a classic
+//  script in index.html (global `L`); the map is built lazily on first handoff.
 // ============================================================
+const KEYZOOM = 6;                                 // globe → tiles handoff level
+const STREET_MAX = 19;                             // Esri imagery street cap
+const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
+const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
+const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
+const EXIT_DIST  = controls.minDistance + 0.55;    // camera range restored when returning to the globe
+
 const smapEl = $('streetmap');
-let smap = null, smapMarker = null;
+let smap = null, smapMarker = null, smapAcc = null;
+let streetActive = false;     // full-viewport street map is showing
+let streetFollow = false;     // recenter the map on every new GPS fix
+let exitCooldown = 0;         // ignore re-handoff briefly after exiting (ms timestamp)
 
-function initStreetMap(lon, lat) {
-  if (smap || !window.L) return;
-  smap = window.L.map('sm-canvas', { zoomControl: true, attributionControl: true })
-    .setView([lat, lon], 16);
-  window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors',
-  }).addTo(smap);
-  smapMarker = window.L.marker([lat, lon]).addTo(smap);
-}
-
-function updateStreetMap(lon, lat) {
-  if (!smap) return;
-  smapMarker.setLatLng([lat, lon]);
-  smap.setView([lat, lon], smap.getZoom(), { animate: true });
-}
-
-// Called from onPosition so the inset tracks the device while it's open.
-function syncStreetMap(lon, lat) {
-  if (!smapEl || smapEl.hasAttribute('hidden')) return;
-  if (!smap) { initStreetMap(lon, lat); setTimeout(() => smap && smap.invalidateSize(), 60); }
-  else updateStreetMap(lon, lat);
-}
-
-function toggleStreetMap() {
-  if (!smapEl) return;
-  const opening = smapEl.hasAttribute('hidden');
-  smapEl.toggleAttribute('hidden', !opening);
-  $('street-toggle')?.classList.toggle('active', opening);
-  if (opening && lastFix) {
-    initStreetMap(lastFix.lon, lastFix.lat);
-    // Leaflet must recompute size once the container is actually visible.
-    setTimeout(() => { if (smap) { smap.invalidateSize(); smap.setView([lastFix.lat, lastFix.lon], 16); } }, 60);
+// Continuous Google-style zoom level for the HUD readout + ORBIT/STREET tag.
+function setZoomReadout() {
+  let z, mode;
+  if (streetActive && smap) { z = smap.getZoom(); mode = 'STREET'; }
+  else {
+    const d = camera.position.length();
+    const t = THREE.MathUtils.clamp((d - controls.minDistance) / (controls.maxDistance - controls.minDistance), 0, 1);
+    z = GLOBE_ZOOM_MAX - t * (GLOBE_ZOOM_MAX - GLOBE_ZOOM_MIN);   // min dist → keyzoom, max → world
+    mode = 'ORBIT';
   }
+  const lvl = $('zoom-lvl'), md = $('zoom-mode');
+  if (lvl) lvl.textContent = 'Z' + String(Math.round(z)).padStart(2, '0');
+  if (md) { md.textContent = mode; md.classList.toggle('street', mode === 'STREET'); }
 }
-$('street-toggle')?.addEventListener('click', toggleStreetMap);
-$('sm-close')?.addEventListener('click', toggleStreetMap);
+
+function buildStreetMap(lon, lat, zoom) {
+  smap = window.L.map('sm-canvas', {
+    zoomControl: false, attributionControl: true,
+    minZoom: KEYZOOM - 1, maxZoom: STREET_MAX,    // < KEYZOOM exits back to the globe
+  }).setView([lat, lon], zoom);
+  window.L.control.zoom({ position: 'bottomright' }).addTo(smap);
+
+  // Esri World Imagery (satellite) + a transparent place/road labels overlay
+  // so streets stay legible over the aerial photography. Both keyless.
+  window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: STREET_MAX, maxNativeZoom: 19,
+    attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+  }).addTo(smap);
+  window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: STREET_MAX, maxNativeZoom: 19, opacity: 0.9,
+  }).addTo(smap);
+
+  smapAcc = window.L.circle([lat, lon], { radius: 0, color: '#45e0b0', weight: 1, fillColor: '#45e0b0', fillOpacity: 0.12 }).addTo(smap);
+  smapMarker = window.L.marker([lat, lon]).addTo(smap);
+
+  smap.on('zoomend', () => { setZoomReadout(); if (smap.getZoom() < KEYZOOM) exitStreet(); });
+  smap.on('dragstart', () => { streetFollow = false; });   // manual pan → stop tracking
+}
+
+// Hand off from the globe to the street map (lazily building it the first time).
+function enterStreet(lon, lat, zoom = 16, follow = false) {
+  if (!window.L || streetActive) return;
+  streetActive = true;
+  streetFollow = follow;
+  steering = false;
+  controls.autoRotate = false;
+  smapEl.removeAttribute('hidden');
+  const stBtn = $('street-toggle');
+  if (stBtn) { stBtn.classList.add('active'); stBtn.textContent = '◄ EXIT STREET'; }
+  if (!smap) buildStreetMap(lon, lat, zoom);
+  else smap.setView([lat, lon], zoom, { animate: false });
+  // Leaflet must recompute size once the container is actually visible.
+  setTimeout(() => smap && smap.invalidateSize(), 50);
+  setStatus('STREET-LEVEL VIEW · ' + (follow ? 'TRACKING GNSS' : 'MANUAL PAN'));
+  setZoomReadout();
+}
+
+// Return to the globe, re-centered on wherever the street map was looking.
+function exitStreet() {
+  if (!streetActive) return;
+  streetActive = false;
+  streetFollow = false;
+  following = false;
+  const c = smap ? smap.getCenter() : null;
+  smapEl.setAttribute('hidden', '');
+  const stBtn = $('street-toggle');
+  if (stBtn) { stBtn.classList.remove('active'); stBtn.textContent = '▣ STREET LEVEL'; }
+  $('goto-loc')?.classList.remove('active');
+  exitCooldown = performance.now() + 800;          // debounce so it doesn't snap straight back
+  if (c) {
+    // Park the camera above the handoff threshold so we don't immediately re-enter.
+    camera.position.copy(lonLatToVec3(c.lng, c.lat, 1).normalize().multiplyScalar(EXIT_DIST));
+    controls.update();
+  }
+  setStatus('ORBITAL VIEW RESTORED');
+  setZoomReadout();
+}
+
+// Keep the street marker + accuracy ring on the live fix (called from onPosition).
+function syncStreet(lon, lat, accuracy) {
+  if (!streetActive || !smap) return;
+  smapMarker.setLatLng([lat, lon]);
+  if (smapAcc) smapAcc.setLatLng([lat, lon]).setRadius(accuracy || 0);
+  if (streetFollow) smap.panTo([lat, lon], { animate: true });
+}
+
+// Street-map controls: the toggle enters/exits; the on-map button exits.
+$('street-toggle')?.addEventListener('click', () => {
+  if (streetActive) { exitStreet(); return; }
+  if (lastFix) enterStreet(lastFix.lon, lastFix.lat, 16, true);
+  else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, 13, false); }
+});
+$('sm-exit')?.addEventListener('click', exitStreet);
 
 // ============================================================
 //  COUNTRY NEWS (click a country → lightbox of top-10 headlines)
@@ -780,7 +856,7 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
   buildSignalArcs(lon, lat);
   if (!hasAutoFocused) { steerTo(lon, lat); hasAutoFocused = true; }
   else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
-  syncStreetMap(lon, lat);                  // keep the street inset on the device
+  syncStreet(lon, lat, extra.accuracy);     // keep the street map on the device
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
   $('lon').textContent = (lon >= 0 ? '+' : '') + lon.toFixed(6);
@@ -979,6 +1055,19 @@ function animate(now) {
   requestAnimationFrame(animate);
   const dt = (now - last) / 1000; last = now;
 
+  // The full-screen street map covers the globe — skip all globe rendering while
+  // it's up (Leaflet drives its own view + GPS tracking).
+  if (streetActive) return;
+
+  // Keyzoom handoff: once the globe is zoomed all the way in, hand off to the
+  // street-level tile map — centered on the fix while tracking, else on the
+  // point currently centered in view.
+  if (performance.now() > exitCooldown && camera.position.length() <= ENTER_DIST) {
+    if (following && lastFix) enterStreet(lastFix.lon, lastFix.lat, 16, true);
+    else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, 16, false); }
+    return;
+  }
+
   if (steering) {
     const curDir = camera.position.clone().normalize();
     const curR = camera.position.length();
@@ -1033,7 +1122,7 @@ function animate(now) {
 
   $('sb-rng').textContent = camera.position.length().toFixed(2) + ' R';
   frames++; fpsT += dt;
-  if (fpsT >= 0.5) { $('sb-fps').textContent = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
+  if (fpsT >= 0.5) { $('sb-fps').textContent = Math.round(frames / fpsT); frames = 0; fpsT = 0; setZoomReadout(); }
 }
 requestAnimationFrame(animate);
 

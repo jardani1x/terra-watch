@@ -200,22 +200,34 @@ html, body {
   font-weight: 700; box-shadow: 0 0 10px rgba(69, 224, 176, 0.4);
 }
 
-/* ---------- Street map inset (Leaflet) ---------- */
+/* ---------- Zoom-level readout (Google-style Zxx + mode) ---------- */
 .enable-btn.active { background: #5ff0c0; box-shadow: 0 0 10px var(--accent); }
-.streetmap {
-  position: fixed; z-index: 24; right: 8px; bottom: 55px; width: 300px;
-  padding: 0; overflow: hidden; border-radius: 3px;
+.zoom-readout {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 2px 2px; border-top: 1px solid var(--line);
 }
+.zr-k { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); }
+.zr-v { font-family: var(--mono); font-size: 17px; letter-spacing: 1px; color: var(--accent); text-shadow: 0 0 8px rgba(69,224,176,0.35); }
+.zr-mode {
+  margin-left: auto; font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  color: var(--muted); border: 1px solid var(--line-2); border-radius: 2px; padding: 1px 6px;
+}
+.zr-mode.street { color: var(--accent); border-color: rgba(69,224,176,0.4); }
+
+/* ---------- Street-level map (full-viewport keyzoom handoff) ---------- */
+.streetmap { position: fixed; inset: 0; z-index: 5; padding: 0; }
 .streetmap[hidden] { display: none; }
-.sm-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 9px; font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
-  color: var(--accent); border-bottom: 1px solid var(--line-2);
+#sm-canvas { position: absolute; inset: 0; width: 100%; height: 100%; background: #0a0f12; }
+.sm-exit {
+  position: absolute; z-index: 6; top: 84px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  color: var(--accent); background: rgba(8,16,18,0.82); border: 1px solid var(--line-2);
+  border-radius: 2px; padding: 7px 14px; cursor: pointer; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
 }
-#sm-canvas { width: 100%; height: 220px; background: #0a0f12; }
-#sm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-family: var(--mono); font-size: 13px; line-height: 1; }
-#sm-close:hover { color: var(--text); }
+.sm-exit:hover { color: var(--text); border-color: var(--accent); }
 .leaflet-container { background: #0a0f12; font-family: var(--mono); }
+/* keep Leaflet's zoom control clear of the status bar */
+.leaflet-bottom.leaflet-right { margin-bottom: 52px; margin-right: 4px; }
 
 /* ---------- Country news lightbox ---------- */
 .lightbox { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
@@ -289,7 +301,6 @@ html, body {
   .ss-label { display: none; }
   .ss-btn { font-size: 9px; padding: 3px 6px; }
 
-  /* street inset → full-width overlay */
-  .streetmap { left: 8px; right: 8px; width: auto; bottom: 88px; }
-  #sm-canvas { height: 40vh; }
+  /* street map stays full-viewport on mobile; exit pill sits below the top bar */
+  .sm-exit { top: auto; bottom: 130px; }
 }

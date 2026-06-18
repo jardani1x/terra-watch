@@ -21,6 +21,19 @@ loaded from a CDN — drop it on GitHub Pages and it runs.
   (date-time group), and status chips — **GPS fix**, secure link, mode, and a
   session ID. Green **UNCLASSIFIED // FOR OFFICIAL USE ONLY** banner top + bottom.
 - **Bottom status bar**: live message line, camera range, and FPS.
+- **Visual style switcher**: 4 globe presets — **DAY/NIGHT** (sun terminator +
+  city lights), **POLITICAL** (teal map), **RADAR** (sweeping scan), **THREAT**
+  (signal arcs) — switched live from on-screen buttons; the whole HUD re-themes
+  with each.
+- **Zoom to my location / track mode**: the **◎ ZOOM TO MY LOCATION** button
+  arc-flies the camera to your fix and *follows* you (Google-Maps style) until you
+  orbit manually; the location pin shrinks as you zoom in.
+- **Street map inset**: **▣ STREET MAP** opens a live Leaflet + OpenStreetMap
+  street-level view that tracks your position.
+- **Country news**: click any country on the globe to open a lightbox of its
+  **top 10 recent headlines** (via the keyless GDELT feed).
+- **Responsive (mobile)**: on narrow screens the nav telemetry docks to the top
+  and the compass to the bottom so the globe stays visible.
 
 ## Run locally
 
@@ -73,3 +86,8 @@ works there.
 - Country borders come from the public
   [`world-atlas`](https://github.com/topojson/world-atlas) dataset via CDN; if
   that request fails, the globe still renders with the graticule grid.
+- The street inset uses [Leaflet](https://leafletjs.com/) +
+  [OpenStreetMap](https://www.openstreetmap.org/) tiles; the country-news lightbox
+  uses the keyless [GDELT](https://www.gdeltproject.org/) DOC API. Both are loaded
+  / called at runtime — no API keys, but they need network access (and GDELT must
+  allow browser CORS).
