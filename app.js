@@ -467,6 +467,82 @@ function setupStyleSwitch() {
   });
 }
 
+// ============================================================
+//  COUNTRY NAME LABELS
+//  A text sprite at each country's representative point, parented to `earth` so
+//  it tracks the globe. depthTest is off (labels are never clipped by the globe
+//  mesh), so the render loop hides any label on the far hemisphere and drops the
+//  small countries when zoomed far back to keep the globe readable.
+// ============================================================
+let labelsGroup = null;
+const labelSprites = [];
+
+// Representative lon/lat for a feature: average the vertices of its largest ring
+// (the main landmass), plus its angular span (used to thin labels when zoomed out).
+function featureAnchor(geom) {
+  const polys = geom.type === 'Polygon' ? [geom.coordinates]
+    : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  let best = null, bestLen = 0;
+  for (const poly of polys) {
+    const ring = poly[0];
+    if (ring && ring.length > bestLen) { bestLen = ring.length; best = ring; }
+  }
+  if (!best) return null;
+  let x = 0, y = 0, minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+  for (const [lon, lat] of best) {
+    x += lon; y += lat;
+    if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
+    if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+  }
+  return { lon: x / best.length, lat: y / best.length, span: Math.max(maxLon - minLon, maxLat - minLat) };
+}
+
+// Text → canvas → sprite (mono HUD font, dark halo for legibility over land).
+function makeLabelSprite(text) {
+  const font = 30, padX = 10, padY = 8;
+  const cvs = document.createElement('canvas');
+  let ctx = cvs.getContext('2d');
+  ctx.font = `${font}px 'Share Tech Mono', monospace`;
+  cvs.width = Math.ceil(ctx.measureText(text).width) + padX * 2;
+  cvs.height = font + padY * 2;
+  ctx = cvs.getContext('2d');                       // resizing the canvas resets the context
+  ctx.font = `${font}px 'Share Tech Mono', monospace`;
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(2, 8, 6, 0.85)';
+  ctx.strokeText(text, padX, cvs.height / 2);
+  ctx.fillStyle = 'rgba(220, 235, 228, 0.96)';
+  ctx.fillText(text, padX, cvs.height / 2);
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthTest: false, depthWrite: false,
+  }));
+  const h = 0.026;                                  // world-space label height
+  sp.scale.set(h * (cvs.width / cvs.height), h, 1);
+  return sp;
+}
+
+function buildCountryLabels(geo) {
+  labelsGroup = new THREE.Group();
+  labelSprites.length = 0;
+  const r = CFG.radius * 1.012;
+  for (const f of geo.features) {
+    const name = f.properties?.name;
+    if (!name || !f.geometry) continue;
+    const a = featureAnchor(f.geometry);
+    if (!a) continue;
+    const sp = makeLabelSprite(name);
+    const pos = lonLatToVec3(a.lon, a.lat, r);
+    sp.position.copy(pos);
+    sp.userData.dir = pos.clone().normalize();
+    sp.userData.span = a.span;
+    labelsGroup.add(sp);
+    labelSprites.push(sp);
+  }
+  earth.add(labelsGroup);
+}
+
 // --- world data (loaded async): builds all per-style globe materials ---
 async function loadWorld() {
   try {
@@ -513,6 +589,7 @@ async function loadWorld() {
       else if (gm.type === 'MultiPolygon') gm.coordinates.forEach(poly => poly.forEach(addRing));
     }
     earth.add(group);
+    buildCountryLabels(geo);
 
     bootLog('LANDMASS VECTORS LOADED · ' + geo.features.length + ' FEATURES');
     return true;
@@ -738,7 +815,7 @@ $('sm-exit')?.addEventListener('click', exitStreet);
 // ============================================================
 //  COUNTRY NEWS (click a country → lightbox of top-10 headlines)
 //  Raycast the click onto the globe → lon/lat → point-in-polygon against the
-//  loaded country features → fetch recent articles from GDELT (no API key).
+//  loaded country features → fetch recent headlines from Google News (no API key).
 // ============================================================
 
 // Inverse of lonLatToVec3 (earth group is unrotated, so world == local).
@@ -792,7 +869,7 @@ canvas.addEventListener('pointerup', (e) => {
   else setStatus('NO COUNTRY UNDER CURSOR · OCEAN OR UNMAPPED');
 });
 
-// --- GDELT fetch + lightbox ---
+// --- news fetch + lightbox ---
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
 function renderNews(country, articles, state) {
@@ -801,7 +878,7 @@ function renderNews(country, articles, state) {
   $('lb-country').textContent = country.toUpperCase();
   const body = $('lb-body');
   if (state === 'loading') { body.innerHTML = '<div class="lb-msg">ACQUIRING FEED…</div>'; return; }
-  if (state === 'error')   { body.innerHTML = '<div class="lb-msg warn">FEED UNREACHABLE · GDELT REQUEST FAILED</div>'; return; }
+  if (state === 'error')   { body.innerHTML = '<div class="lb-msg warn">FEED UNREACHABLE · NEWS REQUEST FAILED</div>'; return; }
   if (state === 'empty')   { body.innerHTML = '<div class="lb-msg warn">NO RECENT ARTICLES FOUND</div>'; return; }
   body.innerHTML = articles.map((a, i) => {
     const d = (a.seendate || '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
@@ -812,43 +889,29 @@ function renderNews(country, articles, state) {
   }).join('');
 }
 
-// GDELT sends no CORS headers, so a direct browser fetch is blocked. Route the
-// request through a chain of public CORS proxies, trying each until one returns
-// usable JSON. `raw`/`quest` proxies pass the body through verbatim; the
-// allorigins `get` wrapper nests it under `.contents` as a string.
-const NEWS_PROXIES = [
-  (u) => ({ url: `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` }),
-  (u) => ({ url: `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` }),
-  (u) => ({ url: `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, wrapped: true }),
-];
-
-// Fetch the GDELT JSON via the proxy chain; returns the parsed object or throws
-// if every proxy fails / yields unparseable data.
-async function fetchNewsJSON(gdeltUrl) {
-  let lastErr = null;
-  for (const make of NEWS_PROXIES) {
-    const { url, wrapped } = make(gdeltUrl);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) { lastErr = new Error('HTTP ' + res.status); continue; }
-      let data = await res.json();
-      if (wrapped) data = JSON.parse(data.contents);   // allorigins /get nests the body
-      if (data && Array.isArray(data.articles)) return data;
-      lastErr = new Error('no articles field');
-    } catch (e) {
-      lastErr = e;   // network/CORS/parse error — try the next proxy
-    }
-  }
-  throw lastErr || new Error('all proxies failed');
-}
-
+// Country headlines come from Google News RSS via rss2json. GDELT was unusable
+// from the browser: it sends no CORS headers AND rate-limits to 1 request / 5s
+// per IP, so shared public CORS proxies are permanently throttled (HTTP 429).
+// rss2json fetches the RSS server-side and returns CORS-friendly JSON, keyless —
+// reliable for a static site.
 async function openNews(country) {
   renderNews(country, null, 'loading');
   try {
-    const q = encodeURIComponent(`"${country}" sourcelang:eng`);
-    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=ArtList&format=json&maxrecords=10&sortby=DateDesc&timespan=14d`;
-    const data = await fetchNewsJSON(url);
-    const articles = (data.articles || []).slice(0, 10);
+    const rss = `https://news.google.com/rss/search?q=${encodeURIComponent(country)}&hl=en-US&gl=US&ceid=US:en`;
+    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=10`;
+    const data = await fetch(url).then(r => r.json());
+    if (data.status !== 'ok') throw new Error(data.message || 'feed error');
+    // Google News titles read "Headline - Source"; split off the source for the
+    // meta line and normalize to the shape renderNews already expects.
+    const articles = (data.items || []).slice(0, 10).map((it) => {
+      const m = /^(.*?) - ([^-]+)$/.exec(it.title || '');
+      return {
+        title: m ? m[1] : (it.title || ''),
+        url: it.link || '#',
+        domain: (m ? m[2] : (it.author || '')).trim(),
+        seendate: (it.pubDate || '').slice(0, 10),   // YYYY-MM-DD; renderNews passes it through
+      };
+    });
     renderNews(country, articles, articles.length ? 'ok' : 'empty');
   } catch (e) {
     renderNews(country, null, 'error');
@@ -1212,6 +1275,16 @@ function animate(now) {
   }
 
   controls.update();
+
+  // Country labels: keep only those on the camera-facing hemisphere, and when
+  // pulled far back show just the larger countries so the globe stays readable.
+  if (labelsGroup) {
+    const camDir = camera.position.clone().normalize();
+    const showSmall = camera.position.length() < 2.4;
+    for (const s of labelSprites) {
+      s.visible = s.userData.dir.dot(camDir) > 0.32 && (showSmall || s.userData.span > 11);
+    }
+  }
 
   // No device magnetometer (e.g. desktop/laptop): derive heading from the
   // camera's azimuth so the rose responds live as the user orbits the globe.
