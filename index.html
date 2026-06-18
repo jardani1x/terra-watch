@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#05080b" />
-  <title>TERRA-WATCH // ORBITAL RECON</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>◈</text></svg>" />
+  <title>TERRA-WATCH // GEO-MARKET INTELLIGENCE</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -62,6 +63,7 @@
     </div>
 
     <div class="tb-right">
+      <button id="cmd-open" class="cmd-open" title="Command palette (Ctrl/Cmd+K)" aria-label="Open command palette">⌘K</button>
       <div class="stat" id="stat-fix"><span class="dot"></span><span class="stat-k">GPS</span><span class="stat-v">ACQ…</span></div>
       <div class="stat" id="stat-sat"><span class="dot ok"></span><span class="stat-k">LINK</span><span class="stat-v">SECURE</span></div>
       <div class="stat" id="stat-mode"><span class="dot ok"></span><span class="stat-k">MODE</span><span class="stat-v">RECON</span></div>
@@ -112,6 +114,28 @@
     <div class="panel-foot">
       <div class="kv"><span>TILT</span><b id="tilt">--</b></div>
       <div class="kv"><span>DECL</span><b id="decl">AUTO</b></div>
+    </div>
+  </aside>
+
+  <!-- ============ LEFT RAIL — LAYERS + PRIVACY ============ -->
+  <aside class="rail hud" id="rail">
+    <div class="rail-sec">
+      <div class="panel-head">
+        <span class="ph-title">INTEL LAYERS</span>
+        <span class="ph-tag" id="layers-tag">OVERLAYS</span>
+      </div>
+      <div class="layer-list" id="layer-list"></div>
+    </div>
+
+    <div class="rail-sec">
+      <div class="panel-head">
+        <span class="ph-title">PRIVACY</span>
+        <span class="ph-tag ok">LOCAL</span>
+      </div>
+      <p class="privacy-state" id="privacy-state">Location is processed on-device.</p>
+      <label class="opt-row"><input type="checkbox" id="opt-weather" />
+        <span>Use my location for weather <i>(off = uses sample points only)</i></span></label>
+      <button class="rail-btn danger" id="clear-data">⌦ CLEAR LOCAL DATA</button>
     </div>
   </aside>
 
@@ -174,6 +198,24 @@
     </div>
   </aside>
 
+  <!-- ============ RIGHT RAIL — MARKET FEED ============ -->
+  <aside class="rail rail-r hud" id="market">
+    <div class="panel-head">
+      <span class="ph-title">MARKET FEED</span>
+      <span class="ph-tag" id="market-tag">LIVE/MOCK</span>
+    </div>
+    <div class="market-body" id="market-body"></div>
+  </aside>
+
+  <!-- ============ ENTITY INSPECTOR (shown on selection; covers market slot) ============ -->
+  <aside class="rail rail-r inspector hud" id="inspector" hidden>
+    <div class="panel-head">
+      <span class="ph-title">INSPECTOR</span>
+      <button class="insp-close" id="insp-close" aria-label="Close inspector">✕</button>
+    </div>
+    <div class="insp-body" id="insp-body"></div>
+  </aside>
+
   <!-- ============ MOBILE PANEL TRAY (collapse + lightbox host) ============ -->
   <!-- On narrow screens the side docks are relocated into .tray-body by app.js.
        The bar collapses/expands them; the COMPASS/TELEMETRY buttons pop a single
@@ -194,6 +236,7 @@
       <span class="sb-led"></span>
       <span id="sb-msg">SYSTEM NOMINAL · AWAITING POSITION FIX</span>
     </div>
+    <div class="sb-ticker" id="sb-ticker"></div>
     <div class="sb-right">
       <span class="sb-item">RNG <b id="sb-rng">--</b></span>
       <span class="sb-item">FPS <b id="sb-fps">--</b></span>
@@ -228,6 +271,16 @@
         <button class="lb-close" id="lb-close" aria-label="close news">✕</button>
       </div>
       <div class="lb-body" id="lb-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ COMMAND PALETTE (Ctrl/Cmd+K) ============ -->
+  <div class="cmdk" id="cmdk" hidden>
+    <div class="cmdk-panel hud">
+      <input id="cmdk-input" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Type a command…  (e.g. weather, locate, watchlist)" aria-label="Command search" />
+      <ul class="cmdk-list" id="cmdk-list" role="listbox"></ul>
+      <div class="cmdk-foot">↑↓ navigate · ⏎ run · esc close</div>
     </div>
   </div>
 

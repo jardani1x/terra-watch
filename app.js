@@ -2,6 +2,19 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as topojson from 'https://esm.sh/topojson-client@3';
 
+// --- Terra-Watch dashboard modules (build-free local ESM) ---
+import { load as lsLoad, save as lsSave, clearAll as lsClear, persistenceEnabled } from './js/util/storage.js';
+import { haversineKm, fmtKm } from './js/util/distance.js';
+import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
+import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
+import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
+import { createOntology, ENTITY, RELATION, MARKET_CENTERS, isMarketOpen } from './js/ontology/model.js';
+import { initLayers, LAYERS } from './js/ui/layers.js';
+import { initCommandPalette } from './js/ui/commandPalette.js';
+import { initInspector } from './js/ui/inspector.js';
+import { initMarketFeed } from './js/ui/marketFeed.js';
+import { initShell } from './js/ui/shell.js';
+
 // ============================================================
 //  TERRA-WATCH — Orbital Recon HUD
 //  Static, single-page 3D earth + live geolocation overlay.
@@ -859,6 +872,10 @@ function countryAt(lon, lat) {
 }
 
 // --- click vs. drag detection on the globe ---
+// markersGroup holds all dashboard layer markers (assigned in the orchestration
+// section); raycasting tests it alongside the globe so a marker click wins over
+// the country lookup, while a marker hidden behind the globe falls through.
+let markersGroup = null;
 const raycaster = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
 let _downX = 0, _downY = 0, _downT = 0;
@@ -869,8 +886,12 @@ canvas.addEventListener('pointerup', (e) => {
   _ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   _ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(_ndc, camera);
-  const hit = raycaster.intersectObject(globe, false)[0];
+  const targets = markersGroup ? [globe, markersGroup] : [globe];
+  const hit = raycaster.intersectObjects(targets, true)[0];
   if (!hit) return;
+  // Closest hit is a dashboard marker → open it in the inspector.
+  if (typeof hit.object.userData?.pick === 'function') { hit.object.userData.pick(); return; }
+  // Otherwise it's the globe surface → country news lookup (unchanged).
   const { lon, lat } = vec3ToLonLat(hit.point);
   const name = countryAt(lon, lat);
   if (name) openNews(name);
@@ -1023,6 +1044,11 @@ tickClock();
 
 function setStatus(msg) { $('sb-msg').textContent = msg; }
 
+// Dashboard hooks: the orchestration section pushes listeners here so trail
+// capture / "near me" alerts / opt-in weather all fan out from the single
+// onPosition sink without coupling geolocation to those features.
+const positionListeners = [];
+
 function onPosition(lon, lat, alt, extra = {}, sim = false) {
   lastFix = { lon, lat };
   placeMarker(lon, lat);
@@ -1062,6 +1088,8 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
   setStatus(sim
     ? 'POSITION SIMULATED · DEVICE GEOLOCATION UNAVAILABLE'
     : `FIX ACQUIRED · ${gridZone(lat, lon)} · TRACKING`);
+
+  for (const fn of positionListeners) { try { fn(lon, lat, alt, extra, sim); } catch (_) {} }
 }
 
 // ============================================================
@@ -1317,3 +1345,388 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ============================================================
+//  DASHBOARD ORCHESTRATION (Terra-Watch Phase 1)
+//  Wires the new ESM modules to the globe: intel layers + markers, market feed,
+//  command palette, entity inspector, watchlist + breadcrumb trail (localStorage
+//  only), and lightweight alerts. All globe primitives above (lonLatToVec3,
+//  earth, onPosition hook, raycast picker) are reused — nothing is duplicated.
+// ============================================================
+(function dashboard() {
+  // ---- persisted local state (namespaced; never leaves the device) ----
+  const prefs = lsLoad('prefs', { ownWeather: false });
+  let watchlist = lsLoad('watchlist', []);   // [{id,name,lon,lat,addedAt}]
+  let trail = lsLoad('trail', []);            // [{lon,lat,t}]
+  const savePrefs = () => lsSave('prefs', prefs);
+
+  // ---- ontology: seed market centers + a hub so the inspector can show links ----
+  const onto = createOntology();
+  const HUB = onto.upsert({ id: 'net-markets', type: ENTITY.ASSET, label: 'Global Market Network' });
+  for (const mc of MARKET_CENTERS) {
+    onto.upsert({ id: mc.id, type: ENTITY.LOCATION, label: mc.name, lon: mc.lon, lat: mc.lat, props: { exch: mc.exch } });
+    onto.relate(mc.id, HUB.id, RELATION.PART_OF);
+  }
+  const relsFor = (id) => onto.neighbors(id).map((n) => ({ type: n.type, label: n.entity.label }));
+
+  // ---- marker layer groups on the globe ----
+  markersGroup = new THREE.Group();
+  earth.add(markersGroup);
+  /** @type {Record<string, THREE.Group>} */
+  const layerGroups = {};
+  for (const def of LAYERS) {
+    const g = new THREE.Group();
+    layerGroups[def.id] = g;
+    markersGroup.add(g);
+  }
+
+  // Cached glow-dot sprite textures, keyed by color.
+  const dotTex = new Map();
+  function dotTexture(color) {
+    if (dotTex.has(color)) return dotTex.get(color);
+    const S = 64, cvs = document.createElement('canvas'); cvs.width = cvs.height = S;
+    const ctx = cvs.getContext('2d');
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    g.addColorStop(0, color); g.addColorStop(0.35, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.45; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(S / 2, S / 2, S * 0.17, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2.5; ctx.stroke();
+    const tex = new THREE.CanvasTexture(cvs); tex.colorSpace = THREE.SRGBColorSpace;
+    dotTex.set(color, tex);
+    return tex;
+  }
+  function makeDot(color, size) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTexture(color), transparent: true }));
+    sp.scale.set(size, size, 1);
+    return sp;
+  }
+
+  const clearLayer = (id) => { const g = layerGroups[id]; while (g && g.children.length) g.remove(g.children[0]); };
+
+  /** @param {string} id @param {{lon,lat,color,size,view}[]} items */
+  function addMarkers(id, items) {
+    clearLayer(id);
+    const g = layerGroups[id];
+    for (const it of items) {
+      const sp = makeDot(it.color, it.size);
+      sp.position.copy(lonLatToVec3(it.lon, it.lat, 1.03));
+      sp.userData.pick = () => inspector.show(it.view);
+      g.add(sp);
+    }
+  }
+
+  const rangeField = (lon, lat) =>
+    lastFix ? { k: 'RANGE', v: fmtKm(haversineKm(lastFix.lon, lastFix.lat, lon, lat)) } : null;
+
+  // ---- inspector ----
+  const inspector = initInspector({
+    panel: $('inspector'), body: $('insp-body'), closeBtn: $('insp-close'),
+  });
+
+  function selectInstrument(q) {
+    inspector.show({
+      type: 'MarketInstrument', title: q.label, subtitle: `${q.symbol} · ${q.kind.toUpperCase()}`,
+      fields: [
+        { k: 'PRICE', v: fmtPrice(q.value) },
+        { k: 'CHANGE', v: fmtPct(q.change) },
+        { k: 'SOURCE', v: q.source },
+        { k: 'STATUS', v: q.stale ? 'STALE' : 'FRESH' },
+      ],
+      relations: relsFor('mi-' + q.symbol),
+    });
+  }
+
+  // ---- market feed (always on, independent of map layers) ----
+  const market = initMarketFeed({ host: $('market-body'), onSelect: selectInstrument });
+  /** @type {import('./js/data/providers/types.js').Quote[]} */
+  let lastQuotes = [];
+  let marketMock = false;
+
+  function updateOntologyInstruments(quotes) {
+    for (const q of quotes) {
+      onto.upsert({ id: 'mi-' + q.symbol, type: ENTITY.MARKET_INSTRUMENT, label: q.label, props: { kind: q.kind } });
+      onto.relate('mi-' + q.symbol, HUB.id, RELATION.RELATED_TO);
+    }
+  }
+  function updateTicker(quotes) {
+    const pick = ['BTC', 'ETH', 'EURUSD', 'SPX', 'XAU'];
+    const items = pick.map((s) => quotes.find((q) => q.symbol === s)).filter(Boolean).map((q) => ({
+      label: q.label, value: fmtPrice(q.value), change: fmtPct(q.change), sign: signClass(q.change),
+    }));
+    shell.setTicker(items);
+  }
+  async function refreshMarket() {
+    const res = await getMarketQuotes();
+    lastQuotes = res.data; marketMock = res.mock;
+    updateOntologyInstruments(lastQuotes);
+    market.render(lastQuotes, { mock: res.mock });
+    updateTicker(lastQuotes);
+    const tag = $('market-tag'); if (tag) { tag.textContent = res.mock ? 'MOCK' : 'LIVE'; tag.className = 'ph-tag' + (res.mock ? ' warn' : ' ok'); }
+  }
+
+  // ---- layer renderers ----
+  function renderMarketCenters() {
+    addMarkers('markets', MARKET_CENTERS.map((mc) => {
+      const open = isMarketOpen(mc.tz);
+      return {
+        lon: mc.lon, lat: mc.lat, color: '#45e0b0', size: 0.052,
+        view: {
+          type: 'Location · Market Center', title: mc.name, subtitle: mc.exch,
+          fields: [
+            { k: 'EXCHANGE', v: mc.exch },
+            { k: 'SESSION', v: open == null ? '—' : open ? 'OPEN' : 'CLOSED' },
+            { k: 'TZ', v: mc.tz },
+            { k: 'LAT', v: mc.lat.toFixed(3) }, { k: 'LON', v: mc.lon.toFixed(3) },
+            rangeField(mc.lon, mc.lat),
+          ],
+          relations: relsFor(mc.id),
+          actions: [
+            { label: '＋ Watchlist', onClick: () => addWatch(mc.name, mc.lon, mc.lat) },
+            { label: 'Headlines', onClick: () => openNews(mc.name) },
+          ],
+        },
+      };
+    }));
+  }
+
+  let lastQuakes = [];
+  let quakeTimer = null;
+  async function refreshQuakes() {
+    const res = await getQuakes();
+    lastQuakes = res.data;
+    onto.upsert({ id: 'src-usgs', type: ENTITY.FEED_SOURCE, label: res.mock ? 'Mock Seismic' : 'USGS' });
+    if (layers.isOn('earthquakes')) {
+      addMarkers('earthquakes', lastQuakes.map((q) => ({
+        lon: q.lon, lat: q.lat, color: '#ff8a5a', size: 0.03 + Math.min(0.06, q.mag * 0.009),
+        view: {
+          type: 'Event · Seismic', title: `M ${q.mag.toFixed(1)}`, subtitle: q.place,
+          fields: [
+            { k: 'MAGNITUDE', v: q.mag.toFixed(1) }, { k: 'DEPTH', v: q.depthKm.toFixed(0) + ' km' },
+            { k: 'WHEN', v: new Date(q.ts).toUTCString().slice(5, 22) + 'Z' },
+            { k: 'SOURCE', v: q.source }, rangeField(q.lon, q.lat),
+          ],
+          relations: [{ type: RELATION.OBSERVED_FROM, label: res.mock ? 'Mock Seismic' : 'USGS' }],
+          actions: [{ label: 'Headlines', onClick: () => openNews(q.place.replace(/^\d+\s*km.*?of\s*/i, '')) }],
+        },
+      })));
+    }
+    checkNearMe();
+    setStatus(`SEISMIC FEED · ${lastQuakes.length} EVENTS · ${res.mock ? 'MOCK' : 'USGS'}`);
+  }
+  const startQuakeTimer = () => { stopQuakeTimer(); quakeTimer = setInterval(refreshQuakes, 120000); };
+  const stopQuakeTimer = () => { if (quakeTimer) { clearInterval(quakeTimer); quakeTimer = null; } };
+
+  async function refreshWeather() {
+    const pts = MARKET_CENTERS.map((mc) => ({ id: mc.id, name: mc.name, lon: mc.lon, lat: mc.lat }));
+    if (prefs.ownWeather && lastFix) pts.push({ id: 'me', name: 'My Location', lon: lastFix.lon, lat: lastFix.lat });
+    const results = await Promise.all(pts.map(async (p) => {
+      const r = await getWeather(p.lon, p.lat); return { p, w: r.data[0] };
+    }));
+    if (!layers.isOn('weather')) return;
+    addMarkers('weather', results.map(({ p, w }) => ({
+      lon: p.lon, lat: p.lat, color: '#7ec8ff', size: 0.04,
+      view: {
+        type: 'Observation · Weather', title: p.name,
+        subtitle: w.summary,
+        fields: [
+          { k: 'TEMP', v: w.tempC != null ? w.tempC.toFixed(1) + ' °C' : '—' },
+          { k: 'WIND', v: w.windKmh != null ? w.windKmh.toFixed(0) + ' km/h' : '—' },
+          { k: 'SOURCE', v: w.source },
+        ],
+        relations: [{ type: RELATION.OBSERVED_FROM, label: w.source }],
+      },
+    })));
+  }
+
+  function renderGeo() {
+    addMarkers('geopolitical', mockGeopolitical().map((e) => ({
+      lon: e.lon, lat: e.lat, color: '#c08bff', size: 0.04,
+      view: {
+        type: 'Event · Geopolitical (mock)', title: e.label, subtitle: e.meta.category,
+        fields: [{ k: 'INTENSITY', v: (e.weight * 100).toFixed(0) + '%' }, rangeField(e.lon, e.lat)],
+        relations: [],
+        actions: [{ label: 'Headlines', onClick: () => openNews(e.label) }],
+      },
+    })));
+  }
+  function renderRisk() {
+    addMarkers('risk', mockRisk().map((r) => ({
+      lon: r.lon, lat: r.lat, color: '#ff5a52', size: 0.045 + r.weight * 0.04,
+      view: {
+        type: 'Risk Zone (mock)', title: r.label,
+        fields: [{ k: 'INDEX', v: (r.weight * 100).toFixed(0) }, rangeField(r.lon, r.lat)],
+      },
+    })));
+  }
+
+  // ---- watchlist ----
+  function saveWatch() { lsSave('watchlist', watchlist); }
+  function renderWatchlist() {
+    if (!layers.isOn('watchlist')) { clearLayer('watchlist'); return; }
+    addMarkers('watchlist', watchlist.map((w) => ({
+      lon: w.lon, lat: w.lat, color: '#ffd166', size: 0.05,
+      view: {
+        type: 'Location · Watchlist', title: w.name,
+        fields: [
+          { k: 'LAT', v: w.lat.toFixed(4) }, { k: 'LON', v: w.lon.toFixed(4) },
+          { k: 'ADDED', v: new Date(w.addedAt).toLocaleString() }, rangeField(w.lon, w.lat),
+        ],
+        actions: [{ label: '✕ Remove', kind: 'danger', onClick: () => removeWatch(w.id) }],
+      },
+    })));
+  }
+  function addWatch(name, lon, lat) {
+    const id = 'wl_' + Date.now().toString(36);
+    watchlist.push({ id, name: name || `Waypoint ${watchlist.length + 1}`, lon, lat, addedAt: Date.now() });
+    saveWatch();
+    if (!layers.isOn('watchlist')) layers.setOn('watchlist', true); else renderWatchlist();
+    setStatus(`ADDED TO WATCHLIST · ${name}`);
+  }
+  function addWatchFromFix() {
+    if (!lastFix) { setStatus('NO FIX YET · CANNOT ADD WATCHLIST POINT'); return; }
+    addWatch(`Waypoint ${watchlist.length + 1}`, lastFix.lon, lastFix.lat);
+  }
+  function removeWatch(id) {
+    watchlist = watchlist.filter((w) => w.id !== id);
+    saveWatch(); renderWatchlist(); inspector.hide();
+    setStatus('WATCHLIST POINT REMOVED');
+  }
+
+  // ---- breadcrumb trail ----
+  function renderTrail() {
+    clearLayer('trail');
+    if (!layers.isOn('trail') || trail.length < 2) return;
+    const pts = trail.map((p) => lonLatToVec3(p.lon, p.lat, 1.02));
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0x45e0b0, transparent: true, opacity: 0.85 })
+    );
+    layerGroups.trail.add(line);
+  }
+  let trailSaveT = 0;
+  function pushTrail(lon, lat) {
+    const last = trail[trail.length - 1];
+    if (last && haversineKm(last.lon, last.lat, lon, lat) < 0.02) return; // dedupe tiny jitter
+    trail.push({ lon, lat, t: Date.now() });
+    if (trail.length > 250) trail.shift();
+    if (Date.now() - trailSaveT > 5000) { lsSave('trail', trail); trailSaveT = Date.now(); }
+    renderTrail();
+  }
+  function clearTrail() { trail = []; lsSave('trail', trail); renderTrail(); setStatus('MOVEMENT TRAIL CLEARED'); }
+
+  // ---- alerts (lightweight; surfaced in the status line) ----
+  let nearAlertKey = '';
+  function checkNearMe() {
+    if (!lastFix || !lastQuakes.length) return;
+    let nearest = null, nd = Infinity;
+    for (const q of lastQuakes) {
+      const d = haversineKm(lastFix.lon, lastFix.lat, q.lon, q.lat);
+      if (d < nd) { nd = d; nearest = q; }
+    }
+    if (nearest && nd < 800) {
+      const key = nearest.id;
+      if (key !== nearAlertKey) {
+        nearAlertKey = key;
+        setStatus(`⚠ ALERT · M${nearest.mag.toFixed(1)} SEISMIC EVENT ${fmtKm(nd)} AWAY · ${nearest.place}`);
+      }
+    }
+  }
+
+  let ownWeatherT = 0;
+  positionListeners.push((lon, lat, alt, extra) => {
+    pushTrail(lon, lat);
+    if (extra && extra.accuracy != null && extra.accuracy > 150) {
+      setStatus(`⚠ POSITION ACCURACY DEGRADED · ±${extra.accuracy.toFixed(0)} m`);
+    }
+    checkNearMe();
+    if (prefs.ownWeather && layers.isOn('weather') && Date.now() - ownWeatherT > 300000) {
+      ownWeatherT = Date.now(); refreshWeather();
+    }
+  });
+
+  // ---- layer toggle dispatch ----
+  function onLayerToggle(id, enabled) {
+    lsSave('layers', layers.getState());
+    if (!enabled) { clearLayer(id); if (id === 'earthquakes') stopQuakeTimer(); return; }
+    switch (id) {
+      case 'markets': renderMarketCenters(); break;
+      case 'watchlist': renderWatchlist(); break;
+      case 'geopolitical': renderGeo(); break;
+      case 'risk': renderRisk(); break;
+      case 'trail': renderTrail(); break;
+      case 'earthquakes': refreshQuakes(); startQuakeTimer(); break;
+      case 'weather': refreshWeather(); break;
+    }
+  }
+
+  const layers = initLayers({ host: $('layer-list'), initial: lsLoad('layers', {}), onToggle: onLayerToggle });
+
+  // ---- shell (privacy + ticker) ----
+  const shell = initShell({
+    privacyState: $('privacy-state'), weatherOptIn: $('opt-weather'), clearBtn: $('clear-data'),
+    ticker: $('sb-ticker'), ownWeatherInitial: prefs.ownWeather,
+    onOwnWeatherChange: (v) => {
+      prefs.ownWeather = v; savePrefs();
+      if (layers.isOn('weather')) refreshWeather();
+      setStatus(v ? 'WEATHER WILL INCLUDE YOUR LOCATION' : 'WEATHER USES SAMPLE POINTS ONLY');
+    },
+    onClearData: () => {
+      lsClear(); watchlist = []; trail = [];
+      renderWatchlist(); renderTrail();
+      setStatus('LOCAL DATA CLEARED · WATCHLIST + TRAIL WIPED');
+    },
+  });
+
+  // ---- command palette ----
+  const styleKeys = ['daynight', 'political', 'radar', 'threat'];
+  function cycleStyle() {
+    const i = styleKeys.indexOf(currentStyle);
+    applyStyle(styleKeys[(i + 1) % styleKeys.length]);
+    setStatus('MAP STYLE · ' + currentStyle.toUpperCase());
+  }
+  const onoff = (id) => (layers.isOn(id) ? 'on' : 'off');
+  function getCommands() {
+    const cmds = [
+      { id: 'locate', title: 'Go to my location', hint: lastFix ? '' : 'no fix', group: 'map', run: () => $('goto-loc')?.click() },
+      { id: 'style', title: 'Switch map style', hint: currentStyle, group: 'map', run: cycleStyle },
+      { id: 'addwl', title: 'Add current location to watchlist', group: 'watchlist', run: addWatchFromFix },
+      { id: 'cleartrail', title: 'Clear movement trail', hint: trail.length + ' pts', group: 'watchlist', run: clearTrail },
+      { id: 'market', title: 'Open market feed', group: 'view', run: openMarketPanel },
+      { id: 'graph', title: 'Open entity graph', hint: 'phase 2', group: 'view', run: () => setStatus('ENTITY GRAPH · COMING IN PHASE 2') },
+      { id: 'street', title: 'Toggle street level', group: 'map', run: () => $('street-toggle')?.click() },
+      { id: 'cleardata', title: 'Clear all local data', hint: 'watchlist+trail', group: 'privacy', run: () => $('clear-data')?.click() },
+    ];
+    for (const def of LAYERS) {
+      cmds.push({ id: 'ly-' + def.id, title: `Toggle ${def.label.toLowerCase()} layer`, hint: onoff(def.id), group: 'layers', run: () => layers.toggle(def.id) });
+    }
+    return cmds;
+  }
+  const palette = initCommandPalette({ root: $('cmdk'), input: $('cmdk-input'), list: $('cmdk-list'), getCommands });
+  $('cmd-open')?.addEventListener('click', () => palette.open());
+
+  // ---- mobile: relocate the rails into the bottom tray (reuse the tray) ----
+  const mqMobile = window.matchMedia('(max-width: 760px)');
+  function placeRails() {
+    const tb = $('tray-body');
+    if (!tb) return;
+    if (mqMobile.matches) { tb.appendChild($('rail')); tb.appendChild($('market')); }
+    else { document.body.appendChild($('rail')); document.body.appendChild($('market')); }
+  }
+  function openMarketPanel() {
+    if (mqMobile.matches) {
+      document.body.classList.add('tray-open');
+      $('tray-toggle')?.setAttribute('aria-expanded', 'true');
+      $('market')?.scrollIntoView({ block: 'nearest' });
+    }
+    setStatus('MARKET FEED · ' + (marketMock ? 'MOCK DATA' : 'LIVE'));
+  }
+  mqMobile.addEventListener('change', placeRails);
+  placeRails();
+
+  // ---- kick off ----
+  market.setLoading();
+  refreshMarket();
+  setInterval(refreshMarket, 90000);
+  setInterval(() => { if (lastQuotes.length) { markStale(lastQuotes); market.render(lastQuotes, { mock: marketMock }); updateTicker(lastQuotes); } }, 20000);
+  layers.emitEnabled();   // paint whichever layers start enabled (markets + watchlist by default)
+})();

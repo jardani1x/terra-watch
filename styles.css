@@ -276,7 +276,165 @@ html, body {
 .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
 @keyframes dots { 0%{content:'';} 25%{content:'.';} 50%{content:'..';} 75%{content:'...';} 100%{content:'';} }
 
+/* ============================================================
+   TERRA-WATCH DASHBOARD SHELL (Phase 1 additions)
+   Left rail = intel layers + privacy; right rail = market feed;
+   inspector overlays the market slot on selection; command palette;
+   bottom ticker. All reuse the .hud glass look + :root accent vars.
+   ============================================================ */
+
+/* command-palette opener in the top bar */
+.cmd-open {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+  color: var(--accent); background: rgba(69,224,176,0.08);
+  border: 1px solid var(--line-2); border-radius: 3px; padding: 4px 9px; cursor: pointer;
+}
+.cmd-open:hover { border-color: var(--accent); color: #5ff0c0; }
+
+/* ---------- Rails (left = layers/privacy, right = market) ---------- */
+.rail {
+  position: fixed; z-index: 19; width: 250px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+}
+#rail   { left: 8px;  top: 452px; bottom: 92px; }
+.rail-r { right: 8px; top: 480px; bottom: 92px; }
+#inspector { z-index: 23; }
+/* .rail sets display:flex, which would otherwise defeat the [hidden] attribute */
+.rail[hidden] { display: none; }
+.rail-sec { display: flex; flex-direction: column; gap: 8px; }
+.rail::-webkit-scrollbar, .insp-body::-webkit-scrollbar, .market-body::-webkit-scrollbar,
+.cmdk-list::-webkit-scrollbar { width: 6px; }
+.rail::-webkit-scrollbar-thumb, .insp-body::-webkit-scrollbar-thumb,
+.market-body::-webkit-scrollbar-thumb, .cmdk-list::-webkit-scrollbar-thumb {
+  background: var(--line-2); border-radius: 3px;
+}
+
+/* ---------- Layer toggle rows ---------- */
+.layer-list { display: flex; flex-direction: column; gap: 5px; }
+.layer-row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 6px 8px; background: transparent; border: 1px solid var(--line);
+  border-radius: 2px; cursor: pointer; font-family: var(--hud-font); text-align: left;
+}
+.layer-row:hover { border-color: var(--accent); }
+.layer-row.on { border-color: rgba(69,224,176,0.4); }
+.ly-glyph { font-size: 13px; width: 15px; text-align: center; }
+.ly-label { flex: 1; font-size: 11px; letter-spacing: 1px; color: var(--text); }
+.ly-note {
+  font-family: var(--mono); font-size: 8px; font-style: normal; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 2px; padding: 0 3px; margin-left: 4px;
+}
+.ly-sw {
+  flex: 0 0 auto; width: 26px; height: 14px; border-radius: 8px;
+  border: 1px solid var(--line-2); position: relative; transition: background .15s, border-color .15s;
+}
+.ly-sw::after {
+  content: ''; position: absolute; top: 1px; left: 1px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s;
+}
+.layer-row.on .ly-sw { background: rgba(69,224,176,0.3); border-color: var(--accent); }
+.layer-row.on .ly-sw::after { transform: translateX(12px); background: var(--accent); }
+
+/* ---------- Privacy block ---------- */
+.privacy-state { font-family: var(--mono); font-size: 9px; line-height: 1.55; color: var(--muted); margin: 0; }
+.opt-row { display: flex; gap: 7px; align-items: flex-start; font-size: 10px; line-height: 1.4; color: var(--text); cursor: pointer; }
+.opt-row i { color: var(--muted); font-style: normal; }
+.opt-row input { accent-color: var(--accent); margin-top: 1px; }
+.rail-btn {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text);
+  background: transparent; border: 1px solid var(--line-2); border-radius: 2px; padding: 7px; cursor: pointer;
+}
+.rail-btn:hover { border-color: var(--accent); }
+.rail-btn.danger { color: var(--danger); border-color: rgba(255,90,82,0.35); }
+
+/* ---------- Market feed cards ---------- */
+.market-body { overflow-y: auto; }
+.mk-group { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); margin: 9px 0 4px; }
+.mk-cards { display: flex; flex-direction: column; gap: 4px; }
+.mk-card {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; padding: 5px 8px;
+  background: transparent; border: 1px solid var(--line); border-radius: 2px; cursor: pointer; text-align: left;
+}
+.mk-card:hover { border-color: var(--accent); background: rgba(69,224,176,0.05); }
+.mk-card.stale { opacity: 0.7; }
+.mk-sym { font-size: 11px; letter-spacing: 1px; color: var(--text); }
+.mk-val { font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
+.mk-chg { grid-column: 2; font-family: var(--mono); font-size: 11px; text-align: right; }
+.mk-chg.up { color: var(--accent); } .mk-chg.down { color: var(--danger); } .mk-chg.flat { color: var(--muted); }
+.mk-meta { grid-column: 1 / span 2; font-family: var(--mono); font-size: 8.5px; letter-spacing: .5px; color: var(--muted); }
+.mk-badge { font-style: normal; color: var(--amber); border: 1px solid rgba(255,180,84,0.4); border-radius: 2px; padding: 0 3px; margin-right: 5px; }
+.mk-msg, .mk-note { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--muted); padding: 8px 2px; }
+.mk-msg.warn, .mk-note.warn { color: var(--amber); }
+
+/* ---------- Inspector ---------- */
+.insp-close { background: none; border: none; color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 1; cursor: pointer; }
+.insp-close:hover { color: var(--text); }
+.insp-body { overflow-y: auto; }
+.insp-type {
+  display: inline-block; font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--accent);
+  border: 1px solid rgba(69,224,176,0.4); border-radius: 2px; padding: 1px 6px; margin: 4px 0;
+}
+.insp-title { font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--text); margin-top: 4px; }
+.insp-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+.insp-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin-top: 10px; }
+.insp-k { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+.insp-v { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; }
+.insp-sec { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); margin: 12px 0 5px; border-top: 1px solid var(--line); padding-top: 8px; }
+.insp-rels { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.insp-rels li { display: flex; gap: 8px; align-items: baseline; }
+.rel-type { font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px; color: var(--accent); min-width: 90px; }
+.rel-label { font-size: 11px; color: var(--text); }
+.insp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.insp-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--accent); background: transparent; border: 1px solid var(--line-2); border-radius: 2px; padding: 6px 9px; cursor: pointer; }
+.insp-btn:hover { border-color: var(--accent); }
+.insp-btn.danger { color: var(--danger); border-color: rgba(255,90,82,0.4); }
+.insp-empty { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; padding: 24px 10px; line-height: 1.7; }
+.insp-empty span { font-size: 9px; }
+
+/* ---------- Command palette ---------- */
+.cmdk {
+  position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-start; justify-content: center;
+  background: rgba(2,6,9,0.6); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.cmdk[hidden] { display: none; }
+.cmdk-panel { margin-top: 12vh; width: min(560px, 92vw); padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.cmdk-input {
+  background: transparent; border: none; border-bottom: 1px solid var(--line-2);
+  color: var(--text); font-family: var(--hud-font); font-size: 16px; letter-spacing: 1px; padding: 14px 16px; outline: none;
+}
+.cmdk-input::placeholder { color: var(--muted); }
+.cmdk-list { list-style: none; margin: 0; padding: 6px; max-height: 46vh; overflow-y: auto; }
+.cmd-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 10px; border-radius: 2px; cursor: pointer; }
+.cmd-item.active { background: rgba(69,224,176,0.12); }
+.cmd-title { font-size: 13px; letter-spacing: .5px; color: var(--text); }
+.cmd-hint { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; color: var(--muted); }
+.cmd-empty { padding: 18px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.cmdk-foot { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); }
+
+/* ---------- Bottom ticker ---------- */
+.sb-ticker { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; color: var(--muted); padding: 0 14px; }
+.tk-item b { color: var(--text); font-weight: 400; }
+.tk-item i { font-style: normal; }
+.tk-item i.up { color: var(--accent); } .tk-item i.down { color: var(--danger); } .tk-item i.flat { color: var(--muted); }
+.tk-sep { margin: 0 8px; opacity: 0.5; }
+
 /* ---------- Responsive ---------- */
+@media (max-width: 760px) {
+  /* Rails relocate into the bottom tray (app.js moves the nodes); inspector
+     becomes a centered lightbox so a selection is readable on a phone. */
+  #rail, #market {
+    position: static; width: auto; top: auto; bottom: auto; left: auto; right: auto;
+    max-height: none; padding: 8px 10px; flex: 1 1 46%; min-width: 0;
+  }
+  #inspector {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    right: auto; bottom: auto; width: min(92vw, 340px); max-height: 80vh; z-index: 62;
+  }
+  .cmd-open { font-size: 13px; padding: 4px 8px; }
+  .sb-ticker { display: none; }
+}
+
+/* ---------- (original responsive rules continue) ---------- */
 @media (max-width: 760px) {
   /* compact top bar */
   .tb-center .clock { font-size: 13px; }
