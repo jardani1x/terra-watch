@@ -81,8 +81,9 @@ const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
 controls.enablePan = false;
-controls.rotateSpeed = 0.55;
+controls.rotateSpeed = 0.55;       // re-scaled per-frame by zoom distance (see render loop)
 controls.zoomSpeed = 0.7;
+controls.zoomToCursor = true;      // dolly toward the point under the pointer (Google-Earth feel)
 controls.minDistance = 1.55;
 controls.maxDistance = 5;
 controls.autoRotate = true;
@@ -947,8 +948,14 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
   lastFix = { lon, lat };
   placeMarker(lon, lat);
   buildSignalArcs(lon, lat);
-  if (!hasAutoFocused) { steerTo(lon, lat); hasAutoFocused = true; }
-  else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
+  if (!hasAutoFocused) {
+    hasAutoFocused = true;
+    steerTo(lon, lat);                              // position the globe behind the handoff
+    // Default to street-level on the first fix so you can watch live where you're
+    // going. A real GNSS fix enters TRACKING; the simulated fallback enters in
+    // MANUAL PAN (follow=false) so it doesn't falsely claim a live track.
+    if (window.L) enterStreet(lon, lat, 16, !sim);
+  } else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
   syncStreet(lon, lat, extra.accuracy);     // keep the street map on the device
 
   $('lat').textContent = (lat >= 0 ? '+' : '') + lat.toFixed(6);
@@ -1202,6 +1209,14 @@ function animate(now) {
       r.scale.set(s, s, s);
       r.material.opacity = 0.9 * (1 - r.userData.phase);
     }
+  }
+
+  // Rotate slower the closer you are, so dragging near the surface nudges the
+  // globe instead of whipping it around (constant-ish screen-space drag feel).
+  {
+    const zt = THREE.MathUtils.clamp(
+      (camera.position.length() - controls.minDistance) / (controls.maxDistance - controls.minDistance), 0, 1);
+    controls.rotateSpeed = THREE.MathUtils.lerp(0.15, 0.6, zt);
   }
 
   controls.update();
