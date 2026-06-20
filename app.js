@@ -16,6 +16,7 @@ import { initCommandPalette } from './js/ui/commandPalette.js';
 import { initInspector } from './js/ui/inspector.js';
 import { initMarketFeed } from './js/ui/marketFeed.js';
 import { initShell } from './js/ui/shell.js';
+import { initNavRail } from './js/ui/navrail.js';
 import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
@@ -1714,6 +1715,14 @@ window.addEventListener('resize', () => {
     },
   });
 
+  // ---- nav rail: one swappable workspace container (Layers / Feeds / …) ----
+  // Owns only which workspace is visible; the panels' content (layer toggles,
+  // market feed) is still wired by their own modules above.
+  const navrail = initNavRail({
+    nav: $('navrail'), workspace: $('workspace'), initial: 'layers',
+    onChange: (id) => setStatus('WORKSPACE · ' + id.toUpperCase()),
+  });
+
   // ---- command palette ----
   const styleKeys = ['daynight', 'political', 'radar', 'threat'];
   function cycleStyle() {
@@ -1741,19 +1750,20 @@ window.addEventListener('resize', () => {
   const palette = initCommandPalette({ root: $('cmdk'), input: $('cmdk-input'), list: $('cmdk-list'), getCommands });
   $('cmd-open')?.addEventListener('click', () => palette.open());
 
-  // ---- mobile: relocate the rails into the bottom tray (reuse the tray) ----
+  // ---- mobile: relocate the nav rail + workspace into the bottom tray ----
   const mqMobile = window.matchMedia('(max-width: 760px)');
   function placeRails() {
     const tb = $('tray-body');
     if (!tb) return;
-    if (mqMobile.matches) { tb.appendChild($('rail')); tb.appendChild($('market')); }
-    else { document.body.appendChild($('rail')); document.body.appendChild($('market')); }
+    if (mqMobile.matches) { tb.appendChild($('navrail')); tb.appendChild($('workspace')); }
+    else { document.body.appendChild($('navrail')); document.body.appendChild($('workspace')); }
   }
   function openMarketPanel() {
+    navrail.show('feeds');                    // switch the workspace to the market feed
     if (mqMobile.matches) {
       document.body.classList.add('tray-open');
       $('tray-toggle')?.setAttribute('aria-expanded', 'true');
-      $('market')?.scrollIntoView({ block: 'nearest' });
+      $('workspace')?.scrollIntoView({ block: 'nearest' });
     }
     setStatus('MARKET FEED · ' + (marketMock ? 'MOCK DATA' : 'LIVE'));
   }

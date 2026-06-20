@@ -118,26 +118,62 @@
     </div>
   </aside>
 
-  <!-- ============ LEFT RAIL — LAYERS + PRIVACY ============ -->
-  <aside class="rail hud" id="rail">
-    <div class="rail-sec">
-      <div class="panel-head">
-        <span class="ph-title">INTEL LAYERS</span>
-        <span class="ph-tag" id="layers-tag">OVERLAYS</span>
-      </div>
-      <div class="layer-list" id="layer-list"></div>
-    </div>
+  <!-- ============ NAV RAIL — workspace switcher (icons populated by navrail.js) ============ -->
+  <nav class="navrail hud" id="navrail" role="tablist" aria-label="Workspaces"></nav>
 
-    <div class="rail-sec">
-      <div class="panel-head">
-        <span class="ph-title">PRIVACY</span>
-        <span class="ph-tag ok">LOCAL</span>
+  <!-- ============ WORKSPACE — single swappable panel driven by the nav rail ============ -->
+  <!-- Each <section data-ws> is one workspace; navrail.js shows one at a time.
+       The inspector is NOT here — it is a selection-driven dock (see below). -->
+  <aside class="workspace hud" id="workspace">
+    <!-- Layers workspace: the intel-layer toggles + the privacy block -->
+    <section class="ws-panel" data-ws="layers">
+      <div class="rail-sec">
+        <div class="panel-head">
+          <span class="ph-title">INTEL LAYERS</span>
+          <span class="ph-tag" id="layers-tag">OVERLAYS</span>
+        </div>
+        <div class="layer-list" id="layer-list"></div>
       </div>
-      <p class="privacy-state" id="privacy-state">Location is processed on-device.</p>
-      <label class="opt-row"><input type="checkbox" id="opt-weather" />
-        <span>Use my location for weather <i>(off = uses sample points only)</i></span></label>
-      <button class="rail-btn danger" id="clear-data">⌦ CLEAR LOCAL DATA</button>
-    </div>
+
+      <div class="rail-sec">
+        <div class="panel-head">
+          <span class="ph-title">PRIVACY</span>
+          <span class="ph-tag ok">LOCAL</span>
+        </div>
+        <p class="privacy-state" id="privacy-state">Location is processed on-device.</p>
+        <label class="opt-row"><input type="checkbox" id="opt-weather" />
+          <span>Use my location for weather <i>(off = uses sample points only)</i></span></label>
+        <button class="rail-btn danger" id="clear-data">⌦ CLEAR LOCAL DATA</button>
+      </div>
+    </section>
+
+    <!-- Feeds workspace: the live/mock market feed (moved from the old right rail) -->
+    <section class="ws-panel" data-ws="feeds" hidden>
+      <div class="panel-head">
+        <span class="ph-title">MARKET FEED</span>
+        <span class="ph-tag" id="market-tag">LIVE/MOCK</span>
+      </div>
+      <div class="market-body" id="market-body"></div>
+    </section>
+
+    <!-- Graph workspace: reserved (link analysis currently rides the LAYERS toggle) -->
+    <section class="ws-panel" data-ws="graph" hidden>
+      <div class="panel-head">
+        <span class="ph-title">GRAPH</span>
+        <span class="ph-tag">RESERVED</span>
+      </div>
+      <p class="ws-empty">Link-analysis workspace reserved.<br>
+        <span>Enable the <b>Link Graph</b> layer to open the graph overlay.</span></p>
+    </section>
+
+    <!-- Timeline workspace: reserved placeholder for a future build step -->
+    <section class="ws-panel" data-ws="timeline" hidden>
+      <div class="panel-head">
+        <span class="ph-title">TIMELINE</span>
+        <span class="ph-tag">RESERVED</span>
+      </div>
+      <p class="ws-empty">Timeline workspace reserved for a future build step.</p>
+    </section>
   </aside>
 
   <!-- ============ RIGHT SIDEBAR — TELEMETRY ============ -->
@@ -199,16 +235,7 @@
     </div>
   </aside>
 
-  <!-- ============ RIGHT RAIL — MARKET FEED ============ -->
-  <aside class="rail rail-r hud" id="market">
-    <div class="panel-head">
-      <span class="ph-title">MARKET FEED</span>
-      <span class="ph-tag" id="market-tag">LIVE/MOCK</span>
-    </div>
-    <div class="market-body" id="market-body"></div>
-  </aside>
-
-  <!-- ============ ENTITY INSPECTOR (shown on selection; covers market slot) ============ -->
+  <!-- ============ ENTITY INSPECTOR (selection-driven dock, lower-right) ============ -->
   <aside class="rail rail-r inspector hud" id="inspector" hidden>
     <div class="panel-head">
       <span class="ph-title">INSPECTOR</span>

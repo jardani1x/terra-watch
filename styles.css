@@ -302,10 +302,37 @@ html, body {
 /* .rail sets display:flex, which would otherwise defeat the [hidden] attribute */
 .rail[hidden] { display: none; }
 .rail-sec { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- Nav rail (workspace switcher) + workspace panel ---------- */
+.navrail {
+  position: fixed; z-index: 21; left: 8px; top: 452px; bottom: 92px; width: 48px;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px 5px; overflow: hidden;
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-family: var(--mono); color: var(--muted);
+  background: transparent; border: 1px solid transparent; border-radius: 3px;
+  padding: 7px 2px; cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+}
+.nav-btn:hover { color: var(--text); border-color: var(--line-2); }
+.nav-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(69,224,176,0.10); }
+.nav-glyph { font-size: 17px; line-height: 1; }
+.nav-lbl { font-size: 7.5px; letter-spacing: 0.5px; }
+
+.workspace {
+  position: fixed; z-index: 19; left: 62px; top: 452px; bottom: 92px; width: 250px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+}
+.ws-panel { display: flex; flex-direction: column; gap: 14px; }
+.ws-panel[hidden] { display: none; }
+.ws-empty { color: var(--muted); font-size: 11px; line-height: 1.5; padding: 6px 2px; }
+.ws-empty span { color: var(--dim, var(--muted)); font-size: 10.5px; }
+
 .rail::-webkit-scrollbar, .insp-body::-webkit-scrollbar, .market-body::-webkit-scrollbar,
-.cmdk-list::-webkit-scrollbar { width: 6px; }
+.workspace::-webkit-scrollbar, .cmdk-list::-webkit-scrollbar { width: 6px; }
 .rail::-webkit-scrollbar-thumb, .insp-body::-webkit-scrollbar-thumb,
-.market-body::-webkit-scrollbar-thumb, .cmdk-list::-webkit-scrollbar-thumb {
+.market-body::-webkit-scrollbar-thumb, .workspace::-webkit-scrollbar-thumb,
+.cmdk-list::-webkit-scrollbar-thumb {
   background: var(--line-2); border-radius: 3px;
 }
 
@@ -422,9 +449,17 @@ html, body {
 @media (max-width: 760px) {
   /* Rails relocate into the bottom tray (app.js moves the nodes); inspector
      becomes a centered lightbox so a selection is readable on a phone. */
-  #rail, #market {
+  #navrail {
+    position: static; flex-direction: row; flex-wrap: wrap; width: auto;
+    top: auto; bottom: auto; left: auto; right: auto; gap: 6px; padding: 6px;
+    flex: 1 1 100%;
+  }
+  #navrail .nav-btn { flex: 1 1 0; flex-direction: row; gap: 5px; padding: 6px 4px; }
+  #navrail .nav-glyph { font-size: 14px; }
+  #navrail .nav-lbl { font-size: 9px; letter-spacing: 1px; }
+  #workspace {
     position: static; width: auto; top: auto; bottom: auto; left: auto; right: auto;
-    max-height: none; padding: 8px 10px; flex: 1 1 46%; min-width: 0;
+    max-height: 42vh; padding: 8px 10px; flex: 1 1 100%; min-width: 0;
   }
   #inspector {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
