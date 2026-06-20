@@ -9,8 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ⚠ ACTIVE TASK — RESUME HERE (NAV RAIL + tools build-out)
 
 **REMINDER TO CLAUDE:** When the session starts, tell the user we are mid-way
-through this multi-step build and that the **next step is STEP 2 (the measure
-tool)**. Wait for their confirmation before writing code — the task is gated:
+through this multi-step build and that the **next step is STEP 3 (faceted asset
+search)**. Wait for their confirmation before writing code — the task is gated:
 STOP at each step for user confirmation.
 
 Multi-step task: extend terra-watch with (A) a centralized icon NAV RAIL of
@@ -30,13 +30,16 @@ Progress:
   (market feed), **Graph** + **Timeline** (reserved placeholders). Inspector
   stays a selection-driven dock (not a tab). Mobile: rail folds into the bottom
   tray. (Also committed separately: `3a9cf2a`, first-fix street zoom z14→z17.)
-- [ ] **STEP 2 — MEASURE tool (NEXT).** New `js/ui/measure.js` + a "Measure"
-  workspace + a measure-mode toggle. In measure mode, click points on the globe
-  to drop vertices, draw great-circle lines, show per-segment + total distance
-  (reuse `haversineKm` from `js/util/distance.js`) and initial bearing; a clear
-  resets. On the Leaflet street view, draw the equivalent geodesic polyline.
-  Must not interfere with orbit/drag when measure mode is off. STOP and test.
-- [ ] **STEP 3 — Faceted ASSET SEARCH.** New `js/data/providers/overpassProvider.js`
+- [x] **STEP 2 — MEASURE tool.** Done. New `js/ui/measure.js` (`initMeasure()`)
+  + a "Measure" workspace (⟟) with START/CLEAR + a per-leg/total readout. In
+  measure mode a globe click drops a vertex (pointerup picker swallows it — no
+  country-news/marker) and draws a geodesic `THREE.Line` + vertex dots under
+  `earth`; per-leg + total distance via `haversineKm` and initial bearing via new
+  `initialBearing` (`js/util/distance.js`); CLEAR resets. The same path is
+  mirrored as a dashed `L.polyline` on the Leaflet street view, built from new
+  pure `greatCirclePoints` (`js/util/geo.js`). Orbit/drag untouched when off
+  (drag-vs-click threshold). Verified statically (`node --check` + id contract).
+- [ ] **STEP 3 — Faceted ASSET SEARCH (NEXT).** New `js/data/providers/overpassProvider.js`
   (OSM Overpass, keyless, bbox query, CORS-verify first, mock fallback) + new
   `js/ui/search.js` + a "Search" workspace (text box + facets with live counts).
   Upsert results as typed ontology entities, drop markers via `addMarkers`,

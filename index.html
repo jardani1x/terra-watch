@@ -156,6 +156,19 @@
       <div class="market-body" id="market-body"></div>
     </section>
 
+    <!-- Measure workspace: great-circle distance + bearing tool (js/ui/measure.js) -->
+    <section class="ws-panel" data-ws="measure" hidden>
+      <div class="panel-head">
+        <span class="ph-title">MEASURE</span>
+        <span class="ph-tag">GREAT-CIRCLE</span>
+      </div>
+      <div class="measure-ctl">
+        <button class="rail-btn" id="measure-toggle" type="button" aria-pressed="false">⟟ START MEASURING</button>
+        <button class="rail-btn" id="measure-clear" type="button">⌫ CLEAR</button>
+      </div>
+      <div class="measure-out" id="measure-out"></div>
+    </section>
+
     <!-- Graph workspace: reserved (link analysis currently rides the LAYERS toggle) -->
     <section class="ws-panel" data-ws="graph" hidden>
       <div class="panel-head">

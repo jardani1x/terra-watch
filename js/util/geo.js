@@ -27,6 +27,32 @@ export function vec3ToLonLat(p) {
   return { lon, lat };
 }
 
+// Sample points along the great circle (geodesic) between two lon/lat points.
+// Pure spherical interpolation (no THREE) so the same path can be projected onto
+// the globe (via lonLatToVec3) AND drawn as a Leaflet polyline on the street map.
+// Returns [{lon,lat}, …] of length segs+1, endpoints included.
+export function greatCirclePoints(lon1, lat1, lon2, lat2, segs = 64) {
+  const d2r = Math.PI / 180, r2d = 180 / Math.PI;
+  const φ1 = lat1 * d2r, λ1 = lon1 * d2r, φ2 = lat2 * d2r, λ2 = lon2 * d2r;
+  // angular distance between the points
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.sin((φ2 - φ1) / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin((λ2 - λ1) / 2) ** 2
+  ));
+  if (d === 0 || !isFinite(d)) return [{ lon: lon1, lat: lat1 }, { lon: lon2, lat: lat2 }];
+  const out = [];
+  for (let i = 0; i <= segs; i++) {
+    const f = i / segs;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+    out.push({ lon: Math.atan2(y, x) * r2d, lat: Math.atan2(z, Math.hypot(x, y)) * r2d });
+  }
+  return out;
+}
+
 export function toDMS(value, [pos, neg]) {
   const hemi = value >= 0 ? pos : neg;
   const abs = Math.abs(value);

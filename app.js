@@ -5,7 +5,7 @@ import * as topojson from 'https://esm.sh/topojson-client@3';
 // --- Terra-Watch dashboard modules (build-free local ESM) ---
 import { load as lsLoad, save as lsSave, clearAll as lsClear } from './js/util/storage.js';
 import { haversineKm, fmtKm } from './js/util/distance.js';
-import { lonLatToVec3, vec3ToLonLat, toDMS, gridZone, cardinal, polysOf, polyContains } from './js/util/geo.js';
+import { lonLatToVec3, vec3ToLonLat, toDMS, gridZone, cardinal, polysOf, polyContains, greatCirclePoints } from './js/util/geo.js';
 import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
 import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
 import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
@@ -17,6 +17,7 @@ import { initInspector } from './js/ui/inspector.js';
 import { initMarketFeed } from './js/ui/marketFeed.js';
 import { initShell } from './js/ui/shell.js';
 import { initNavRail } from './js/ui/navrail.js';
+import { initMeasure } from './js/ui/measure.js';
 import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
@@ -763,6 +764,7 @@ function enterStreet(lon, lat, zoom = STREET_ENTER_ZOOM, follow = false) {
   else smap.setView([lat, lon], zoom, { animate: false });
   // Leaflet must recompute size once the container is actually visible.
   setTimeout(() => smap && smap.invalidateSize(), 50);
+  drawMeasureStreet(measure.vertices());   // mirror any active measurement onto the tiles
   setStatus('STREET-LEVEL VIEW · ' + (follow ? 'TRACKING GNSS' : 'MANUAL PAN'));
   setZoomReadout();
 }
@@ -820,6 +822,66 @@ function countryAt(lon, lat) {
   return null;
 }
 
+// ============================================================
+//  MEASURE TOOL — great-circle distance / bearing overlay
+//  The Measure workspace (js/ui/measure.js) owns the vertex list + readout; here
+//  we own the scene side: a geodesic polyline + vertex dots parented to `earth`,
+//  mirrored as a Leaflet polyline on the street map. In measure mode a globe
+//  click drops a vertex (handled in the pointerup picker below) and is swallowed
+//  so it never triggers the country-news lookup; orbit/drag are untouched.
+// ============================================================
+const measureGroup = new THREE.Group();
+earth.add(measureGroup);
+const measureLineMat = new THREE.LineBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.95 });
+const measureDotMat = new THREE.MeshBasicMaterial({ color: ACCENT });
+const measureDotGeo = new THREE.SphereGeometry(CFG.radius * 0.006, 10, 10);
+let smapMeasureLine = null;   // Leaflet polyline mirror on the street map
+
+// Stitch the geodesic legs into one continuous [{lon,lat}] path.
+function measurePath(verts) {
+  const path = [];
+  for (let i = 1; i < verts.length; i++) {
+    const seg = greatCirclePoints(verts[i - 1].lon, verts[i - 1].lat, verts[i].lon, verts[i].lat, 48);
+    if (i > 1) seg.shift();   // drop the vertex shared with the previous leg
+    path.push(...seg);
+  }
+  return path;
+}
+
+function drawMeasureGlobe(verts) {
+  for (const c of measureGroup.children.slice()) {
+    measureGroup.remove(c);
+    if (c.isLine) c.geometry.dispose();   // dots reuse the shared measureDotGeo
+  }
+  const r = CFG.radius * 1.004;           // float just above the surface
+  if (verts.length >= 2) {
+    const pts = measurePath(verts).map((p) => lonLatToVec3(p.lon, p.lat, r));
+    measureGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), measureLineMat));
+  }
+  for (const v of verts) {
+    const dot = new THREE.Mesh(measureDotGeo, measureDotMat);
+    dot.position.copy(lonLatToVec3(v.lon, v.lat, r));
+    measureGroup.add(dot);
+  }
+}
+
+function drawMeasureStreet(verts) {
+  if (!smap) return;
+  if (smapMeasureLine) { smap.removeLayer(smapMeasureLine); smapMeasureLine = null; }
+  if (verts.length < 2) return;
+  const latlngs = measurePath(verts).map((p) => [p.lat, p.lon]);
+  smapMeasureLine = window.L.polyline(latlngs, { color: '#45e0b0', weight: 2, opacity: 0.9, dashArray: '4 4' }).addTo(smap);
+}
+
+const measure = initMeasure({
+  toggleBtn: $('measure-toggle'), clearBtn: $('measure-clear'), readout: $('measure-out'),
+  onChange: (verts) => { drawMeasureGlobe(verts); if (streetActive) drawMeasureStreet(verts); },
+  onActiveChange: (on) => {
+    document.body.classList.toggle('measuring', on);
+    setStatus(on ? 'MEASURE MODE · CLICK GLOBE TO DROP VERTICES' : 'MEASURE MODE OFF');
+  },
+});
+
 // --- click vs. drag detection on the globe ---
 // markersGroup holds all dashboard layer markers (assigned in the orchestration
 // section); raycasting tests it alongside the globe so a marker click wins over
@@ -835,6 +897,14 @@ canvas.addEventListener('pointerup', (e) => {
   _ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   _ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(_ndc, camera);
+  // Measure mode: a globe click drops a vertex and is swallowed (no country/news
+  // lookup, no marker open). Raycast the globe only so a vertex always lands on
+  // the surface even under a marker. A miss (ocean edge / off-globe) is ignored.
+  if (measure.isActive()) {
+    const ghit = raycaster.intersectObject(globe, true)[0];
+    if (ghit) { const { lon, lat } = vec3ToLonLat(ghit.point); measure.addVertex(lon, lat); }
+    return;
+  }
   const targets = markersGroup ? [globe, markersGroup] : [globe];
   const hit = raycaster.intersectObjects(targets, true)[0];
   if (!hit) return;

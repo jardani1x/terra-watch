@@ -373,6 +373,22 @@ html, body {
 }
 .rail-btn:hover { border-color: var(--accent); }
 .rail-btn.danger { color: var(--danger); border-color: rgba(255,90,82,0.35); }
+.rail-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(69,224,176,0.10); }
+
+/* ---------- Measure tool ---------- */
+.measure-ctl { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.measure-out { display: flex; flex-direction: column; gap: 2px; }
+.ms-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline;
+  font-family: var(--mono); font-size: 10.5px; padding: 3px 2px; }
+.ms-row .ms-leg { color: var(--muted); letter-spacing: 1px; }
+.ms-row .ms-d { color: var(--text); }
+.ms-row .ms-b { color: var(--accent); min-width: 44px; text-align: right; }
+.ms-row.ms-total { border-top: 1px solid var(--line-2); margin-top: 3px; padding-top: 5px; font-weight: 700; }
+.ms-row.ms-total .ms-d { color: var(--accent); }
+.ms-last { font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 4px; }
+/* Crosshair cue while measure mode is armed. */
+body.measuring #scene { cursor: crosshair; }
+body.measuring #sm-canvas { cursor: crosshair; }
 
 /* ---------- Market feed cards ---------- */
 .market-body { overflow-y: auto; }
