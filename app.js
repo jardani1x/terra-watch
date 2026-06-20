@@ -10,6 +10,7 @@ import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
 import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
 import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
 import { createOntology, ENTITY, RELATION, MARKET_CENTERS, isMarketOpen } from './js/ontology/model.js';
+import { createSelection } from './js/core/selection.js';
 import { initLayers, LAYERS } from './js/ui/layers.js';
 import { initCommandPalette } from './js/ui/commandPalette.js';
 import { initInspector } from './js/ui/inspector.js';
@@ -1270,6 +1271,11 @@ window.addEventListener('resize', () => {
   let trail = lsLoad('trail', []);            // [{lon,lat,t}]
   const savePrefs = () => lsSave('prefs', prefs);
 
+  // ---- selection bus: one source of truth for "what is selected", by entity id.
+  //      onPickRelation publishes to it now; the globe/inspector subscriber that
+  //      reacts is added in the next step. ----
+  const selection = createSelection();
+
   // ---- ontology: seed market centers + a hub so the inspector can show links ----
   const onto = createOntology();
   const HUB = onto.upsert({ id: 'net-markets', type: ENTITY.ASSET, label: 'Global Market Network' });
@@ -1278,7 +1284,7 @@ window.addEventListener('resize', () => {
       props: { exch: mc.exch, tz: mc.tz, viewType: 'market-center' } });
     onto.relate(mc.id, HUB.id, RELATION.PART_OF);
   }
-  const relsFor = (id) => onto.neighbors(id).map((n) => ({ type: n.type, label: n.entity.label }));
+  const relsFor = (id) => onto.neighbors(id).map((n) => ({ type: n.type, label: n.entity.label, id: n.entity.id }));
 
   // ---- marker layer groups on the globe ----
   markersGroup = new THREE.Group();
@@ -1332,6 +1338,7 @@ window.addEventListener('resize', () => {
   // ---- inspector ----
   const inspector = initInspector({
     panel: $('inspector'), body: $('insp-body'), closeBtn: $('insp-close'),
+    onPickRelation: (id) => selection.select(id),
   });
 
   // ---- per-type inspector view builders (rebuild an InspectorView from an

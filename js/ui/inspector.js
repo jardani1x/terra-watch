@@ -15,7 +15,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
  * @property {string} title
  * @property {string} [subtitle]
  * @property {{k:string,v:string}[]} [fields]
- * @property {{type:string,label:string}[]} [relations]
+ * @property {{type:string,label:string,id?:string}[]} [relations]
  * @property {{label:string, kind?:string, onClick:()=>void}[]} [actions]
  */
 
@@ -25,8 +25,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
  * @param {HTMLElement} opts.body   the scroll container for content
  * @param {HTMLElement} opts.closeBtn
  * @param {()=>void} [opts.onClose]
+ * @param {(id:string)=>void} [opts.onPickRelation] select a linked entity by id
  */
-export function initInspector({ panel, body, closeBtn, onClose }) {
+export function initInspector({ panel, body, closeBtn, onClose, onPickRelation }) {
   function clear() {
     body.innerHTML =
       `<div class="insp-empty">NO ENTITY SELECTED<br><span>Click a marker or country on the globe,
@@ -51,9 +52,25 @@ export function initInspector({ panel, body, closeBtn, onClose }) {
       ${fields.length ? `<div class="insp-grid">${fields.map((f) =>
         `<div class="insp-k">${esc(f.k)}</div><div class="insp-v">${esc(f.v)}</div>`).join('')}</div>` : ''}
       ${rels.length ? `<div class="insp-sec">LINKED ENTITIES</div>
-        <ul class="insp-rels">${rels.map((r) =>
-          `<li><span class="rel-type">${esc(r.type)}</span><span class="rel-label">${esc(r.label)}</span></li>`).join('')}</ul>` : ''}
+        <ul class="insp-rels">${rels.map((r) => {
+          const clickable = !!(onPickRelation && r.id);
+          return `<li class="rel${clickable ? ' clickable' : ''}"` +
+            (clickable ? ` data-rel-id="${esc(r.id)}" role="button" tabindex="0" style="cursor:pointer"` : '') +
+            `><span class="rel-type">${esc(r.type)}</span><span class="rel-label">${esc(r.label)}</span></li>`;
+        }).join('')}</ul>` : ''}
       <div class="insp-actions"></div>`;
+
+    // Clickable linked entities → select that entity through the injected handler.
+    if (onPickRelation) {
+      body.querySelectorAll('.insp-rels li[data-rel-id]').forEach((li) => {
+        const id = li.getAttribute('data-rel-id');
+        const go = () => onPickRelation(id);
+        li.addEventListener('click', go);
+        li.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+        });
+      });
+    }
 
     const actHost = body.querySelector('.insp-actions');
     for (const a of actions) {
