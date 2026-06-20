@@ -217,6 +217,18 @@
     <div class="insp-body" id="insp-body"></div>
   </aside>
 
+  <!-- ============ LINK-ANALYSIS GRAPH (ontology; toggled via LAYERS) ============ -->
+  <aside class="graph-panel hud" id="graph-panel" hidden>
+    <div class="panel-head">
+      <span class="ph-title">LINK ANALYSIS</span>
+      <span class="graph-head-btns">
+        <button class="graph-btn" id="graph-expand" title="Expand neighbors of the selected entity">⤢ EXPAND</button>
+        <button class="insp-close" id="graph-close" aria-label="Close graph">✕</button>
+      </span>
+    </div>
+    <div class="graph-host" id="graph-host"></div>
+  </aside>
+
   <!-- ============ MOBILE PANEL TRAY (collapse + lightbox host) ============ -->
   <!-- On narrow screens the side docks are relocated into .tray-body by app.js.
        The bar collapses/expands them; the COMPASS/TELEMETRY buttons pop a single

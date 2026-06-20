@@ -16,6 +16,7 @@ import { initCommandPalette } from './js/ui/commandPalette.js';
 import { initInspector } from './js/ui/inspector.js';
 import { initMarketFeed } from './js/ui/marketFeed.js';
 import { initShell } from './js/ui/shell.js';
+import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
 // ============================================================
@@ -1675,6 +1676,7 @@ window.addEventListener('resize', () => {
   // ---- layer toggle dispatch ----
   function onLayerToggle(id, enabled) {
     lsSave('layers', layers.getState());
+    if (id === 'graph') { graph.setVisible(enabled); return; }   // panel, not a marker layer
     if (!enabled) { clearLayer(id); if (id === 'earthquakes') stopQuakeTimer(); return; }
     switch (id) {
       case 'markets': renderMarketCenters(); break;
@@ -1686,6 +1688,13 @@ window.addEventListener('resize', () => {
       case 'weather': refreshWeather(); break;
     }
   }
+
+  // ---- link-analysis graph (toggled via the 'graph' layer; close syncs the rail) ----
+  const graph = initGraph({
+    panel: $('graph-panel'), host: $('graph-host'), expandBtn: $('graph-expand'),
+    onto, selection,
+  });
+  $('graph-close')?.addEventListener('click', () => layers.setOn('graph', false));
 
   const layers = initLayers({ host: $('layer-list'), initial: lsLoad('layers', {}), onToggle: onLayerToggle });
 
@@ -1720,7 +1729,7 @@ window.addEventListener('resize', () => {
       { id: 'addwl', title: 'Add current location to watchlist', group: 'watchlist', run: addWatchFromFix },
       { id: 'cleartrail', title: 'Clear movement trail', hint: trail.length + ' pts', group: 'watchlist', run: clearTrail },
       { id: 'market', title: 'Open market feed', group: 'view', run: openMarketPanel },
-      { id: 'graph', title: 'Open entity graph', hint: 'phase 2', group: 'view', run: () => setStatus('ENTITY GRAPH · COMING IN PHASE 2') },
+      { id: 'graph', title: 'Toggle entity graph', hint: onoff('graph'), group: 'view', run: () => layers.toggle('graph') },
       { id: 'street', title: 'Toggle street level', group: 'map', run: () => $('street-toggle')?.click() },
       { id: 'cleardata', title: 'Clear all local data', hint: 'watchlist+trail', group: 'privacy', run: () => $('clear-data')?.click() },
     ];

@@ -500,4 +500,26 @@ html, body {
 
   /* street map stays full-viewport on mobile; exit pill sits below the top bar */
   .sm-exit { top: auto; bottom: 130px; }
+
+  /* link-analysis graph → near full-width above the tray on mobile */
+  .graph-panel { left: 8px; right: 8px; bottom: 96px; width: auto; height: min(46vh, 320px); transform: none; }
+}
+
+/* ============ LINK-ANALYSIS GRAPH PANEL (Phase 2) ============ */
+.graph-panel {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 52px; z-index: 70;
+  width: min(640px, 60vw); height: min(380px, 50vh);
+  display: flex; flex-direction: column; padding: 10px 12px 12px;
+}
+.graph-panel[hidden] { display: none; }
+.graph-head-btns { display: flex; align-items: center; gap: 10px; }
+.graph-btn {
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px; padding: 2px 7px;
+  border-radius: 3px; cursor: pointer;
+}
+.graph-btn:hover { color: var(--text); border-color: var(--accent); }
+.graph-host {
+  flex: 1; min-height: 0; margin-top: 8px; border: 1px solid var(--line);
+  border-radius: 4px; overflow: hidden; background: rgba(4, 14, 12, 0.55);
 }

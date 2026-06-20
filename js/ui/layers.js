@@ -26,6 +26,7 @@ export const LAYERS = [
   { id: 'geopolitical', label: 'Geo Events',     glyph: '⚑', defaultOn: false, accent: '#c08bff', note: 'mock' },
   { id: 'risk',         label: 'Risk Heat',      glyph: '▲', defaultOn: false, accent: '#ff5a52', note: 'mock' },
   { id: 'trail',        label: 'Movement Trail', glyph: '∿', defaultOn: false, accent: '#45e0b0' },
+  { id: 'graph',        label: 'Link Graph',     glyph: '⬡', defaultOn: false, accent: '#45e0b0', note: 'beta' },
 ];
 
 const byId = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
