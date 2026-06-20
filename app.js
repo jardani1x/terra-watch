@@ -440,13 +440,13 @@ function applyStyle(name) {
   if (arcsGroup) arcsGroup.visible = (name === 'threat');
 
   // button UI
-  document.querySelectorAll('#style-switch .ss-btn').forEach((b) => {
+  document.querySelectorAll('#visual-styles .ss-btn').forEach((b) => {
     b.classList.toggle('active', b.dataset.style === name);
   });
 }
 
 function setupStyleSwitch() {
-  document.querySelectorAll('#style-switch .ss-btn').forEach((b) => {
+  document.querySelectorAll('#visual-styles .ss-btn').forEach((b) => {
     b.addEventListener('click', () => applyStyle(b.dataset.style));
   });
 }

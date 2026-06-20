@@ -20,6 +20,7 @@
 /** @type {WorkspaceDef[]} — order = top-to-bottom in the rail. */
 export const WORKSPACES = [
   { id: 'layers',   glyph: '▤', label: 'Layers'   },
+  { id: 'visual',   glyph: '◑', label: 'Visual'   },
   { id: 'feeds',    glyph: '$', label: 'Feeds'    },
   { id: 'measure',  glyph: '⟟', label: 'Measure'  },
   { id: 'graph',    glyph: '⬡', label: 'Graph'    },

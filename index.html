@@ -147,6 +147,20 @@
       </div>
     </section>
 
+    <!-- Visual workspace: the map-style switcher (moved from the floating panel) -->
+    <section class="ws-panel" data-ws="visual" hidden>
+      <div class="panel-head">
+        <span class="ph-title">VISUAL STYLE</span>
+        <span class="ph-tag">GLOBE</span>
+      </div>
+      <div class="visual-styles" id="visual-styles">
+        <button class="ss-btn" data-style="daynight">DAY/NIGHT</button>
+        <button class="ss-btn" data-style="political">POLITICAL</button>
+        <button class="ss-btn" data-style="radar">RADAR</button>
+        <button class="ss-btn" data-style="threat">THREAT</button>
+      </div>
+    </section>
+
     <!-- Feeds workspace: the live/mock market feed (moved from the old right rail) -->
     <section class="ws-panel" data-ws="feeds" hidden>
       <div class="panel-head">
@@ -296,15 +310,6 @@
       <span class="sb-item">v1.0.0</span>
     </div>
   </footer>
-
-  <!-- ============ STYLE SWITCHER ============ -->
-  <div class="style-switch hud" id="style-switch">
-    <span class="ss-label">VISUAL</span>
-    <button class="ss-btn" data-style="daynight">DAY/NIGHT</button>
-    <button class="ss-btn" data-style="political">POLITICAL</button>
-    <button class="ss-btn" data-style="radar">RADAR</button>
-    <button class="ss-btn" data-style="threat">THREAT</button>
-  </div>
 
   <!-- ============ STREET-LEVEL MAP (keyzoom handoff: globe → tiles) ============ -->
   <!-- Full-viewport slippy map (behind the HUD panels) that takes over once you
