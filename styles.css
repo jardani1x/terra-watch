@@ -385,6 +385,38 @@ html, body {
 body.measuring #scene { cursor: crosshair; }
 body.measuring #sm-canvas { cursor: crosshair; }
 
+/* ---------- Asset search ---------- */
+.search-input {
+  width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 7px 9px;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  background: rgba(0,0,0,0.25); border: 1px solid var(--line-2); border-radius: 2px;
+}
+.search-input:focus { outline: none; border-color: var(--accent); }
+.search-facets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.facet {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.5px; color: var(--muted);
+  background: transparent; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer;
+  transition: color .12s, border-color .12s, opacity .12s;
+}
+.facet.on { color: var(--text); border-color: var(--accent); }
+.facet:not(.on) { opacity: 0.5; }
+.facet.empty { opacity: 0.35; }
+.facet-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.facet-n { color: var(--accent); font-weight: 700; }
+.search-status { font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin: 6px 0; }
+.search-results { display: flex; flex-direction: column; gap: 2px; max-height: 38vh; overflow-y: auto; }
+.sr-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+  width: 100%; text-align: left; padding: 6px 7px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 2px;
+  font-family: var(--hud-font); color: var(--text); font-size: 11px;
+}
+.sr-row:hover { border-color: var(--line-2); background: rgba(255,255,255,0.03); }
+.sr-dot { width: 8px; height: 8px; border-radius: 50%; }
+.sr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-cat { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
+
 /* ---------- Market feed cards ---------- */
 .market-body { overflow-y: auto; }
 .mk-group { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); margin: 9px 0 4px; }

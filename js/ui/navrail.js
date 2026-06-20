@@ -23,6 +23,7 @@ export const WORKSPACES = [
   { id: 'visual',   glyph: '◑', label: 'Visual'   },
   { id: 'feeds',    glyph: '$', label: 'Feeds'    },
   { id: 'measure',  glyph: '⟟', label: 'Measure'  },
+  { id: 'search',   glyph: '⌕', label: 'Search'   },
   { id: 'graph',    glyph: '⬡', label: 'Graph'    },
   { id: 'timeline', glyph: '◷', label: 'Timeline' },
 ];

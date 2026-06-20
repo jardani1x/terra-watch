@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ⚠ ACTIVE TASK — RESUME HERE (NAV RAIL + tools build-out)
 
 **REMINDER TO CLAUDE:** When the session starts, tell the user we are mid-way
-through this multi-step build and that the **next step is STEP 3 (faceted asset
-search)**. Wait for their confirmation before writing code — the task is gated:
-STOP at each step for user confirmation.
+through this multi-step build and that the **next step is STEP 4 (sat/flight/
+vessel tracking — the final step)**. Wait for their confirmation before writing
+code — the task is gated: STOP at each step for user confirmation.
 
 Multi-step task: extend terra-watch with (A) a centralized icon NAV RAIL of
 swappable workspaces, then (B) a measure tool, (C) faceted asset search, and
@@ -39,12 +39,17 @@ Progress:
   mirrored as a dashed `L.polyline` on the Leaflet street view, built from new
   pure `greatCirclePoints` (`js/util/geo.js`). Orbit/drag untouched when off
   (drag-vs-click threshold). Verified statically (`node --check` + id contract).
-- [ ] **STEP 3 — Faceted ASSET SEARCH (NEXT).** New `js/data/providers/overpassProvider.js`
-  (OSM Overpass, keyless, bbox query, CORS-verify first, mock fallback) + new
-  `js/ui/search.js` + a "Search" workspace (text box + facets with live counts).
-  Upsert results as typed ontology entities, drop markers via `addMarkers`,
-  select through the selection bus. STOP and test.
-- [ ] **STEP 4 — TRACKING (sat/flight/vessel).** Add `satellite.js` to the
+- [x] **STEP 3 — Faceted ASSET SEARCH.** Done. New
+  `js/data/providers/overpassProvider.js` (OSM Overpass, keyless, 8 civilian
+  facets, bbox QL, `verifyOverpass()` CORS probe cached, deterministic mock
+  fallback) + new `js/ui/search.js` (`initSearch()`: name box + facet chips with
+  live counts, client-side filter, pushes the visible set back via `onResults`)
+  + a "Search" workspace (⌕). `currentViewBBox()` uses the street-map bounds when
+  zoomed in else a box around the fix/sub-camera point. Results upsert as
+  `ENTITY.ASSET` (`viewType:'asset'` → new `assetView`), markers via
+  `addMarkers('search', …)` in a dedicated group, selection via the bus. Verified
+  statically (`node --check` + id contract).
+- [ ] **STEP 4 — TRACKING (sat/flight/vessel) (NEXT — FINAL).** Add `satellite.js` to the
   import map (verify resolve first). `satelliteProvider` (CelesTrak TLE, SGP4,
   capped sample), `flightProvider` (OpenSky `/states/all` anonymous + bbox +
   polite cadence; optional runtime OAuth2 creds in localStorage; mock on

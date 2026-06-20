@@ -9,6 +9,7 @@ import { lonLatToVec3, vec3ToLonLat, toDMS, gridZone, cardinal, polysOf, polyCon
 import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
 import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
 import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
+import { searchAssets } from './js/data/providers/overpassProvider.js';
 import { createOntology, ENTITY, RELATION, MARKET_CENTERS, isMarketOpen } from './js/ontology/model.js';
 import { createSelection } from './js/core/selection.js';
 import { initLayers, LAYERS } from './js/ui/layers.js';
@@ -18,6 +19,7 @@ import { initMarketFeed } from './js/ui/marketFeed.js';
 import { initShell } from './js/ui/shell.js';
 import { initNavRail } from './js/ui/navrail.js';
 import { initMeasure } from './js/ui/measure.js';
+import { initSearch } from './js/ui/search.js';
 import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
@@ -1368,6 +1370,10 @@ window.addEventListener('resize', () => {
     layerGroups[def.id] = g;
     markersGroup.add(g);
   }
+  // Search results aren't a toggle layer; give them their own marker group so
+  // addMarkers('search', …) + the highlight/pick paths work uniformly.
+  layerGroups.search = new THREE.Group();
+  markersGroup.add(layerGroups.search);
 
   // Cached glow-dot sprite textures, keyed by color.
   const dotTex = new Map();
@@ -1539,6 +1545,23 @@ window.addEventListener('resize', () => {
       fields: [{ k: 'INDEX', v: (p.weight * 100).toFixed(0) }, rangeField(e.lon, e.lat)],
     };
   }
+  function assetView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Asset · ' + (p.facetLabel || 'OSM'), title: e.label, subtitle: p.kind || undefined,
+      fields: [
+        { k: 'CATEGORY', v: p.facetLabel },
+        { k: 'LAT', v: e.lat.toFixed(4) }, { k: 'LON', v: e.lon.toFixed(4) },
+        p.osmId ? { k: 'OSM', v: `${p.osmType}/${p.osmId}` } : null,
+        rangeField(e.lon, e.lat),
+      ],
+      relations: relsFor(e.id),
+      actions: [
+        { label: '＋ Watchlist', onClick: () => addWatch(e.label, e.lon, e.lat) },
+        { label: 'Headlines', onClick: () => openNews(e.label) },
+      ],
+    };
+  }
   function genericView(e) {
     return { type: e.type, title: e.label, relations: relsFor(e.id) };
   }
@@ -1555,6 +1578,7 @@ window.addEventListener('resize', () => {
       case 'weather':       return weatherView(e);
       case 'watchlist':     return watchlistView(e);
       case 'risk':          return riskView(e);
+      case 'asset':         return assetView(e);
       default:              return genericView(e);
     }
   }
@@ -1839,6 +1863,41 @@ window.addEventListener('resize', () => {
   }
   mqMobile.addEventListener('change', placeRails);
   placeRails();
+
+  // ---- faceted asset search (OSM Overpass; mock fallback) ----
+  // bbox of the area currently in view: the street-map bounds when zoomed in,
+  // else a modest box around the GPS fix (or the sub-camera point on the globe).
+  function currentViewBBox(half = 0.18) {
+    if (streetActive && smap) {
+      const b = smap.getBounds();
+      return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+    }
+    const c = lastFix ? { lon: lastFix.lon, lat: lastFix.lat } : vec3ToLonLat(camera.position);
+    const dLon = half / Math.max(0.2, Math.cos(c.lat * Math.PI / 180));
+    return [c.lat - half, c.lon - dLon, c.lat + half, c.lon + dLon];
+  }
+  const search = initSearch({
+    input: $('search-input'), facetHost: $('search-facets'), runBtn: $('search-run'),
+    results: $('search-results'), statusEl: $('search-status'),
+    onRun: async (facetIds) => {
+      search.setBusy(true);
+      setStatus('ASSET SEARCH · QUERYING OVERPASS…');
+      const res = await searchAssets(currentViewBBox(), facetIds);
+      search.setResults(res.data, { mock: res.mock, source: res.source });
+      setStatus(`ASSET SEARCH · ${res.data.length} HITS · ${res.mock ? 'MOCK' : 'OSM'}`);
+    },
+    // Visible set changed → upsert as Asset entities + redraw the search markers.
+    onResults: (items) => {
+      addMarkers('search', items.map((it) => {
+        const id = 'as-' + it.id;
+        onto.upsert({ id, type: ENTITY.ASSET, label: it.label, lon: it.lon, lat: it.lat,
+          props: { viewType: 'asset', facet: it.facet, facetLabel: it.facetLabel,
+            kind: it.kind, osmType: it.osmType, osmId: it.osmId } });
+        return { lon: it.lon, lat: it.lat, color: it.color, size: 0.035, id };
+      }));
+    },
+    onSelect: (id) => selection.select('as-' + id),
+  });
 
   // ---- kick off ----
   market.setLoading();

@@ -183,6 +183,20 @@
       <div class="measure-out" id="measure-out"></div>
     </section>
 
+    <!-- Search workspace: faceted civilian-asset search over OSM (js/ui/search.js) -->
+    <section class="ws-panel" data-ws="search" hidden>
+      <div class="panel-head">
+        <span class="ph-title">ASSET SEARCH</span>
+        <span class="ph-tag">OSM · CIVILIAN</span>
+      </div>
+      <input id="search-input" class="search-input" type="text" autocomplete="off"
+             spellcheck="false" placeholder="Filter results by name…" aria-label="Filter assets by name" />
+      <div class="search-facets" id="search-facets"></div>
+      <button class="rail-btn" id="search-run" type="button">⌕ SEARCH THIS VIEW</button>
+      <p class="search-status" id="search-status"></p>
+      <div class="search-results" id="search-results"></div>
+    </section>
+
     <!-- Graph workspace: reserved (link analysis currently rides the LAYERS toggle) -->
     <section class="ws-panel" data-ws="graph" hidden>
       <div class="panel-head">
