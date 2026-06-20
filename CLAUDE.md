@@ -2,6 +2,57 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+<!-- ============================================================ -->
+<!-- ⚠ ACTIVE TASK — READ FIRST -->
+<!-- ============================================================ -->
+
+## ⚠ ACTIVE TASK — RESUME HERE (NAV RAIL + tools build-out)
+
+**REMINDER TO CLAUDE:** When the session starts, tell the user we are mid-way
+through this multi-step build and that the **next step is STEP 2 (the measure
+tool)**. Wait for their confirmation before writing code — the task is gated:
+STOP at each step for user confirmation.
+
+Multi-step task: extend terra-watch with (A) a centralized icon NAV RAIL of
+swappable workspaces, then (B) a measure tool, (C) faceted asset search, and
+(D) satellite/flight/vessel tracking. Civilian situational-awareness only —
+**no targeting / fire-control / tasking / strike planning**, ever. Static, no
+build step, no backend, no npm; libs via the import map; never commit secrets
+(runtime + localStorage only); real→mock fallback with honest STALE/MOCK badges;
+new logic in new `js/` modules with `init*()`; keep `--accent`/`ACCENT` in sync.
+
+Progress:
+
+- [x] **STEP 0** — Read & report current layout regions. Done.
+- [x] **STEP 1** — NAV RAIL refactor. Done & committed (`71f96b9`). The two
+  fixed sidebars are replaced by `js/ui/navrail.js` + one swappable `#workspace`
+  with `<section data-ws>` panels: **Layers** (toggles + privacy), **Feeds**
+  (market feed), **Graph** + **Timeline** (reserved placeholders). Inspector
+  stays a selection-driven dock (not a tab). Mobile: rail folds into the bottom
+  tray. (Also committed separately: `3a9cf2a`, first-fix street zoom z14→z17.)
+- [ ] **STEP 2 — MEASURE tool (NEXT).** New `js/ui/measure.js` + a "Measure"
+  workspace + a measure-mode toggle. In measure mode, click points on the globe
+  to drop vertices, draw great-circle lines, show per-segment + total distance
+  (reuse `haversineKm` from `js/util/distance.js`) and initial bearing; a clear
+  resets. On the Leaflet street view, draw the equivalent geodesic polyline.
+  Must not interfere with orbit/drag when measure mode is off. STOP and test.
+- [ ] **STEP 3 — Faceted ASSET SEARCH.** New `js/data/providers/overpassProvider.js`
+  (OSM Overpass, keyless, bbox query, CORS-verify first, mock fallback) + new
+  `js/ui/search.js` + a "Search" workspace (text box + facets with live counts).
+  Upsert results as typed ontology entities, drop markers via `addMarkers`,
+  select through the selection bus. STOP and test.
+- [ ] **STEP 4 — TRACKING (sat/flight/vessel).** Add `satellite.js` to the
+  import map (verify resolve first). `satelliteProvider` (CelesTrak TLE, SGP4,
+  capped sample), `flightProvider` (OpenSky `/states/all` anonymous + bbox +
+  polite cadence; optional runtime OAuth2 creds in localStorage; mock on
+  rate-limit), `vesselProvider` (mock unless runtime AIS key). Register all three
+  in the LAYERS registry + a "Tracking" workspace. STOP and test.
+
+After every step: working, committed, deployable to GitHub Pages as-is; tell the
+user what to click to verify; never break the globe/GPS, the no-build deploy, or
+`.nojekyll`. Verification note: this sandbox has no browser, so steps are
+verified statically (`node --check`, id/contract checks) — visual QA is the user's.
+
 ## What this is
 
 **TERRA-WATCH** — a single-page, static 3D Earth command-center website with a
