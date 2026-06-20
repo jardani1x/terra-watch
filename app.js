@@ -661,7 +661,7 @@ $('goto-loc')?.addEventListener('click', () => {
   // In street mode, recenter the tile map on the fix and resume tracking.
   if (streetActive) {
     streetFollow = true;
-    smap.setView([lastFix.lat, lastFix.lon], Math.max(smap.getZoom(), 16), { animate: true });
+    smap.setView([lastFix.lat, lastFix.lon], Math.max(smap.getZoom(), STREET_ENTER_ZOOM), { animate: true });
     $('goto-loc').classList.add('active');
     return;
   }
@@ -693,6 +693,7 @@ const KEYZOOM = 10;                                // globe → tiles handoff le
 // cap native requests there and upscale to the display cap — blurry, never blank.
 const SAT_NATIVE_MAX = 17;                         // globally-guaranteed Esri imagery level
 const STREET_MAX = 19;                             // display zoom cap (upscales z17 tiles ≤4×)
+const STREET_ENTER_ZOOM = 14;                      // zoom we hand off into (neighborhood, not rooftop)
 const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
 const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
 const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
@@ -746,7 +747,7 @@ function buildStreetMap(lon, lat, zoom) {
 }
 
 // Hand off from the globe to the street map (lazily building it the first time).
-function enterStreet(lon, lat, zoom = 16, follow = false) {
+function enterStreet(lon, lat, zoom = STREET_ENTER_ZOOM, follow = false) {
   if (!window.L || streetActive) return;
   streetActive = true;
   streetFollow = follow;
@@ -795,8 +796,8 @@ function syncStreet(lon, lat, accuracy) {
 // Street-map controls: the toggle enters/exits; the on-map button exits.
 $('street-toggle')?.addEventListener('click', () => {
   if (streetActive) { exitStreet(); return; }
-  if (lastFix) enterStreet(lastFix.lon, lastFix.lat, 16, true);
-  else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, 13, false); }
+  if (lastFix) enterStreet(lastFix.lon, lastFix.lat, STREET_ENTER_ZOOM, true);
+  else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, STREET_ENTER_ZOOM, false); }
 });
 $('sm-exit')?.addEventListener('click', exitStreet);
 
@@ -954,7 +955,7 @@ function onPosition(lon, lat, alt, extra = {}, sim = false) {
     // Default to street-level on the first fix so you can watch live where you're
     // going. A real GNSS fix enters TRACKING; the simulated fallback enters in
     // MANUAL PAN (follow=false) so it doesn't falsely claim a live track.
-    if (window.L) enterStreet(lon, lat, 16, !sim);
+    if (window.L) enterStreet(lon, lat, STREET_ENTER_ZOOM, !sim);
   } else if (following) steerTo(lon, lat);   // track mode: keep it centred, hold zoom
   syncStreet(lon, lat, extra.accuracy);     // keep the street map on the device
 
@@ -1165,8 +1166,8 @@ function animate(now) {
   // street-level tile map — centered on the fix while tracking, else on the
   // point currently centered in view.
   if (performance.now() > exitCooldown && camera.position.length() <= ENTER_DIST) {
-    if (following && lastFix) enterStreet(lastFix.lon, lastFix.lat, 16, true);
-    else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, 16, false); }
+    if (following && lastFix) enterStreet(lastFix.lon, lastFix.lat, STREET_ENTER_ZOOM, true);
+    else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, STREET_ENTER_ZOOM, false); }
     return;
   }
 
