@@ -1274,7 +1274,8 @@ window.addEventListener('resize', () => {
   const onto = createOntology();
   const HUB = onto.upsert({ id: 'net-markets', type: ENTITY.ASSET, label: 'Global Market Network' });
   for (const mc of MARKET_CENTERS) {
-    onto.upsert({ id: mc.id, type: ENTITY.LOCATION, label: mc.name, lon: mc.lon, lat: mc.lat, props: { exch: mc.exch } });
+    onto.upsert({ id: mc.id, type: ENTITY.LOCATION, label: mc.name, lon: mc.lon, lat: mc.lat,
+      props: { exch: mc.exch, tz: mc.tz, viewType: 'market-center' } });
     onto.relate(mc.id, HUB.id, RELATION.PART_OF);
   }
   const relsFor = (id) => onto.neighbors(id).map((n) => ({ type: n.type, label: n.entity.label }));
@@ -1333,17 +1334,128 @@ window.addEventListener('resize', () => {
     panel: $('inspector'), body: $('insp-body'), closeBtn: $('insp-close'),
   });
 
-  function selectInstrument(q) {
-    inspector.show({
-      type: 'MarketInstrument', title: q.label, subtitle: `${q.symbol} · ${q.kind.toUpperCase()}`,
+  // ---- per-type inspector view builders (rebuild an InspectorView from an
+  //      ontology entity) + viewFor() dispatcher. Every inspectable thing is
+  //      upserted with a props.viewType tag before it is shown; viewFor(id) maps
+  //      that tag to the matching builder. This is the single place the inspector
+  //      card is constructed, shared by markers, the market feed, and (later) the
+  //      selection bus + graph. ----
+  function marketCenterView(e) {
+    const p = e.props || {};
+    const open = isMarketOpen(p.tz);
+    return {
+      type: 'Location · Market Center', title: e.label, subtitle: p.exch,
       fields: [
-        { k: 'PRICE', v: fmtPrice(q.value) },
-        { k: 'CHANGE', v: fmtPct(q.change) },
-        { k: 'SOURCE', v: q.source },
-        { k: 'STATUS', v: q.stale ? 'STALE' : 'FRESH' },
+        { k: 'EXCHANGE', v: p.exch },
+        { k: 'SESSION', v: open == null ? '—' : open ? 'OPEN' : 'CLOSED' },
+        { k: 'TZ', v: p.tz },
+        { k: 'LAT', v: e.lat.toFixed(3) }, { k: 'LON', v: e.lon.toFixed(3) },
+        rangeField(e.lon, e.lat),
       ],
-      relations: relsFor('mi-' + q.symbol),
-    });
+      relations: relsFor(e.id),
+      actions: [
+        { label: '＋ Watchlist', onClick: () => addWatch(e.label, e.lon, e.lat) },
+        { label: 'Headlines', onClick: () => openNews(e.label) },
+      ],
+    };
+  }
+  function instrumentView(e) {
+    const p = e.props || {};
+    return {
+      type: 'MarketInstrument', title: e.label, subtitle: `${p.symbol} · ${p.kind.toUpperCase()}`,
+      fields: [
+        { k: 'PRICE', v: fmtPrice(p.value) },
+        { k: 'CHANGE', v: fmtPct(p.change) },
+        { k: 'SOURCE', v: p.source },
+        { k: 'STATUS', v: p.stale ? 'STALE' : 'FRESH' },
+      ],
+      relations: relsFor(e.id),
+    };
+  }
+  function quakeView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Event · Seismic', title: `M ${p.mag.toFixed(1)}`, subtitle: p.place,
+      fields: [
+        { k: 'MAGNITUDE', v: p.mag.toFixed(1) }, { k: 'DEPTH', v: p.depthKm.toFixed(0) + ' km' },
+        { k: 'WHEN', v: new Date(p.ts).toUTCString().slice(5, 22) + 'Z' },
+        { k: 'SOURCE', v: p.source }, rangeField(e.lon, e.lat),
+      ],
+      relations: relsFor(e.id),
+      actions: [{ label: 'Headlines', onClick: () => openNews(p.place.replace(/^\d+\s*km.*?of\s*/i, '')) }],
+    };
+  }
+  function geoView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Event · Geopolitical (mock)', title: e.label, subtitle: p.category,
+      fields: [{ k: 'INTENSITY', v: (p.weight * 100).toFixed(0) + '%' }, rangeField(e.lon, e.lat)],
+      relations: [],
+      actions: [{ label: 'Headlines', onClick: () => openNews(e.label) }],
+    };
+  }
+  function weatherView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Observation · Weather', title: e.label, subtitle: p.summary,
+      fields: [
+        { k: 'TEMP', v: p.tempC != null ? p.tempC.toFixed(1) + ' °C' : '—' },
+        { k: 'WIND', v: p.windKmh != null ? p.windKmh.toFixed(0) + ' km/h' : '—' },
+        { k: 'SOURCE', v: p.source },
+      ],
+      relations: relsFor(e.id),
+    };
+  }
+  function watchlistView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Location · Watchlist', title: e.label,
+      fields: [
+        { k: 'LAT', v: e.lat.toFixed(4) }, { k: 'LON', v: e.lon.toFixed(4) },
+        { k: 'ADDED', v: new Date(p.addedAt).toLocaleString() }, rangeField(e.lon, e.lat),
+      ],
+      actions: [{ label: '✕ Remove', kind: 'danger', onClick: () => removeWatch(e.id) }],
+    };
+  }
+  function riskView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Risk Zone (mock)', title: e.label,
+      fields: [{ k: 'INDEX', v: (p.weight * 100).toFixed(0) }, rangeField(e.lon, e.lat)],
+    };
+  }
+  function genericView(e) {
+    return { type: e.type, title: e.label, relations: relsFor(e.id) };
+  }
+
+  /** Rebuild the InspectorView for an entity id from the ontology. */
+  function viewFor(id) {
+    const e = onto.get(id);
+    if (!e) return null;
+    switch (e.props && e.props.viewType) {
+      case 'market-center': return marketCenterView(e);
+      case 'instrument':    return instrumentView(e);
+      case 'quake':         return quakeView(e);
+      case 'geo':           return geoView(e);
+      case 'weather':       return weatherView(e);
+      case 'watchlist':     return watchlistView(e);
+      case 'risk':          return riskView(e);
+      default:              return genericView(e);
+    }
+  }
+
+  // Stamp the latest quote onto its instrument entity (kept fresh on every market
+  // refresh and right before a feed-card selection so the view matches the quote).
+  function upsertInstrument(q) {
+    onto.upsert({ id: 'mi-' + q.symbol, type: ENTITY.MARKET_INSTRUMENT, label: q.label,
+      props: { viewType: 'instrument', symbol: q.symbol, kind: q.kind,
+        value: q.value, change: q.change, source: q.source, stale: q.stale } });
+    onto.relate('mi-' + q.symbol, HUB.id, RELATION.RELATED_TO);
+  }
+
+  function selectInstrument(q) {
+    upsertInstrument(q);
+    inspector.show(viewFor('mi-' + q.symbol));
   }
 
   // ---- market feed (always on, independent of map layers) ----
@@ -1353,10 +1465,7 @@ window.addEventListener('resize', () => {
   let marketMock = false;
 
   function updateOntologyInstruments(quotes) {
-    for (const q of quotes) {
-      onto.upsert({ id: 'mi-' + q.symbol, type: ENTITY.MARKET_INSTRUMENT, label: q.label, props: { kind: q.kind } });
-      onto.relate('mi-' + q.symbol, HUB.id, RELATION.RELATED_TO);
-    }
+    for (const q of quotes) upsertInstrument(q);
   }
   function updateTicker(quotes) {
     const pick = ['BTC', 'ETH', 'EURUSD', 'SPX', 'XAU'];
@@ -1376,27 +1485,10 @@ window.addEventListener('resize', () => {
 
   // ---- layer renderers ----
   function renderMarketCenters() {
-    addMarkers('markets', MARKET_CENTERS.map((mc) => {
-      const open = isMarketOpen(mc.tz);
-      return {
-        lon: mc.lon, lat: mc.lat, color: '#45e0b0', size: 0.052,
-        view: {
-          type: 'Location · Market Center', title: mc.name, subtitle: mc.exch,
-          fields: [
-            { k: 'EXCHANGE', v: mc.exch },
-            { k: 'SESSION', v: open == null ? '—' : open ? 'OPEN' : 'CLOSED' },
-            { k: 'TZ', v: mc.tz },
-            { k: 'LAT', v: mc.lat.toFixed(3) }, { k: 'LON', v: mc.lon.toFixed(3) },
-            rangeField(mc.lon, mc.lat),
-          ],
-          relations: relsFor(mc.id),
-          actions: [
-            { label: '＋ Watchlist', onClick: () => addWatch(mc.name, mc.lon, mc.lat) },
-            { label: 'Headlines', onClick: () => openNews(mc.name) },
-          ],
-        },
-      };
-    }));
+    addMarkers('markets', MARKET_CENTERS.map((mc) => ({
+      lon: mc.lon, lat: mc.lat, color: '#45e0b0', size: 0.052,
+      id: mc.id, view: viewFor(mc.id),
+    })));
   }
 
   let lastQuakes = [];
@@ -1405,19 +1497,16 @@ window.addEventListener('resize', () => {
     const res = await getQuakes();
     lastQuakes = res.data;
     onto.upsert({ id: 'src-usgs', type: ENTITY.FEED_SOURCE, label: res.mock ? 'Mock Seismic' : 'USGS' });
+    for (const q of lastQuakes) {
+      onto.upsert({ id: 'eq-' + q.id, type: ENTITY.EVENT, label: `M ${q.mag.toFixed(1)} · ${q.place}`,
+        lon: q.lon, lat: q.lat,
+        props: { viewType: 'quake', mag: q.mag, place: q.place, depthKm: q.depthKm, ts: q.ts, source: q.source } });
+      onto.relate('eq-' + q.id, 'src-usgs', RELATION.OBSERVED_FROM);
+    }
     if (layers.isOn('earthquakes')) {
       addMarkers('earthquakes', lastQuakes.map((q) => ({
         lon: q.lon, lat: q.lat, color: '#ff8a5a', size: 0.03 + Math.min(0.06, q.mag * 0.009),
-        view: {
-          type: 'Event · Seismic', title: `M ${q.mag.toFixed(1)}`, subtitle: q.place,
-          fields: [
-            { k: 'MAGNITUDE', v: q.mag.toFixed(1) }, { k: 'DEPTH', v: q.depthKm.toFixed(0) + ' km' },
-            { k: 'WHEN', v: new Date(q.ts).toUTCString().slice(5, 22) + 'Z' },
-            { k: 'SOURCE', v: q.source }, rangeField(q.lon, q.lat),
-          ],
-          relations: [{ type: RELATION.OBSERVED_FROM, label: res.mock ? 'Mock Seismic' : 'USGS' }],
-          actions: [{ label: 'Headlines', onClick: () => openNews(q.place.replace(/^\d+\s*km.*?of\s*/i, '')) }],
-        },
+        id: 'eq-' + q.id, view: viewFor('eq-' + q.id),
       })));
     }
     checkNearMe();
@@ -1433,57 +1522,43 @@ window.addEventListener('resize', () => {
       const r = await getWeather(p.lon, p.lat); return { p, w: r.data[0] };
     }));
     if (!layers.isOn('weather')) return;
-    addMarkers('weather', results.map(({ p, w }) => ({
-      lon: p.lon, lat: p.lat, color: '#7ec8ff', size: 0.04,
-      view: {
-        type: 'Observation · Weather', title: p.name,
-        subtitle: w.summary,
-        fields: [
-          { k: 'TEMP', v: w.tempC != null ? w.tempC.toFixed(1) + ' °C' : '—' },
-          { k: 'WIND', v: w.windKmh != null ? w.windKmh.toFixed(0) + ' km/h' : '—' },
-          { k: 'SOURCE', v: w.source },
-        ],
-        relations: [{ type: RELATION.OBSERVED_FROM, label: w.source }],
-      },
-    })));
+    addMarkers('weather', results.map(({ p, w }) => {
+      const id = 'wx-' + p.id;
+      const srcId = 'src-' + String(w.source).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      onto.upsert({ id: srcId, type: ENTITY.FEED_SOURCE, label: w.source });
+      onto.upsert({ id, type: ENTITY.OBSERVATION, label: p.name, lon: p.lon, lat: p.lat,
+        props: { viewType: 'weather', summary: w.summary, tempC: w.tempC, windKmh: w.windKmh, source: w.source } });
+      onto.relate(id, srcId, RELATION.OBSERVED_FROM);
+      return { lon: p.lon, lat: p.lat, color: '#7ec8ff', size: 0.04, id, view: viewFor(id) };
+    }));
   }
 
   function renderGeo() {
-    addMarkers('geopolitical', mockGeopolitical().map((e) => ({
-      lon: e.lon, lat: e.lat, color: '#c08bff', size: 0.04,
-      view: {
-        type: 'Event · Geopolitical (mock)', title: e.label, subtitle: e.meta.category,
-        fields: [{ k: 'INTENSITY', v: (e.weight * 100).toFixed(0) + '%' }, rangeField(e.lon, e.lat)],
-        relations: [],
-        actions: [{ label: 'Headlines', onClick: () => openNews(e.label) }],
-      },
-    })));
+    addMarkers('geopolitical', mockGeopolitical().map((e) => {
+      const id = 'geo-' + e.id;
+      onto.upsert({ id, type: ENTITY.EVENT, label: e.label, lon: e.lon, lat: e.lat,
+        props: { viewType: 'geo', category: e.meta.category, weight: e.weight } });
+      return { lon: e.lon, lat: e.lat, color: '#c08bff', size: 0.04, id, view: viewFor(id) };
+    }));
   }
   function renderRisk() {
-    addMarkers('risk', mockRisk().map((r) => ({
-      lon: r.lon, lat: r.lat, color: '#ff5a52', size: 0.045 + r.weight * 0.04,
-      view: {
-        type: 'Risk Zone (mock)', title: r.label,
-        fields: [{ k: 'INDEX', v: (r.weight * 100).toFixed(0) }, rangeField(r.lon, r.lat)],
-      },
-    })));
+    addMarkers('risk', mockRisk().map((r) => {
+      const id = 'risk-' + r.id;
+      onto.upsert({ id, type: ENTITY.ALERT, label: r.label, lon: r.lon, lat: r.lat,
+        props: { viewType: 'risk', weight: r.weight } });
+      return { lon: r.lon, lat: r.lat, color: '#ff5a52', size: 0.045 + r.weight * 0.04, id, view: viewFor(id) };
+    }));
   }
 
   // ---- watchlist ----
   function saveWatch() { lsSave('watchlist', watchlist); }
   function renderWatchlist() {
     if (!layers.isOn('watchlist')) { clearLayer('watchlist'); return; }
-    addMarkers('watchlist', watchlist.map((w) => ({
-      lon: w.lon, lat: w.lat, color: '#ffd166', size: 0.05,
-      view: {
-        type: 'Location · Watchlist', title: w.name,
-        fields: [
-          { k: 'LAT', v: w.lat.toFixed(4) }, { k: 'LON', v: w.lon.toFixed(4) },
-          { k: 'ADDED', v: new Date(w.addedAt).toLocaleString() }, rangeField(w.lon, w.lat),
-        ],
-        actions: [{ label: '✕ Remove', kind: 'danger', onClick: () => removeWatch(w.id) }],
-      },
-    })));
+    addMarkers('watchlist', watchlist.map((w) => {
+      onto.upsert({ id: w.id, type: ENTITY.LOCATION, label: w.name, lon: w.lon, lat: w.lat,
+        props: { viewType: 'watchlist', addedAt: w.addedAt } });
+      return { lon: w.lon, lat: w.lat, color: '#ffd166', size: 0.05, id: w.id, view: viewFor(w.id) };
+    }));
   }
   function addWatch(name, lon, lat) {
     const id = 'wl_' + Date.now().toString(36);
