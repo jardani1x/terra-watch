@@ -1327,7 +1327,9 @@ window.addEventListener('resize', () => {
     for (const it of items) {
       const sp = makeDot(it.color, it.size);
       sp.position.copy(lonLatToVec3(it.lon, it.lat, 1.03));
-      sp.userData.pick = () => inspector.show(it.view);
+      sp.userData.id = it.id;
+      sp.userData.baseScale = sp.scale.clone();
+      sp.userData.pick = () => selection.select(it.id);
       g.add(sp);
     }
   }
@@ -1339,6 +1341,40 @@ window.addEventListener('resize', () => {
   const inspector = initInspector({
     panel: $('inspector'), body: $('insp-body'), closeBtn: $('insp-close'),
     onPickRelation: (id) => selection.select(id),
+    onClose: () => selection.clear(),
+  });
+
+  // ---- the single selection sink: everything that selects publishes an entity
+  //      id to the bus; this subscriber is the one place that reacts — it rebuilds
+  //      the inspector card via viewFor() and, for anything with a position,
+  //      focuses the globe on it and highlights its marker. ----
+  let highlightedSprite = null;
+  function highlightEntity(id) {
+    if (highlightedSprite && highlightedSprite.userData.baseScale) {
+      highlightedSprite.scale.copy(highlightedSprite.userData.baseScale);
+    }
+    highlightedSprite = null;
+    for (const gid in layerGroups) {
+      for (const sp of layerGroups[gid].children) {
+        if (sp.userData && sp.userData.id === id && sp.userData.baseScale) {
+          highlightedSprite = sp;
+          sp.scale.set(sp.userData.baseScale.x * 1.7, sp.userData.baseScale.y * 1.7, 1);
+          return;
+        }
+      }
+    }
+  }
+  selection.subscribe((id) => {
+    const v = id == null ? null : viewFor(id);
+    if (!v) { inspector.hide(); highlightEntity(null); return; }
+    inspector.show(v);
+    const e = onto.get(id);
+    if (e && e.lon != null && e.lat != null) {
+      steerTo(e.lon, e.lat);
+      highlightEntity(id);
+    } else {
+      highlightEntity(null);
+    }
   });
 
   // ---- per-type inspector view builders (rebuild an InspectorView from an
@@ -1462,7 +1498,7 @@ window.addEventListener('resize', () => {
 
   function selectInstrument(q) {
     upsertInstrument(q);
-    inspector.show(viewFor('mi-' + q.symbol));
+    selection.select('mi-' + q.symbol);
   }
 
   // ---- market feed (always on, independent of map layers) ----
@@ -1494,7 +1530,7 @@ window.addEventListener('resize', () => {
   function renderMarketCenters() {
     addMarkers('markets', MARKET_CENTERS.map((mc) => ({
       lon: mc.lon, lat: mc.lat, color: '#45e0b0', size: 0.052,
-      id: mc.id, view: viewFor(mc.id),
+      id: mc.id,
     })));
   }
 
@@ -1513,7 +1549,7 @@ window.addEventListener('resize', () => {
     if (layers.isOn('earthquakes')) {
       addMarkers('earthquakes', lastQuakes.map((q) => ({
         lon: q.lon, lat: q.lat, color: '#ff8a5a', size: 0.03 + Math.min(0.06, q.mag * 0.009),
-        id: 'eq-' + q.id, view: viewFor('eq-' + q.id),
+        id: 'eq-' + q.id,
       })));
     }
     checkNearMe();
@@ -1536,7 +1572,7 @@ window.addEventListener('resize', () => {
       onto.upsert({ id, type: ENTITY.OBSERVATION, label: p.name, lon: p.lon, lat: p.lat,
         props: { viewType: 'weather', summary: w.summary, tempC: w.tempC, windKmh: w.windKmh, source: w.source } });
       onto.relate(id, srcId, RELATION.OBSERVED_FROM);
-      return { lon: p.lon, lat: p.lat, color: '#7ec8ff', size: 0.04, id, view: viewFor(id) };
+      return { lon: p.lon, lat: p.lat, color: '#7ec8ff', size: 0.04, id };
     }));
   }
 
@@ -1545,7 +1581,7 @@ window.addEventListener('resize', () => {
       const id = 'geo-' + e.id;
       onto.upsert({ id, type: ENTITY.EVENT, label: e.label, lon: e.lon, lat: e.lat,
         props: { viewType: 'geo', category: e.meta.category, weight: e.weight } });
-      return { lon: e.lon, lat: e.lat, color: '#c08bff', size: 0.04, id, view: viewFor(id) };
+      return { lon: e.lon, lat: e.lat, color: '#c08bff', size: 0.04, id };
     }));
   }
   function renderRisk() {
@@ -1553,7 +1589,7 @@ window.addEventListener('resize', () => {
       const id = 'risk-' + r.id;
       onto.upsert({ id, type: ENTITY.ALERT, label: r.label, lon: r.lon, lat: r.lat,
         props: { viewType: 'risk', weight: r.weight } });
-      return { lon: r.lon, lat: r.lat, color: '#ff5a52', size: 0.045 + r.weight * 0.04, id, view: viewFor(id) };
+      return { lon: r.lon, lat: r.lat, color: '#ff5a52', size: 0.045 + r.weight * 0.04, id };
     }));
   }
 
@@ -1564,7 +1600,7 @@ window.addEventListener('resize', () => {
     addMarkers('watchlist', watchlist.map((w) => {
       onto.upsert({ id: w.id, type: ENTITY.LOCATION, label: w.name, lon: w.lon, lat: w.lat,
         props: { viewType: 'watchlist', addedAt: w.addedAt } });
-      return { lon: w.lon, lat: w.lat, color: '#ffd166', size: 0.05, id: w.id, view: viewFor(w.id) };
+      return { lon: w.lon, lat: w.lat, color: '#ffd166', size: 0.05, id: w.id };
     }));
   }
   function addWatch(name, lon, lat) {
@@ -1580,7 +1616,7 @@ window.addEventListener('resize', () => {
   }
   function removeWatch(id) {
     watchlist = watchlist.filter((w) => w.id !== id);
-    saveWatch(); renderWatchlist(); inspector.hide();
+    saveWatch(); renderWatchlist(); selection.clear();
     setStatus('WATCHLIST POINT REMOVED');
   }
 

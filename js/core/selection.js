@@ -43,6 +43,9 @@ export function createSelection() {
     select,
     current: () => currentId,
     subscribe,
-    clear: () => select(null),
+    // Clearing when already clear is a no-op, so a subscriber that hides UI on
+    // null (which may re-enter clear) can't loop. Re-selecting a non-null id
+    // still re-notifies (so re-clicking a marker re-focuses).
+    clear: () => { if (currentId !== null) select(null); },
   };
 }
