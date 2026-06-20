@@ -695,7 +695,7 @@ const KEYZOOM = 10;                                // globe → tiles handoff le
 // cap native requests there and upscale to the display cap — blurry, never blank.
 const SAT_NATIVE_MAX = 17;                         // globally-guaranteed Esri imagery level
 const STREET_MAX = 19;                             // display zoom cap (upscales z17 tiles ≤4×)
-const STREET_ENTER_ZOOM = 14;                      // zoom we hand off into (neighborhood, not rooftop)
+const STREET_ENTER_ZOOM = 17;                      // zoom we hand off into (street level, native imagery max)
 const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
 const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
 const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
