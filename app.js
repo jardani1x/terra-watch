@@ -705,7 +705,13 @@ controls.addEventListener('start', () => {
 //  "BACK TO GLOBE" button) returns to the globe. Leaflet is loaded as a classic
 //  script in index.html (global `L`); the map is built lazily on first handoff.
 // ============================================================
-const KEYZOOM = 10;                                // globe → tiles handoff level (globe owns Z02–Z10)
+// KEYZOOM is the single knob for where the globe hands off to satellite tiles.
+// Tune it to where tiles start beating the globe; below ~8 the tiles are too
+// coarse, so don't drop it that far. The globe owns Z01..KEYZOOM-1; the street
+// map enters AT KEYZOOM (not a jump to street level) and continues to STREET_MAX,
+// so a world→street scroll feels continuous. Lowering KEYZOOM lets you pull the
+// tiles further out before the view snaps back to the globe.
+const KEYZOOM = 9;                                 // globe → tiles handoff (globe owns Z01–Z08, street Z09–Z19)
 // Esri World Imagery's deepest real tile varies by region: z19 in well-mapped
 // metros but only ~z17 in remote areas (rural/desert/ocean). Past a region's
 // native level Esri returns a "Map data not available" placeholder (a 200, so
@@ -714,8 +720,8 @@ const KEYZOOM = 10;                                // globe → tiles handoff le
 const SAT_NATIVE_MAX = 17;                         // globally-guaranteed Esri imagery level
 const STREET_MAX = 19;                             // display zoom cap (upscales z17 tiles ≤4×)
 const STREET_ENTER_ZOOM = 17;                      // zoom we hand off into (street level, native imagery max)
-const GLOBE_ZOOM_MIN = 2;                          // globe pulled fully out (≈ world)
-const GLOBE_ZOOM_MAX = KEYZOOM;                    // globe zoomed fully in (= keyzoom)
+const GLOBE_ZOOM_MIN = 1;                          // globe pulled fully out (≈ world)
+const GLOBE_ZOOM_MAX = KEYZOOM - 1;               // globe zoomed fully in (one notch below the handoff); street takes KEYZOOM+
 const ENTER_DIST = controls.minDistance + 0.06;    // hand off to street at/under this camera range
 const EXIT_DIST  = controls.minDistance + 0.55;    // camera range restored when returning to the globe
 
@@ -732,7 +738,7 @@ function setZoomReadout() {
   else {
     const d = camera.position.length();
     const t = THREE.MathUtils.clamp((d - controls.minDistance) / (controls.maxDistance - controls.minDistance), 0, 1);
-    z = GLOBE_ZOOM_MAX - t * (GLOBE_ZOOM_MAX - GLOBE_ZOOM_MIN);   // min dist → keyzoom, max → world
+    z = GLOBE_ZOOM_MAX - t * (GLOBE_ZOOM_MAX - GLOBE_ZOOM_MIN);   // min dist → Z08, max dist → Z01 (world)
     mode = 'ORBIT';
   }
   const lvl = $('zoom-lvl'), md = $('zoom-mode');
@@ -821,6 +827,10 @@ $('street-toggle')?.addEventListener('click', () => {
   else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, STREET_ENTER_ZOOM, false); }
 });
 $('sm-exit')?.addEventListener('click', exitStreet);
+// Esc leaves the street view (in addition to the on-map button and zooming out
+// past KEYZOOM). News.js also binds Esc to close its lightbox; both are harmless
+// no-ops when their target isn't showing.
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && streetActive) exitStreet(); });
 
 // ============================================================
 //  COUNTRY NEWS (click a country → lightbox of top-10 headlines)
@@ -934,6 +944,25 @@ canvas.addEventListener('pointerup', (e) => {
   const name = countryAt(lon, lat);
   if (name) openNews(name);
   else setStatus('NO COUNTRY UNDER CURSOR · OCEAN OR UNMAPPED');
+});
+
+// Double-click shortcut: fly straight to the street view at the clicked point.
+// Additive to the continuous scroll handoff — NOT a replacement, and NOT a
+// triple-click. Raycasts the globe only (like measure mode) so it never disturbs
+// marker picks or the country-news single-click. Disabled in measure mode and
+// while the street map is already up. The two single-clicks that compose the
+// double-click still fire (opening news); we dismiss that lightbox on handoff.
+canvas.addEventListener('dblclick', (e) => {
+  if (measure.isActive() || streetActive || !window.L) return;
+  const rect = canvas.getBoundingClientRect();
+  _ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  _ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(_ndc, camera);
+  const ghit = raycaster.intersectObject(globe, true)[0];
+  if (!ghit) return;                                   // off-globe / ocean edge
+  $('news-lb')?.setAttribute('hidden', '');            // close the lightbox the single-clicks opened
+  const { lon, lat } = vec3ToLonLat(ghit.point);
+  enterStreet(lon, lat, STREET_ENTER_ZOOM, false);     // teleport to street level at that point
 });
 
 // --- news fetch + lightbox (moved to js/ui/news.js) ---
@@ -1254,12 +1283,13 @@ function animate(now) {
   // it's up (Leaflet drives its own view + GPS tracking).
   if (streetActive) return;
 
-  // Keyzoom handoff: once the globe is zoomed all the way in, hand off to the
-  // street-level tile map — centered on the fix while tracking, else on the
-  // point currently centered in view.
+  // Keyzoom handoff: once the globe is zoomed in to KEYZOOM, hand off to the tile
+  // map AT KEYZOOM (matching the globe zoom — no jump to street level) so the user
+  // keeps scrolling continuously on tiles up to STREET_MAX. Centered on the fix
+  // while tracking, else on the point currently centered in view.
   if (performance.now() > exitCooldown && camera.position.length() <= ENTER_DIST) {
-    if (following && lastFix) enterStreet(lastFix.lon, lastFix.lat, STREET_ENTER_ZOOM, true);
-    else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, STREET_ENTER_ZOOM, false); }
+    if (following && lastFix) enterStreet(lastFix.lon, lastFix.lat, KEYZOOM, true);
+    else { const c = vec3ToLonLat(camera.position); enterStreet(c.lon, c.lat, KEYZOOM, false); }
     return;
   }
 
