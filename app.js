@@ -12,7 +12,7 @@ import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js'
 import { searchAssets } from './js/data/providers/overpassProvider.js';
 import { fetchSatellites, propagateSats } from './js/data/providers/satelliteProvider.js';
 import { fetchFlights } from './js/data/providers/flightProvider.js';
-import { fetchVessels } from './js/data/providers/vesselProvider.js';
+import { fetchVessels, streamVessels } from './js/data/providers/vesselProvider.js';
 import { createOntology, ENTITY, RELATION, MARKET_CENTERS, isMarketOpen } from './js/ontology/model.js';
 import { createSelection } from './js/core/selection.js';
 import { initLayers, LAYERS } from './js/ui/layers.js';
@@ -1802,28 +1802,79 @@ window.addEventListener('resize', () => {
   const startFlightTimer = () => { stopFlightTimer(); flightTimer = setInterval(refreshFlights, 30000); };
   const stopFlightTimer = () => { if (flightTimer) { clearInterval(flightTimer); flightTimer = null; } };
 
-  // Vessels: no keyless CORS-open AIS REST feed exists, so this is MOCK by design
-  // and stays honest about it (even when an AIS key is set) until a stream is wired.
-  let vesselTimer = null;
-  async function refreshVessels() {
+  // Vessels: real AIS via AISStream (WebSocket) when an AIS key is set — a PUSH
+  // stream, so reports accumulate in a rolling map and markers redraw on a 1.5s
+  // throttle; contacts silent >10 min are pruned. With no key (or if the key is
+  // rejected) we fall back to honest mock on a 45s poll.
+  let vesselTimer = null, vesselStream = null, vesselDrawTimer = null;
+  const vesselReports = new Map();   // entity-id -> latest report
+  function drawVessels(mock, source) {
     if (!layers.isOn('vessels')) return;
-    tracking?.setStatus('vessels', { busy: true });
+    const cut = Date.now() - 600000;
+    for (const [id, v] of vesselReports) if (v.t < cut) vesselReports.delete(id);
+    const list = [...vesselReports.values()].slice(0, 300);
     onto.upsert({ id: 'src-ais', type: ENTITY.FEED_SOURCE, label: 'AIS' });
-    const res = await fetchVessels(currentViewBBox(0.5), creds.aisKey);
-    if (!layers.isOn('vessels')) return;
-    addMarkers('vessels', res.data.map((v) => {
-      const id = 'vsl-' + v.id;
-      onto.upsert({ id, type: ENTITY.ASSET, label: v.name, lon: v.lon, lat: v.lat,
-        props: { viewType: 'vessel', kind: v.type, course: v.course, speedKn: v.speedKn,
-          mock: res.mock, source: res.source } });
-      onto.relate(id, 'src-ais', RELATION.OBSERVED_FROM);
-      return { lon: v.lon, lat: v.lat, color: '#7ec8ff', size: 0.032, r: 1.04, id };
+    addMarkers('vessels', list.map((v) => {
+      onto.upsert({ id: v.id, type: ENTITY.ASSET, label: v.name, lon: v.lon, lat: v.lat,
+        props: { viewType: 'vessel', kind: v.kind, course: v.course, speedKn: v.speedKn,
+          mock, source } });
+      onto.relate(v.id, 'src-ais', RELATION.OBSERVED_FROM);
+      return { lon: v.lon, lat: v.lat, color: '#7ec8ff', size: 0.032, r: 1.04, id: v.id };
     }));
     highlightEntity(selection.current());
-    tracking?.setStatus('vessels', { count: res.data.length, mock: res.mock, source: res.source });
-    setStatus(`SEA TRACK · ${res.data.length} VESSELS · ${res.mock ? 'MOCK' : 'AIS'}`);
+    tracking?.setStatus('vessels', { count: list.length, mock, source });
   }
-  const startVesselTimer = () => { stopVesselTimer(); vesselTimer = setInterval(refreshVessels, 45000); };
+  const scheduleVesselDraw = (mock, source) => {
+    if (vesselDrawTimer) return;
+    vesselDrawTimer = setTimeout(() => { vesselDrawTimer = null; drawVessels(mock, source); }, 1500);
+  };
+  async function fillVesselsMock(source) {
+    stopVesselTimer();
+    const res = await fetchVessels(currentViewBBox(0.5), creds.aisKey);
+    if (!layers.isOn('vessels')) return;
+    vesselReports.clear();
+    for (const v of res.data) {
+      vesselReports.set(v.id, { id: v.id, name: v.name, kind: v.type,
+        lon: v.lon, lat: v.lat, course: v.course, speedKn: v.speedKn, t: Date.now() });
+    }
+    drawVessels(true, source || res.source);
+    setStatus(`SEA TRACK · ${res.data.length} VESSELS · MOCK`);
+    vesselTimer = setInterval(() => fillVesselsMock(source), 45000);
+  }
+  function refreshVessels() {
+    if (!layers.isOn('vessels')) return;
+    if (creds.aisKey) {
+      // (Re)open the AIS stream for the current view.
+      closeVesselStream(); stopVesselTimer(); vesselReports.clear();
+      tracking?.setStatus('vessels', { busy: true });
+      setStatus('SEA TRACK · CONNECTING TO AISSTREAM…');
+      vesselStream = streamVessels({
+        bbox: currentViewBBox(0.5), key: creds.aisKey,
+        onReport: (r) => {
+          if (!layers.isOn('vessels')) return;
+          vesselReports.set(r.id, { id: r.id, name: r.name, kind: r.kind,
+            lon: r.lon, lat: r.lat, course: r.course, speedKn: r.speedKn, t: r.t });
+          scheduleVesselDraw(false, 'AISStream');
+        },
+        onStatus: (s) => {
+          if (s.error) {
+            setStatus(`SEA TRACK · AISSTREAM ${s.message ? '· ' + s.message.toUpperCase() : 'ERROR'} · MOCK FALLBACK`);
+            closeVesselStream();
+            if (layers.isOn('vessels')) fillVesselsMock('AIS rejected · mock');
+          } else if (s.open) {
+            setStatus('SEA TRACK · AISSTREAM LIVE');
+          }
+        },
+      });
+    } else {
+      closeVesselStream();
+      fillVesselsMock();
+    }
+  }
+  function closeVesselStream() {
+    if (vesselStream) { vesselStream.close(); vesselStream = null; }
+    if (vesselDrawTimer) { clearTimeout(vesselDrawTimer); vesselDrawTimer = null; }
+  }
   const stopVesselTimer = () => { if (vesselTimer) { clearInterval(vesselTimer); vesselTimer = null; } };
 
   // ---- watchlist ----
@@ -1915,7 +1966,7 @@ window.addEventListener('resize', () => {
       if (id === 'earthquakes') stopQuakeTimer();
       if (id === 'satellites') stopSatTimer();
       if (id === 'flights') stopFlightTimer();
-      if (id === 'vessels') stopVesselTimer();
+      if (id === 'vessels') { stopVesselTimer(); closeVesselStream(); vesselReports.clear(); }
       return;
     }
     switch (id) {
@@ -1928,7 +1979,7 @@ window.addEventListener('resize', () => {
       case 'weather': refreshWeather(); break;
       case 'satellites': refreshSatellites(); startSatTimer(); break;
       case 'flights': refreshFlights(); startFlightTimer(); break;
-      case 'vessels': refreshVessels(); startVesselTimer(); break;
+      case 'vessels': refreshVessels(); break;
     }
   }
 
@@ -2066,6 +2117,7 @@ window.addEventListener('resize', () => {
     onSaveCreds: (next) => {
       creds = next; lsSave('creds', creds);
       if (layers.isOn('flights')) refreshFlights();   // re-auth on next pull
+      if (layers.isOn('vessels')) refreshVessels();   // key set → switch to live AIS stream
       setStatus('TRACKING CREDENTIALS UPDATED · LOCAL ONLY');
     },
   });

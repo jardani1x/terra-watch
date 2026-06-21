@@ -208,14 +208,15 @@
       <button class="rail-btn" id="track-refresh" type="button">⟳ REFRESH IN-VIEW</button>
       <details class="track-creds">
         <summary>API credentials <i>(optional · stored locally)</i></summary>
-        <p class="track-cred-hint">OpenSky OAuth2 raises the aircraft rate limit. AIS key is reserved
-          (no public stream is wired, so vessels stay simulated). Keys live only in this browser.</p>
+        <p class="track-cred-hint">Aircraft use keyless airplanes.live; OpenSky OAuth2 is an optional
+          fallback. A free <b>AISStream.io</b> key switches vessels to a live AIS stream (else mock).
+          Keys live only in this browser.</p>
         <input id="track-osky-id" class="search-input" type="text" autocomplete="off"
-               spellcheck="false" placeholder="OpenSky client_id" aria-label="OpenSky client id" />
+               spellcheck="false" placeholder="OpenSky client_id (optional)" aria-label="OpenSky client id" />
         <input id="track-osky-secret" class="search-input" type="password" autocomplete="off"
-               spellcheck="false" placeholder="OpenSky client_secret" aria-label="OpenSky client secret" />
+               spellcheck="false" placeholder="OpenSky client_secret (optional)" aria-label="OpenSky client secret" />
         <input id="track-ais-key" class="search-input" type="password" autocomplete="off"
-               spellcheck="false" placeholder="AIS key (reserved)" aria-label="AIS key" />
+               spellcheck="false" placeholder="AISStream.io key (vessels)" aria-label="AISStream key" />
         <div class="track-cred-btns">
           <button class="rail-btn" id="track-creds-save" type="button">SAVE</button>
           <button class="rail-btn danger" id="track-creds-clear" type="button">CLEAR</button>
