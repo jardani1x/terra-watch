@@ -1,0 +1,13 @@
+# Netlify config for TERRA-WATCH — static, no build step.
+# Netlify serves real files first (app.js, styles.css, js/**, etc.); the SPA
+# fallback only catches paths that don't map to a real file, so the OAuth
+# redirect-back to "/" always lands on index.html.
+
+[build]
+  publish = "."
+  command = ""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

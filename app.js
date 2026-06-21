@@ -24,6 +24,8 @@ import { initNavRail } from './js/ui/navrail.js';
 import { initMeasure } from './js/ui/measure.js';
 import { initSearch } from './js/ui/search.js';
 import { initTracking } from './js/ui/tracking.js';
+import { initAccount } from './js/ui/account.js';
+import { authConfigured, initAuth } from './js/auth/auth.js';
 import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
@@ -2099,6 +2101,8 @@ window.addEventListener('resize', () => {
   });
 
   // ---- tracking workspace (sat / air / sea) -----------------------------------
+  let auth = null;   // set below; null until initAuth resolves (or stays a stub)
+  let wasSignedIn = false;   // tracks a real sign-in→out transition (vs the initial no-session)
   const tracking = initTracking({
     host: $('track-feeds'), refreshBtn: $('track-refresh'),
     creds: {
@@ -2118,9 +2122,57 @@ window.addEventListener('resize', () => {
       creds = next; lsSave('creds', creds);
       if (layers.isOn('flights')) refreshFlights();   // re-auth on next pull
       if (layers.isOn('vessels')) refreshVessels();   // key set → switch to live AIS stream
-      setStatus('TRACKING CREDENTIALS UPDATED · LOCAL ONLY');
+      const synced = !!auth?.user?.();
+      if (synced) auth.saveSecrets(creds);            // push to the user's RLS-protected row
+      setStatus('TRACKING CREDENTIALS UPDATED · ' + (synced ? 'CLOUD SYNCED' : 'LOCAL ONLY'));
     },
   });
+
+  // ---- account / cloud sync (optional Supabase — no-op when unconfigured) ------
+  const account = initAccount({
+    host: $('track-account'),
+    onSignIn: () => auth?.signIn(),
+    onSignOut: () => auth?.signOut(),
+  });
+  account.render(null, authConfigured);   // paint immediately; auth refines on load
+
+  // Pull the signed-in user's stored keys and merge them over the local set.
+  async function applyRemoteSecrets(api) {
+    if (!api?.user?.()) return;
+    const remote = await api.loadSecrets();
+    if (remote && Object.keys(remote).length) {
+      creds = { ...creds, ...remote };
+      lsSave('creds', creds);
+      tracking.setCreds(creds);
+      if (layers.isOn('flights')) refreshFlights();
+      if (layers.isOn('vessels')) refreshVessels();
+      setStatus('TRACKING KEYS LOADED FROM CLOUD');
+    }
+  }
+
+  initAuth({
+    // Fires on initial session and every sign-in/out. `auth` may be unset on the
+    // very first (synchronous) call, so the initial load is also done in .then().
+    onChange: (user) => {
+      account.render(user, authConfigured);
+      if (user) {
+        wasSignedIn = true;
+        if (auth) applyRemoteSecrets(auth);
+      } else if (wasSignedIn) {
+        // Genuine sign-out (not the initial no-session): purge the cloud-loaded
+        // keys from this device so the next person on a shared browser can't see
+        // them. A local-only user who never signed in is untouched (wasSignedIn
+        // stays false on the initial onChange(null)).
+        wasSignedIn = false;
+        creds = {};
+        lsSave('creds', creds);
+        tracking.setCreds(creds);                       // blanks the credential inputs
+        if (layers.isOn('flights')) refreshFlights();   // stop using the cleared key
+        if (layers.isOn('vessels')) refreshVessels();
+        setStatus('SIGNED OUT · CLOUD KEYS CLEARED FROM THIS DEVICE');
+      }
+    },
+  }).then((a) => { auth = a; applyRemoteSecrets(a); });
 
   // ---- kick off ----
   market.setLoading();

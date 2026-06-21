@@ -456,6 +456,20 @@ body.measuring #sm-canvas { cursor: crosshair; }
 .track-cred-btns .rail-btn { flex: 1; }
 .track-note { font-family: var(--mono); font-size: 9px; line-height: 1.5; color: var(--muted); margin: 10px 0 0; }
 
+/* ---------- Account / cloud sync (Tracking creds) ---------- */
+.track-account { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 8px; }
+.track-account-note { width: 100%; font-family: var(--mono); font-size: 9px; line-height: 1.5; color: var(--muted); margin: 2px 0 0; }
+.track-signin { display: inline-flex; align-items: center; gap: 6px; }
+.track-signin .g-mark {
+  display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; color: #4285f4; font-weight: 700; font-size: 10px; line-height: 1;
+}
+.track-user-chip {
+  flex: 1; min-width: 0; font-family: var(--mono); font-size: 10px; color: var(--text);
+  border: 1px solid var(--line-2); border-radius: 2px; padding: 4px 7px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ---------- Market feed cards ---------- */
 .market-body { overflow-y: auto; }
 .mk-group { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); margin: 9px 0 4px; }

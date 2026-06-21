@@ -78,12 +78,20 @@ export function initTracking({ host, refreshBtn, creds, initialCreds = {}, isOn,
 
   refreshBtn?.addEventListener('click', () => onRefresh?.());
 
-  // ---- credential form (local-only; values never leave the device) ----
+  // ---- credential form (local-only unless signed in; see js/auth/auth.js) ----
+  const c = creds || {};
+  const { idInput, secretInput, aisInput, note } = c;
+
+  /** Repopulate the inputs (e.g. when cloud secrets load after sign-in). */
+  function setCreds(next = {}) {
+    if (idInput)     idInput.value = next.clientId || '';
+    if (secretInput) secretInput.value = next.clientSecret || '';
+    if (aisInput)    aisInput.value = next.aisKey || '';
+  }
+
   if (creds) {
-    const { idInput, secretInput, aisInput, saveBtn, clearBtn, note } = creds;
-    if (idInput)     idInput.value = initialCreds.clientId || '';
-    if (secretInput) secretInput.value = initialCreds.clientSecret || '';
-    if (aisInput)    aisInput.value = initialCreds.aisKey || '';
+    const { saveBtn, clearBtn } = c;
+    setCreds(initialCreds);
     const noteSet = (msg) => { if (note) note.textContent = msg; };
     if (initialCreds.clientId || initialCreds.aisKey) noteSet('Saved locally.');
 
@@ -105,5 +113,5 @@ export function initTracking({ host, refreshBtn, creds, initialCreds = {}, isOn,
     });
   }
 
-  return { reflect, setStatus };
+  return { reflect, setStatus, setCreds };
 }
