@@ -9,9 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## ✅ BUILD COMPLETE (NAV RAIL + tools build-out)
 
 **REMINDER TO CLAUDE:** This multi-step build is finished — all four steps are
-done. STEP 4 (sat/flight/vessel tracking, the final step) is implemented but was
-**not yet committed** at hand-off. There is no gated "next step"; treat any new
-request as a fresh task.
+done and committed. There is no gated "next step"; treat any new request as a
+fresh task.
 
 Multi-step task: extend terra-watch with (A) a centralized icon NAV RAIL of
 swappable workspaces, then (B) a measure tool, (C) faceted asset search, and
@@ -49,7 +48,7 @@ Progress:
   `ENTITY.ASSET` (`viewType:'asset'` → new `assetView`), markers via
   `addMarkers('search', …)` in a dedicated group, selection via the bus. Verified
   statically (`node --check` + id contract).
-- [x] **STEP 4 — TRACKING (sat/flight/vessel).** Done (uncommitted at hand-off).
+- [x] **STEP 4 — TRACKING (sat/flight/vessel).** Done & committed (`60a63de`).
   Added `satellite.js` to the import map (`esm.sh/satellite.js@5`, resolve +
   SGP4-export probe verified first). Three providers wired:
   `satelliteProvider` (CelesTrak `visual` TLE → SGP4 via dynamic `import('satellite.js')`,
