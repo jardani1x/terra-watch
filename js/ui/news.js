@@ -32,12 +32,18 @@ function renderNews(country, articles, state) {
 // per IP, so shared public CORS proxies are permanently throttled (HTTP 429).
 // rss2json fetches the RSS server-side and returns CORS-friendly JSON, keyless —
 // reliable for a static site.
+// Monotonic token: each openNews() call claims the next id; only the call whose
+// id is still the latest is allowed to write results into the lightbox. This
+// stops a slow earlier fetch from clobbering the lightbox opened by a later click.
+let newsReq = 0;
 export async function openNews(country) {
-  renderNews(country, null, 'loading');
+  const myReq = ++newsReq;
+  renderNews(country, null, 'loading');   // 'loading' always reflects the latest click
   try {
     const rss = `https://news.google.com/rss/search?q=${encodeURIComponent(country)}&hl=en-US&gl=US&ceid=US:en`;
     const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=10`;
     const data = await fetch(url).then(r => r.json());
+    if (myReq !== newsReq) return;        // a later click superseded this one — drop the stale result
     if (data.status !== 'ok') throw new Error(data.message || 'feed error');
     // Google News titles read "Headline - Source"; split off the source for the
     // meta line and normalize to the shape renderNews already expects.
@@ -52,6 +58,7 @@ export async function openNews(country) {
     });
     renderNews(country, articles, articles.length ? 'ok' : 'empty');
   } catch (e) {
+    if (myReq !== newsReq) return;        // stale failure — a later click owns the lightbox now
     renderNews(country, null, 'error');
   }
 }

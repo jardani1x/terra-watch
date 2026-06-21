@@ -34,6 +34,7 @@ import { openNews, initNews } from './js/ui/news.js';
 
 const CFG = {
   worldData: 'https://unpkg.com/world-atlas@2.0.2/countries-110m.json',
+  worldDataHi: 'https://unpkg.com/world-atlas@2.0.2/countries-50m.json', // finer polygons for click → country lookup only
   radius: 1,
   focusDist: 2.25,
   zoomDist: 1.7,     // closer fly-in used by the "zoom to my location" button
@@ -134,7 +135,8 @@ earth.add(buildGraticule());
 
 // 3D border lines (assigned in loadWorld; retinted by applyStyle).
 let borderMat = null;
-let worldGeo = null;   // topojson country features — used for click → country lookup
+let worldGeo = null;   // topojson country features (110m) — globe rendering + fallback click lookup
+let worldGeoHi = null; // finer 50m features — preferred for click → country lookup (loaded async, non-blocking)
 
 // --- atmosphere fresnel glow ---
 const atmosphere = new THREE.Mesh(
@@ -538,7 +540,15 @@ async function loadWorld() {
   try {
     const topo = await fetch(CFG.worldData).then(r => r.json());
     const geo = topojson.feature(topo, topo.objects.countries);
-    worldGeo = geo;   // expose for click → country detection
+    worldGeo = geo;   // expose for click → country detection (110m fallback)
+
+    // Non-blocking: upgrade the CLICK lookup to finer 50m polygons. Never awaited
+    // and never used for rendering, so a slow/failed fetch leaves the globe intact
+    // and clicks simply keep using the 110m set.
+    fetch(CFG.worldDataHi)
+      .then((r) => r.json())
+      .then((hi) => { worldGeoHi = topojson.feature(hi, hi.objects.countries); })
+      .catch(() => { /* keep 110m fallback */ });
 
     // political (teal baseline) — replaces the plain ocean material.
     globeMaterials.political = new THREE.MeshBasicMaterial({ map: buildEarthTexture(geo) });
@@ -820,8 +830,11 @@ $('sm-exit')?.addEventListener('click', exitStreet);
 
 // vec3ToLonLat / polyContains (and pointInRing) live in js/util/geo.js.
 function countryAt(lon, lat) {
-  if (!worldGeo) return null;
-  for (const f of worldGeo.features) {
+  // Prefer the finer 50m polygons (small/dense countries like Singapore land
+  // correctly); fall back to 110m until/unless the hi-res set has loaded.
+  const geo = worldGeoHi || worldGeo;
+  if (!geo) return null;
+  for (const f of geo.features) {
     const gm = f.geometry; if (!gm) continue;
     for (const poly of polysOf(gm)) if (polyContains(poly, lon, lat)) return f.properties?.name || null;
   }
