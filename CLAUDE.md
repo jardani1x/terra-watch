@@ -3,15 +3,15 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 <!-- ============================================================ -->
-<!-- ⚠ ACTIVE TASK — READ FIRST -->
+<!-- ✅ BUILD COMPLETE — READ FIRST -->
 <!-- ============================================================ -->
 
-## ⚠ ACTIVE TASK — RESUME HERE (NAV RAIL + tools build-out)
+## ✅ BUILD COMPLETE (NAV RAIL + tools build-out)
 
-**REMINDER TO CLAUDE:** When the session starts, tell the user we are mid-way
-through this multi-step build and that the **next step is STEP 4 (sat/flight/
-vessel tracking — the final step)**. Wait for their confirmation before writing
-code — the task is gated: STOP at each step for user confirmation.
+**REMINDER TO CLAUDE:** This multi-step build is finished — all four steps are
+done. STEP 4 (sat/flight/vessel tracking, the final step) is implemented but was
+**not yet committed** at hand-off. There is no gated "next step"; treat any new
+request as a fresh task.
 
 Multi-step task: extend terra-watch with (A) a centralized icon NAV RAIL of
 swappable workspaces, then (B) a measure tool, (C) faceted asset search, and
@@ -49,12 +49,23 @@ Progress:
   `ENTITY.ASSET` (`viewType:'asset'` → new `assetView`), markers via
   `addMarkers('search', …)` in a dedicated group, selection via the bus. Verified
   statically (`node --check` + id contract).
-- [ ] **STEP 4 — TRACKING (sat/flight/vessel) (NEXT — FINAL).** Add `satellite.js` to the
-  import map (verify resolve first). `satelliteProvider` (CelesTrak TLE, SGP4,
-  capped sample), `flightProvider` (OpenSky `/states/all` anonymous + bbox +
-  polite cadence; optional runtime OAuth2 creds in localStorage; mock on
-  rate-limit), `vesselProvider` (mock unless runtime AIS key). Register all three
-  in the LAYERS registry + a "Tracking" workspace. STOP and test.
+- [x] **STEP 4 — TRACKING (sat/flight/vessel).** Done (uncommitted at hand-off).
+  Added `satellite.js` to the import map (`esm.sh/satellite.js@5`, resolve +
+  SGP4-export probe verified first). Three providers wired:
+  `satelliteProvider` (CelesTrak `visual` TLE → SGP4 via dynamic `import('satellite.js')`,
+  capped sample, deterministic mock orbits on failure), `flightProvider` (OpenSky
+  `/states/all` anon bbox + optional runtime OAuth2 creds; HTTP-429/error → mock
+  ADS-B), `vesselProvider` (mock by design — no keyless CORS AIS REST feed; honest
+  even with a key). All three are LAYERS toggles (`satellites`/`flights`/`vessels`,
+  default-off) so they get marker groups + command-palette entries for free, plus a
+  new **Tracking** workspace (✦) via `js/ui/tracking.js` (`initTracking()`): per-feed
+  enable rows with live count + MOCK/STALE badges, in-view refresh, and a local-only
+  OpenSky/AIS credential form (`creds` in localStorage, never committed). Satellites
+  re-propagate on a 5 s timer (TLEs fetched once); aircraft poll 30 s, vessels 45 s;
+  all timers stop on layer-off. New entities upsert as `ENTITY.ASSET` with
+  `viewType:'satellite'|'flight'|'vessel'` → new `satelliteView`/`flightView`/
+  `vesselView`; `addMarkers` gained an optional per-item radius `r` so sats float at
+  altitude. Verified statically (`node --check`, import-map JSON, full id contract).
 
 After every step: working, committed, deployable to GitHub Pages as-is; tell the
 user what to click to verify; never break the globe/GPS, the no-build deploy, or

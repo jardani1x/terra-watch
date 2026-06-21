@@ -10,6 +10,9 @@ import { fmtPrice, fmtPct, signClass } from './js/util/format.js';
 import { getMarketQuotes, getQuakes, getWeather, markStale } from './js/data/feeds.js';
 import { mockGeopolitical, mockRisk } from './js/data/providers/mockProvider.js';
 import { searchAssets } from './js/data/providers/overpassProvider.js';
+import { fetchSatellites, propagateSats } from './js/data/providers/satelliteProvider.js';
+import { fetchFlights } from './js/data/providers/flightProvider.js';
+import { fetchVessels } from './js/data/providers/vesselProvider.js';
 import { createOntology, ENTITY, RELATION, MARKET_CENTERS, isMarketOpen } from './js/ontology/model.js';
 import { createSelection } from './js/core/selection.js';
 import { initLayers, LAYERS } from './js/ui/layers.js';
@@ -20,6 +23,7 @@ import { initShell } from './js/ui/shell.js';
 import { initNavRail } from './js/ui/navrail.js';
 import { initMeasure } from './js/ui/measure.js';
 import { initSearch } from './js/ui/search.js';
+import { initTracking } from './js/ui/tracking.js';
 import { initGraph } from './js/ui/graph.js';
 import { openNews, initNews } from './js/ui/news.js';
 
@@ -1398,13 +1402,13 @@ window.addEventListener('resize', () => {
 
   const clearLayer = (id) => { const g = layerGroups[id]; while (g && g.children.length) g.remove(g.children[0]); };
 
-  /** @param {string} id @param {{lon,lat,color,size,view}[]} items */
+  /** @param {string} id @param {{lon,lat,color,size,r?:number}[]} items */
   function addMarkers(id, items) {
     clearLayer(id);
     const g = layerGroups[id];
     for (const it of items) {
       const sp = makeDot(it.color, it.size);
-      sp.position.copy(lonLatToVec3(it.lon, it.lat, 1.03));
+      sp.position.copy(lonLatToVec3(it.lon, it.lat, it.r ?? 1.03));
       sp.userData.id = it.id;
       sp.userData.baseScale = sp.scale.clone();
       sp.userData.pick = () => selection.select(it.id);
@@ -1562,6 +1566,52 @@ window.addEventListener('resize', () => {
       ],
     };
   }
+  function satelliteView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Satellite · ' + (p.mock ? 'SIM ORBIT' : 'ON ORBIT'), title: e.label,
+      subtitle: p.norad ? 'NORAD ' + p.norad : undefined,
+      fields: [
+        { k: 'ALT', v: p.altKm != null ? p.altKm.toFixed(0) + ' km' : '--' },
+        { k: 'LAT', v: e.lat.toFixed(3) }, { k: 'LON', v: e.lon.toFixed(3) },
+        { k: 'SOURCE', v: p.source || (p.mock ? 'Mock Orbits' : 'CelesTrak') },
+        rangeField(e.lon, e.lat),
+      ],
+      relations: relsFor(e.id),
+    };
+  }
+  function flightView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Aircraft · ' + (p.mock ? 'SIM ADS-B' : (p.onGround ? 'ON GROUND' : 'AIRBORNE')),
+      title: e.label, subtitle: p.country || undefined,
+      fields: [
+        { k: 'ALT', v: p.altKm != null ? p.altKm.toFixed(1) + ' km' : '--' },
+        { k: 'GND SPD', v: p.velocity != null ? (p.velocity * 3.6).toFixed(0) + ' km/h' : '--' },
+        { k: 'HEADING', v: p.heading != null ? p.heading.toFixed(0) + '°' : '--' },
+        { k: 'LAT', v: e.lat.toFixed(3) }, { k: 'LON', v: e.lon.toFixed(3) },
+        { k: 'SOURCE', v: p.source || 'OpenSky' },
+        rangeField(e.lon, e.lat),
+      ],
+      relations: relsFor(e.id),
+    };
+  }
+  function vesselView(e) {
+    const p = e.props || {};
+    return {
+      type: 'Vessel · ' + (p.mock ? 'SIM AIS' : 'AIS'), title: e.label,
+      subtitle: p.kind || undefined,
+      fields: [
+        { k: 'TYPE', v: p.kind || '--' },
+        { k: 'COURSE', v: p.course != null ? p.course.toFixed(0) + '°' : '--' },
+        { k: 'SPEED', v: p.speedKn != null ? p.speedKn.toFixed(1) + ' kn' : '--' },
+        { k: 'LAT', v: e.lat.toFixed(3) }, { k: 'LON', v: e.lon.toFixed(3) },
+        { k: 'SOURCE', v: p.source || 'Mock AIS' },
+        rangeField(e.lon, e.lat),
+      ],
+      relations: relsFor(e.id),
+    };
+  }
   function genericView(e) {
     return { type: e.type, title: e.label, relations: relsFor(e.id) };
   }
@@ -1579,6 +1629,9 @@ window.addEventListener('resize', () => {
       case 'watchlist':     return watchlistView(e);
       case 'risk':          return riskView(e);
       case 'asset':         return assetView(e);
+      case 'satellite':     return satelliteView(e);
+      case 'flight':        return flightView(e);
+      case 'vessel':        return vesselView(e);
       default:              return genericView(e);
     }
   }
@@ -1689,6 +1742,90 @@ window.addEventListener('resize', () => {
     }));
   }
 
+  // ---- tracking feeds: satellites / aircraft / vessels ----------------------
+  // Civilian situational-awareness only. Each feed degrades to honest MOCK data
+  // on any fetch/CORS/rate-limit failure; live but aged readings flag STALE. The
+  // Tracking workspace mirrors LAYERS state and shows per-feed counts + badges.
+  let creds = lsLoad('creds', {});   // {clientId,clientSecret,aisKey} — local-only
+
+  // Satellites: TLEs are fetched once (cached), then re-propagated on a timer so
+  // the dots actually move; we never refetch elements while the layer is on.
+  let satSet = null, satTimer = null;
+  function satRadius(altKm) { return 1.08 + Math.min(0.5, (altKm || 0) / 6371); }
+  function drawSatellites() {
+    if (!satSet || !layers.isOn('satellites')) return;
+    const pts = propagateSats(satSet, new Date());
+    addMarkers('satellites', pts.map((s) => {
+      const id = 'sat-' + s.id;
+      onto.upsert({ id, type: ENTITY.ASSET, label: s.name, lon: s.lon, lat: s.lat,
+        props: { viewType: 'satellite', altKm: s.altKm, mock: satSet.mock,
+          source: satSet.source, norad: (s.id.match(/^sat-(\d+)/) || [])[1] } });
+      return { lon: s.lon, lat: s.lat, color: '#9fe8ff', size: 0.026, r: satRadius(s.altKm), id };
+    }));
+    highlightEntity(selection.current());   // keep any selection highlighted across redraws
+    tracking?.setStatus('satellites', { count: pts.length, mock: satSet.mock, source: satSet.source });
+  }
+  async function refreshSatellites() {
+    if (!layers.isOn('satellites')) return;
+    tracking?.setStatus('satellites', { busy: true });
+    if (!satSet) {
+      onto.upsert({ id: 'src-celestrak', type: ENTITY.FEED_SOURCE, label: 'CelesTrak' });
+      satSet = await fetchSatellites();
+    }
+    drawSatellites();
+    setStatus(`ORBITAL TRACK · ${(satSet.sats || []).length} OBJECTS · ${satSet.mock ? 'MOCK' : 'CelesTrak/SGP4'}`);
+  }
+  const startSatTimer = () => { stopSatTimer(); satTimer = setInterval(drawSatellites, 5000); };
+  const stopSatTimer = () => { if (satTimer) { clearInterval(satTimer); satTimer = null; } };
+
+  // Aircraft: anonymous OpenSky bbox query on a polite cadence (optional runtime
+  // OAuth2 creds raise the limit); HTTP 429 / any error → honest mock ADS-B.
+  let flightTimer = null;
+  async function refreshFlights() {
+    if (!layers.isOn('flights')) return;
+    tracking?.setStatus('flights', { busy: true });
+    onto.upsert({ id: 'src-opensky', type: ENTITY.FEED_SOURCE, label: 'OpenSky Network' });
+    const res = await fetchFlights(currentViewBBox(0.5), creds);
+    if (!layers.isOn('flights')) return;
+    addMarkers('flights', res.data.map((f) => {
+      const id = 'flt-' + f.id;
+      onto.upsert({ id, type: ENTITY.ASSET, label: f.callsign, lon: f.lon, lat: f.lat,
+        props: { viewType: 'flight', country: f.country, altKm: f.altKm, velocity: f.velocity,
+          heading: f.heading, onGround: f.onGround, mock: res.mock, source: res.source } });
+      onto.relate(id, 'src-opensky', RELATION.OBSERVED_FROM);
+      return { lon: f.lon, lat: f.lat, color: '#ffd166', size: 0.03, r: 1.05, id };
+    }));
+    highlightEntity(selection.current());
+    tracking?.setStatus('flights', { count: res.data.length, mock: res.mock, source: res.source });
+    setStatus(`AIR TRACK · ${res.data.length} CONTACTS · ${res.mock ? 'MOCK' : 'OpenSky'}`);
+  }
+  const startFlightTimer = () => { stopFlightTimer(); flightTimer = setInterval(refreshFlights, 30000); };
+  const stopFlightTimer = () => { if (flightTimer) { clearInterval(flightTimer); flightTimer = null; } };
+
+  // Vessels: no keyless CORS-open AIS REST feed exists, so this is MOCK by design
+  // and stays honest about it (even when an AIS key is set) until a stream is wired.
+  let vesselTimer = null;
+  async function refreshVessels() {
+    if (!layers.isOn('vessels')) return;
+    tracking?.setStatus('vessels', { busy: true });
+    onto.upsert({ id: 'src-ais', type: ENTITY.FEED_SOURCE, label: 'AIS' });
+    const res = await fetchVessels(currentViewBBox(0.5), creds.aisKey);
+    if (!layers.isOn('vessels')) return;
+    addMarkers('vessels', res.data.map((v) => {
+      const id = 'vsl-' + v.id;
+      onto.upsert({ id, type: ENTITY.ASSET, label: v.name, lon: v.lon, lat: v.lat,
+        props: { viewType: 'vessel', kind: v.type, course: v.course, speedKn: v.speedKn,
+          mock: res.mock, source: res.source } });
+      onto.relate(id, 'src-ais', RELATION.OBSERVED_FROM);
+      return { lon: v.lon, lat: v.lat, color: '#7ec8ff', size: 0.032, r: 1.04, id };
+    }));
+    highlightEntity(selection.current());
+    tracking?.setStatus('vessels', { count: res.data.length, mock: res.mock, source: res.source });
+    setStatus(`SEA TRACK · ${res.data.length} VESSELS · ${res.mock ? 'MOCK' : 'AIS'}`);
+  }
+  const startVesselTimer = () => { stopVesselTimer(); vesselTimer = setInterval(refreshVessels, 45000); };
+  const stopVesselTimer = () => { if (vesselTimer) { clearInterval(vesselTimer); vesselTimer = null; } };
+
   // ---- watchlist ----
   function saveWatch() { lsSave('watchlist', watchlist); }
   function renderWatchlist() {
@@ -1772,7 +1909,15 @@ window.addEventListener('resize', () => {
   function onLayerToggle(id, enabled) {
     lsSave('layers', layers.getState());
     if (id === 'graph') { graph.setVisible(enabled); return; }   // panel, not a marker layer
-    if (!enabled) { clearLayer(id); if (id === 'earthquakes') stopQuakeTimer(); return; }
+    if (id === 'satellites' || id === 'flights' || id === 'vessels') tracking?.reflect(id);
+    if (!enabled) {
+      clearLayer(id);
+      if (id === 'earthquakes') stopQuakeTimer();
+      if (id === 'satellites') stopSatTimer();
+      if (id === 'flights') stopFlightTimer();
+      if (id === 'vessels') stopVesselTimer();
+      return;
+    }
     switch (id) {
       case 'markets': renderMarketCenters(); break;
       case 'watchlist': renderWatchlist(); break;
@@ -1781,6 +1926,9 @@ window.addEventListener('resize', () => {
       case 'trail': renderTrail(); break;
       case 'earthquakes': refreshQuakes(); startQuakeTimer(); break;
       case 'weather': refreshWeather(); break;
+      case 'satellites': refreshSatellites(); startSatTimer(); break;
+      case 'flights': refreshFlights(); startFlightTimer(); break;
+      case 'vessels': refreshVessels(); startVesselTimer(); break;
     }
   }
 
@@ -1897,6 +2045,29 @@ window.addEventListener('resize', () => {
       }));
     },
     onSelect: (id) => selection.select('as-' + id),
+  });
+
+  // ---- tracking workspace (sat / air / sea) -----------------------------------
+  const tracking = initTracking({
+    host: $('track-feeds'), refreshBtn: $('track-refresh'),
+    creds: {
+      idInput: $('track-osky-id'), secretInput: $('track-osky-secret'), aisInput: $('track-ais-key'),
+      saveBtn: $('track-creds-save'), clearBtn: $('track-creds-clear'), note: $('track-creds-note'),
+    },
+    initialCreds: creds,
+    isOn: (feed) => layers.isOn(feed),
+    onToggle: (feed, on) => layers.setOn(feed, on),
+    onRefresh: () => {
+      if (layers.isOn('satellites')) refreshSatellites();
+      if (layers.isOn('flights')) refreshFlights();
+      if (layers.isOn('vessels')) refreshVessels();
+      setStatus('TRACKING · REFRESHED IN-VIEW');
+    },
+    onSaveCreds: (next) => {
+      creds = next; lsSave('creds', creds);
+      if (layers.isOn('flights')) refreshFlights();   // re-auth on next pull
+      setStatus('TRACKING CREDENTIALS UPDATED · LOCAL ONLY');
+    },
   });
 
   // ---- kick off ----

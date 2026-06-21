@@ -18,7 +18,8 @@
     "imports": {
       "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
       "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-      "cytoscape": "https://esm.sh/cytoscape@3"
+      "cytoscape": "https://esm.sh/cytoscape@3",
+      "satellite.js": "https://esm.sh/satellite.js@5"
     }
   }
   </script>
@@ -195,6 +196,34 @@
       <button class="rail-btn" id="search-run" type="button">⌕ SEARCH THIS VIEW</button>
       <p class="search-status" id="search-status"></p>
       <div class="search-results" id="search-results"></div>
+    </section>
+
+    <!-- Tracking workspace: sat / aircraft / vessel feeds (js/ui/tracking.js) -->
+    <section class="ws-panel" data-ws="tracking" hidden>
+      <div class="panel-head">
+        <span class="ph-title">TRACKING</span>
+        <span class="ph-tag">SAT · AIR · SEA</span>
+      </div>
+      <div class="track-feeds" id="track-feeds"></div>
+      <button class="rail-btn" id="track-refresh" type="button">⟳ REFRESH IN-VIEW</button>
+      <details class="track-creds">
+        <summary>API credentials <i>(optional · stored locally)</i></summary>
+        <p class="track-cred-hint">OpenSky OAuth2 raises the aircraft rate limit. AIS key is reserved
+          (no public stream is wired, so vessels stay simulated). Keys live only in this browser.</p>
+        <input id="track-osky-id" class="search-input" type="text" autocomplete="off"
+               spellcheck="false" placeholder="OpenSky client_id" aria-label="OpenSky client id" />
+        <input id="track-osky-secret" class="search-input" type="password" autocomplete="off"
+               spellcheck="false" placeholder="OpenSky client_secret" aria-label="OpenSky client secret" />
+        <input id="track-ais-key" class="search-input" type="password" autocomplete="off"
+               spellcheck="false" placeholder="AIS key (reserved)" aria-label="AIS key" />
+        <div class="track-cred-btns">
+          <button class="rail-btn" id="track-creds-save" type="button">SAVE</button>
+          <button class="rail-btn danger" id="track-creds-clear" type="button">CLEAR</button>
+        </div>
+        <p class="search-status" id="track-creds-note"></p>
+      </details>
+      <p class="track-note">Civilian situational-awareness only · positions are advisory ·
+        MOCK/STALE badges flag simulated or aged data.</p>
     </section>
 
     <!-- Graph workspace: reserved (link analysis currently rides the LAYERS toggle) -->

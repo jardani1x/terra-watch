@@ -26,6 +26,9 @@ export const LAYERS = [
   { id: 'geopolitical', label: 'Geo Events',     glyph: '⚑', defaultOn: false, accent: '#c08bff', note: 'mock' },
   { id: 'risk',         label: 'Risk Heat',      glyph: '▲', defaultOn: false, accent: '#ff5a52', note: 'mock' },
   { id: 'trail',        label: 'Movement Trail', glyph: '∿', defaultOn: false, accent: '#45e0b0' },
+  { id: 'satellites',   label: 'Satellites',     glyph: '✦', defaultOn: false, accent: '#9fe8ff' },
+  { id: 'flights',      label: 'Aircraft',       glyph: '✈', defaultOn: false, accent: '#ffd166' },
+  { id: 'vessels',      label: 'Vessels',        glyph: '⚓', defaultOn: false, accent: '#7ec8ff', note: 'mock' },
   { id: 'graph',        label: 'Link Graph',     glyph: '⬡', defaultOn: false, accent: '#45e0b0', note: 'beta' },
 ];
 

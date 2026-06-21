@@ -417,6 +417,45 @@ body.measuring #sm-canvas { cursor: crosshair; }
 .sr-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-cat { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
 
+/* ---------- Tracking (sat / air / sea) ---------- */
+.track-feeds { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.track-row {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 9px; align-items: center;
+  width: 100%; padding: 6px 8px; text-align: left; cursor: pointer;
+  background: transparent; border: 1px solid var(--line); border-radius: 2px; font-family: var(--hud-font);
+}
+.track-row:hover { border-color: var(--accent); }
+.track-row.on { border-color: rgba(69,224,176,0.4); }
+.tk-glyph { font-size: 13px; width: 15px; text-align: center; color: var(--accent); }
+.tk-label { font-size: 11px; letter-spacing: 1px; color: var(--text); }
+.tk-badge {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 2px; padding: 1px 4px; white-space: nowrap;
+}
+.tk-badge.live  { color: var(--text); border-color: var(--line-2); }
+.tk-badge.mock  { color: var(--warn, #ffd166); border-color: rgba(255,209,102,0.35); }
+.tk-badge.stale { color: var(--danger); border-color: rgba(255,90,82,0.35); }
+.tk-sw {
+  flex: 0 0 auto; width: 26px; height: 14px; border-radius: 8px;
+  border: 1px solid var(--line-2); position: relative; transition: background .15s, border-color .15s;
+}
+.tk-sw::after {
+  content: ''; position: absolute; top: 1px; left: 1px; width: 10px; height: 10px;
+  border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s;
+}
+.track-row.on .tk-sw { background: rgba(69,224,176,0.3); border-color: var(--accent); }
+.track-row.on .tk-sw::after { transform: translateX(12px); background: var(--accent); }
+.track-creds { margin-top: 10px; }
+.track-creds > summary {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; color: var(--muted);
+  cursor: pointer; padding: 4px 0;
+}
+.track-creds > summary i { font-style: normal; color: var(--dim, var(--muted)); }
+.track-cred-hint { font-family: var(--mono); font-size: 9px; line-height: 1.5; color: var(--muted); margin: 4px 0 8px; }
+.track-cred-btns { display: flex; gap: 5px; }
+.track-cred-btns .rail-btn { flex: 1; }
+.track-note { font-family: var(--mono); font-size: 9px; line-height: 1.5; color: var(--muted); margin: 10px 0 0; }
+
 /* ---------- Market feed cards ---------- */
 .market-body { overflow-y: auto; }
 .mk-group { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; color: var(--muted); margin: 9px 0 4px; }
