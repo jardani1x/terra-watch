@@ -57,10 +57,14 @@ its labeled `mock` sample and the UI shows DEMO/SAMPLE everywhere.
 
 ## Ontology (Slice 1 seed — grows in Slice 2)
 
-`GeoEvent { id, type, lon, lat, title, time, magnitude?, sourceId, props, url }`
-plus `ProviderHealth`. Later slices add Entity types (country, asset, route,
-chokepoint) and Relationships (located_at, affects, near, correlated_with) per
-`docs/RESEARCH_MATRIX.md`.
+`GeoEvent { id, type, category?, lon, lat, title, time, magnitude?, sourceId,
+props, url }` plus `ProviderHealth`. Slice 2 added a second provider (NASA EONET)
+and `src/lib/layers.ts` — the single source of truth mapping events to layers
+(`layerIdForEvent`, `isEventVisible`, `eventCounts`), so a provider can feed many
+typed layers (earthquakes, wildfires, volcanoes, severe storms, catch-all).
+Providers are fetched in parallel (`Promise.all`) in `store.refreshAll()`. Later
+slices add Entity types (country, asset, route, chokepoint) and Relationships
+(located_at, affects, near, correlated_with) per `docs/RESEARCH_MATRIX.md`.
 
 ## Directory map
 

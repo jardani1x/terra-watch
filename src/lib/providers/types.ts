@@ -7,8 +7,10 @@ export type DataMode = 'live' | 'cache' | 'mock' | 'offline' | 'loading';
  *  minimum needed to plot + inspect a source-backed point. */
 export interface GeoEvent {
   id: string;
-  /** ontology event type, e.g. 'earthquake' */
+  /** ontology event type, e.g. 'earthquake', 'wildfires', 'volcanoes' */
   type: string;
+  /** human-readable category label, e.g. 'Wildfires' */
+  category?: string;
   lon: number;
   lat: number;
   title: string;

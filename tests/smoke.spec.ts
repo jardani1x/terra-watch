@@ -33,6 +33,15 @@ test('layer toggle works', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/02-layer-toggled.png` });
 });
 
+test('natural-event layers from EONET are present', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('checkbox', { name: /Wildfires/i })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Volcanoes/i })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Severe storms/i })).toBeVisible();
+  // EONET provider chip shows in the health bar
+  await expect(page.getByText('NASA EONET').first()).toBeVisible();
+});
+
 test('command palette opens via Ctrl+K', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible(); // app mounted

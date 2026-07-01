@@ -3,6 +3,7 @@ import maplibregl, { type StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useStore } from '../state/store';
 import type { GeoEvent } from '../lib/providers/types';
+import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
 
 // Keyless dark basemap: CARTO dark raster tiles (free, attribution required).
 const STYLE: StyleSpecification = {
@@ -25,15 +26,30 @@ const STYLE: StyleSpecification = {
   ],
 };
 
-function toFeatureCollection(events: GeoEvent[]): GeoJSON.FeatureCollection {
+function sizeOf(e: GeoEvent): number {
+  if (e.type === 'earthquake' && e.magnitude != null) return Math.max(3, Math.min(20, e.magnitude * 2.2));
+  return 6;
+}
+
+function toFeatureCollection(events: GeoEvent[], layers: LayerDef[]): GeoJSON.FeatureCollection {
+  const colorByLayer = Object.fromEntries(layers.map((l) => [l.id, l.color]));
   return {
     type: 'FeatureCollection',
-    features: events.map((e) => ({
-      type: 'Feature',
-      id: e.id,
-      geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-      properties: { id: e.id, mag: e.magnitude ?? 1, title: e.title },
-    })),
+    features: events
+      .filter((e) => isEventVisible(e, layers))
+      .map((e) => {
+        const owner = layerIdForEvent(e, layers);
+        // earthquakes keep a magnitude ramp; other layers use their layer color
+        const color = e.type === 'earthquake'
+          ? (e.magnitude ?? 0) >= 6 ? '#ff5a52' : (e.magnitude ?? 0) >= 5 ? '#ffb454' : '#45e0b0'
+          : (owner ? colorByLayer[owner] : '#45e0b0');
+        return {
+          type: 'Feature',
+          id: e.id,
+          geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+          properties: { id: e.id, color, size: sizeOf(e), title: e.title },
+        } as GeoJSON.Feature;
+      }),
   };
 }
 
@@ -46,7 +62,6 @@ export default function MapCanvas() {
   const layers = useStore((s) => s.layers);
   const select = useStore((s) => s.select);
 
-  // init once
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -60,54 +75,41 @@ export default function MapCanvas() {
     mapRef.current = map;
 
     map.on('load', () => {
-      map.addSource('quakes', { type: 'geojson', data: toFeatureCollection([]) });
+      map.addSource('events', { type: 'geojson', data: toFeatureCollection([], []) });
       map.addLayer({
-        id: 'quakes-layer',
+        id: 'events-layer',
         type: 'circle',
-        source: 'quakes',
+        source: 'events',
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 2.5, 3, 6, 11, 8, 20],
-          'circle-color': ['interpolate', ['linear'], ['get', 'mag'], 2.5, '#45e0b0', 5, '#ffb454', 7, '#ff5a52'],
-          'circle-opacity': 0.75,
+          'circle-radius': ['get', 'size'],
+          'circle-color': ['get', 'color'],
+          'circle-opacity': 0.78,
           'circle-stroke-width': 1,
           'circle-stroke-color': 'rgba(255,255,255,0.5)',
         },
       });
       readyRef.current = true;
-      // seed with whatever is already in the store
-      (map.getSource('quakes') as maplibregl.GeoJSONSource)?.setData(
-        toFeatureCollection(useStore.getState().events),
-      );
+      const st = useStore.getState();
+      (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers));
 
-      map.on('click', 'quakes-layer', (ev) => {
+      map.on('click', 'events-layer', (ev) => {
         const id = ev.features?.[0]?.properties?.id as string | undefined;
         if (!id) return;
-        const found = useStore.getState().events.find((e) => e.id === id) ?? null;
-        select(found);
+        select(useStore.getState().events.find((e) => e.id === id) ?? null);
       });
-      map.on('mouseenter', 'quakes-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'quakes-layer', () => { map.getCanvas().style.cursor = ''; });
+      map.on('mouseenter', 'events-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'events-layer', () => { map.getCanvas().style.cursor = ''; });
     });
 
     return () => { map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [select]);
 
-  // push event data to the map
+  // push data whenever events or layer visibility/colors change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    (map.getSource('quakes') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(events));
-  }, [events]);
-
-  // reflect layer visibility toggles
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !readyRef.current) return;
-    const quakes = layers.find((l) => l.id === 'earthquakes');
-    if (map.getLayer('quakes-layer')) {
-      map.setLayoutProperty('quakes-layer', 'visibility', quakes?.enabled ? 'visible' : 'none');
-    }
-  }, [layers]);
+    (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(events, layers));
+  }, [events, layers]);
 
   return <div ref={ref} style={{ position: 'absolute', inset: 0 }} aria-label="Interactive world map" />;
 }

@@ -1,6 +1,6 @@
 # Gap Matrix
 
-Status of each mandated capability. Updated after Slice 1. Honest labels:
+Status of each mandated capability. Updated after Slice 2. Honest labels:
 **Done** (built + tested), **Partial** (basic version shipped, more planned),
 **Deferred** (planned, not yet started).
 
@@ -17,7 +17,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Object inspector + source card | **Done** | 1 | ✓ | ✓ | detail + license + authoritative link |
 | Command palette (Cmd/Ctrl-K) | **Partial** | 1→3 | ✓ | ✓ | Opens; commands = refresh + layer toggles; region/nav commands in Slice 3 |
 | Timeline (rolling feed) | **Partial** | 1→5 | ✓ | ✓ | Live feed + click-inspect; time filters/playback/correlation in Slice 5 |
-| Normalized ontology | **Partial** | 1→2 | ✓ | ✓ | GeoEvent+Provider seed; entities/relations in Slice 2 |
+| Normalized ontology | **Partial** | 1→3 | ✓ | ✓ | GeoEvent (typed, categorized) + Provider across 2 providers; entities/relations in later slices |
 | Civilian-use disclaimers | **Done** | 1 | — | — | Inspector + privacy language, no militarized copy |
 | Search "this view" | **Partial** | 1→3 | ✓ | ✓ | Search box opens palette; view-scoped search in Slice 3 |
 | Source manager (per-source toggle) | **Deferred** | 3 | ✓ | ✓ | fetch-time filtering |
@@ -26,7 +26,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Snapshots / playback | **Deferred** | 5 | ✓ | ✓ | IndexedDB baselines |
 | News intelligence panel | **Deferred** | 6 | — | ✓ | GDELT/RSS with source tiers |
 | Market panel | **Deferred** | 6 | — | ✓ | free-tier / BYO key |
-| Natural events panel | **Partial** | 1→6 | — | ✓ | quakes done; EONET/FIRMS/weather next |
+| Natural events panel | **Partial** | 1,2→6 | — | ✓ | quakes (USGS) + wildfires/volcanoes/storms (EONET) live; FIRMS/weather next |
 | Infrastructure panel | **Deferred** | 6 | ✓ | ✓ | open registries only |
 | Transport panel | **Deferred** | 6 | — | ✓ | OpenSky ADS-B |
 | Signal/correlation engine | **Deferred** | 6 | ✓ | ✓ | transparent, source-cited, labeled inference |

@@ -5,22 +5,23 @@ in-app (provider health bar + inspector source card) and labeled with its curren
 mode: `live` (fetched OK this session), `cache`, `mock` (labeled sample /
 offline fallback), or `offline`.
 
-## Implemented (Slice 1)
+## Implemented
 
-| Source | Data | Auth | License / attribution | Mode handling |
-|---|---|---|---|---|
-| **USGS Earthquakes** | M2.5+ quakes, past 24h (GeoJSON) | none | USGS / U.S. public domain | Live fetch; on failure → 3-point labeled `mock` sample |
-| **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source |
+| Source | Data | Auth | License / attribution | Mode handling | Slice |
+|---|---|---|---|---|---|
+| **USGS Earthquakes** | M2.5+ quakes, past 24h (GeoJSON) | none | USGS / U.S. public domain | Live; on failure → labeled `mock` sample | 1 |
+| **NASA EONET v3** | open natural events (wildfires, volcanoes, severe storms, +) | none | NASA EONET (courtesy NASA Earth Observatory) | Live; on failure → labeled `mock` sample | 2 |
+| **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source | 1 |
 
-USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
+- USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
+- EONET feed: `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200`
 
 ## Planned (later slices — keyless open data first)
 
 | Source | Data | Auth | Slice |
 |---|---|---|---|
 | GDELT | global news/event stream | none (rate-limited) | 6 (news/signals) |
-| NASA EONET | natural-event catalog (storms, volcanoes) | none | 2 |
-| NASA FIRMS | active wildfire detections | key (free) → optional | 2 |
+| NASA FIRMS | active wildfire detections (hi-res) | key (free) → optional | 6 |
 | Open-Meteo | weather / alerts | none | 6 |
 | OpenSky | aircraft ADS-B | anonymous tier (rate-limited) | 6 (transport) |
 | Celestrak TLE + SGP4 | satellite positions (computed in-browser) | none | Phase 2 |

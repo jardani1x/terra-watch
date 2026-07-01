@@ -1,6 +1,13 @@
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
 
+// Fields rendered explicitly (in order); everything else in props is shown generically.
+const HANDLED = new Set(['magnitude', 'depthKm', 'place', 'category', 'note']);
+const LABELS: Record<string, string> = {
+  magnitudeUnit: 'Magnitude unit',
+  observations: 'Observations',
+};
+
 export default function InspectorRail() {
   const selected = useStore((s) => s.selected);
   const providers = useStore((s) => s.providers);
@@ -20,14 +27,17 @@ export default function InspectorRail() {
 
       {selected && (() => {
         const p = providers[selected.sourceId];
+        const extra = Object.entries(selected.props).filter(
+          ([k, v]) => !HANDLED.has(k) && v != null && v !== '',
+        );
         return (
           <div>
-            <div className="insp-type">{selected.type}</div>
+            <div className="insp-type">{selected.category ?? selected.type}</div>
             <div className="insp-title">{selected.title}</div>
 
             <div style={{ marginTop: 10 }}>
               {selected.magnitude != null && (
-                <div className="insp-kv"><span>Magnitude</span><b>{selected.magnitude.toFixed(1)}</b></div>
+                <div className="insp-kv"><span>Magnitude</span><b>{selected.magnitude}{selected.props.magnitudeUnit ? ` ${selected.props.magnitudeUnit}` : ''}</b></div>
               )}
               <div className="insp-kv"><span>Latitude</span><b>{selected.lat.toFixed(4)}</b></div>
               <div className="insp-kv"><span>Longitude</span><b>{selected.lon.toFixed(4)}</b></div>
@@ -35,6 +45,9 @@ export default function InspectorRail() {
                 <div className="insp-kv"><span>Depth</span><b>{Number(selected.props.depthKm).toFixed(0)} km</b></div>
               )}
               <div className="insp-kv"><span>Observed</span><b>{hhmm(selected.time)} · {ago(selected.time)}</b></div>
+              {extra.filter(([k]) => k !== 'magnitudeUnit').map(([k, v]) => (
+                <div className="insp-kv" key={k}><span>{LABELS[k] ?? k}</span><b>{String(v)}</b></div>
+              ))}
             </div>
 
             <div className="source-card">

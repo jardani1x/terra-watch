@@ -22,15 +22,18 @@ Run against `vite preview` on :4173.
 |---|---|---|
 | loads without console errors | shell + `.maplibregl-canvas` + SOURCES render; no app-level console/page errors (benign tile/network noise filtered) | ✅ pass |
 | layer toggle works | Earthquakes checkbox checked → unchecked | ✅ pass |
+| natural-event layers from EONET present | Wildfires/Volcanoes/Severe-storms checkboxes + EONET health chip visible | ✅ pass |
 | command palette opens via Ctrl+K | dialog + command input visible | ✅ pass |
 | mobile viewport renders | shell visible at 390×844 | ✅ pass |
 
-**4 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**5 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
-- USGS feed fetched **live**: 37 real earthquakes plotted, ~1.6 s latency.
-- Status pill showed **LIVE · PUBLIC OSINT** (derived, not hardcoded).
-- Provider health bar showed USGS `LIVE · 37 items · 1649ms · just now`.
+- USGS **live**: ~36 earthquakes; NASA EONET **live**: 200 natural events
+  (186 wildfires, 9 volcanoes, 2 severe storms, 3 other) — color-coded per layer.
+- Status pill showed **LIVE · PUBLIC OSINT** (derived from both providers, not hardcoded).
+- Provider health bar showed `USGS LIVE 36` + `NASA EONET LIVE 200` with latency + freshness.
+- Per-layer counts render in the layer manager; timeline shows 200 events.
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)

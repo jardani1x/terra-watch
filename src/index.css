@@ -101,6 +101,7 @@ a { color: var(--accent); }
 .layer-row .lr-name { font-size: 12.5px; }
 .layer-row .lr-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
 .layer-row .lr-count { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+.layer-row .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
 
 /* ---- Freshness dot ---- */
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
