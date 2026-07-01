@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Branch note: v2 rebuild
+
+On the `rebuild/terra-watch-v2` branch, Terra Watch is being rebuilt as a
+**React + TypeScript + Vite civilian OSINT dashboard** (MapLibre map, normalized
+event ontology, source-labeled panels, keyless-first public data). The source is
+under `src/`, tests under `tests/`, and design/architecture docs under `docs/`
+(start with `docs/ARCHITECTURE.md` and `docs/GAP_MATRIX.md`). The original v1
+static globe described below is preserved under `legacy/` and remains the live
+site on `main`. The sections below describe that **v1 legacy** app.
+
 ## What this is
 
 **TERRA-WATCH** — a single-page, static 3D Earth command-center website with a

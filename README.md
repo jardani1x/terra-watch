@@ -1,123 +1,77 @@
-# TERRA-WATCH — Geo-Market Intelligence Dashboard
+# Terra Watch — Civilian OSINT Dashboard (v2 rebuild)
 
-A single-page, **static** 3D Earth command center with a terminal/HUD aesthetic.
-It plots your **live location** on an interactive globe with position telemetry
-and a heading compass, and layers on an original *geo-market intelligence* shell:
-intel layers, live market/seismic/weather feeds, an entity inspector with a
-lightweight ontology, a command palette, a local watchlist, and clear privacy
-controls.
+A **civilian open-source-intelligence situational-awareness dashboard** built on
+**public, keyless-first** data. Terra Watch renders an interactive world map,
+normalizes public feeds into an event/entity ontology, and shows every claim with
+its **source, timestamp, freshness, and data mode** — with **no fake "live"
+labels**.
 
-No build step. No backend. No package manager. Pure HTML/CSS/ES-modules +
-[Three.js](https://threejs.org/) / [Leaflet](https://leafletjs.com/) loaded from
-CDNs — drop it on GitHub Pages and it runs. Inspired by dense analytical
-dashboards and ontology/operational-awareness concepts; **not** a clone of, and
-not affiliated with, any commercial terminal or intelligence product.
+> **Civilian use only.** Not an emergency-authority source. No targeting, no
+> surveillance of individuals, no people-watchlists. See
+> [`docs/PRIVACY_AND_CIVILIAN_USE.md`](docs/PRIVACY_AND_CIVILIAN_USE.md).
 
-## Features
+This is an **original product**. It is informed by *public* documentation of
+platforms like Palantir Gotham and World Monitor (see
+[`docs/RESEARCH_MATRIX.md`](docs/RESEARCH_MATRIX.md)) but copies no proprietary
+feature, branding, or source code. World Monitor is AGPL-3.0 and was **not**
+read or ported.
 
-### Globe & navigation (preserved)
-- **3D globe** (Three.js): ocean sphere, graticule, country borders + names,
-  atmosphere glow, starfield, drag-to-orbit + zoom; 4 visual styles
-  (DAY/NIGHT, POLITICAL, RADAR, THREAT).
-- **Live GPS**: pulsing location marker, accuracy, altitude, speed, course, UTM
-  grid; **◎ Zoom to my location** track mode; **▣ Street level** Leaflet/Esri map
-  that takes over on deep zoom. Denied/unsupported → labelled **SIMULATED** fix.
-- **Heading compass** with live device orientation where available, view-bearing
-  fallback otherwise.
-- **Country news**: click a country → lightbox of top-10 recent headlines.
+## Status
 
-### Dashboard shell (new)
-- **Command palette** — `Ctrl/Cmd + K` (or the **⌘K** top-bar button). Fuzzy
-  search; commands for locate, switch style, toggle any layer, add to watchlist,
-  clear trail, open market feed, street level, clear local data.
-- **Intel layers** (left rail) — toggle map overlays: **Market Centers** (8 global
-  exchanges), **Watchlist**, **Seismic Events** (live USGS), **Weather**,
-  **Geo Events** (mock), **Risk Heat** (mock), **Movement Trail**. Click any
-  marker → inspector.
-- **Market feed** (right rail) — FX + crypto from live keyless APIs, indices +
-  commodities as labelled mock; each card shows price, % change, age, source, and
-  a **STALE** badge when data ages out. Loading / degraded / mock states are explicit.
-- **Entity inspector** — typed entity card (Location / MarketInstrument / Event /
-  Observation …) with key-values, **linked entities** from the ontology, and
-  contextual actions (add to watchlist, headlines, remove).
-- **Bottom ticker** — rotating BTC / ETH / EUR-USD / index summary + system status.
-- **Watchlist & breadcrumb trail** — pinned locations and recent movement, stored
-  in **localStorage only**.
+Rebuilt from the ground up as a React + TypeScript + Vite SPA (the original v1
+static Three.js globe is preserved under [`legacy/`](legacy/)). Delivered in
+vertical slices — see [`docs/GAP_MATRIX.md`](docs/GAP_MATRIX.md) for exactly
+what is **Done / Partial / Deferred**.
 
-### Privacy
-- Your location is **processed on-device**; it is **never** sent to a third party
-  by default. The only feature that can send coordinates is the optional
-  *"Use my location for weather"* checkbox (off by default). With it off, the
-  weather layer queries only public sample points (the market centers).
-- Watchlist + trail live in `localStorage` under the `tw:` prefix. **⌦ Clear local
-  data** wipes them. No backend, analytics, telemetry, or API keys.
+**Slice 1 (shipped & tested):** app shell · MapLibre map · grouped layer manager
+· provider health/freshness bar · derived data-mode pill · object inspector with
+source card · rolling event timeline · Cmd/Ctrl-K command palette · live USGS
+earthquake layer with labeled offline fallback.
 
 ## Run locally
 
-Geolocation and ES-module imports require an `http(s)://` origin — `file://` will
-not work. Serve the folder:
-
 ```bash
-python3 -m http.server 8080      # or: npx serve .
+npm install
+npm run dev          # http://localhost:5173
 ```
 
-Open <http://localhost:8080>. Allow location access; denial falls back to a
-labelled **SIMULATED** fix. There is no build, lint, or test command.
+## Build & test
+
+```bash
+npm run build                    # tsc --noEmit + vite build → dist/
+npx playwright install chromium  # once
+npx vite preview --port 4173 &   # serve the build
+npx playwright test              # smoke suite → docs/screenshots/
+```
+
+See [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) for the latest results.
 
 ## Deploy to GitHub Pages
 
-```bash
-git add . && git commit -m "Terra Watch dashboard"
-git push origin main
-```
+The build is a static bundle. `vite.config.ts` sets `base: './'` so it works
+under the `/terra-watch/` project subpath.
 
-Then **Settings → Pages → Source: Deploy from a branch → `main` / root**. The site
-appears at `https://<you>.github.io/<repo>/` over HTTPS (so geolocation works).
-A `.nojekyll` file keeps Pages from rewriting the `js/` module paths.
+1. `npm run build`
+2. Publish the contents of `dist/` to your Pages branch (e.g. `gh-pages`), or add
+   a GitHub Actions workflow that runs the build and deploys `dist/`.
 
-## Architecture
+The current live v1 site stays on `main`; this rebuild lives on
+`rebuild/terra-watch-v2` and only changes the live site when you merge/deploy it.
 
-Build-free native ES modules, imported by `app.js` via the import map in
-`index.html`:
+## Documentation
 
-```
-index.html · styles.css · app.js      (globe, GPS, compass, orchestration)
-js/
-  util/      storage.js · format.js · distance.js
-  data/
-    feeds.js                          (orchestrator: real → mock, staleness)
-    providers/  types · http · mock · market · weather · earthquake
-  ontology/  model.js                 (entities + relationships, market centers)
-  ui/        shell · layers · marketFeed · inspector · commandPalette
-```
+| Doc | Contents |
+|---|---|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Stack, layout, data flow, ontology, directory map |
+| [RESEARCH_MATRIX.md](docs/RESEARCH_MATRIX.md) | Gotham & World Monitor public-capability research + exclusions |
+| [GAP_MATRIX.md](docs/GAP_MATRIX.md) | Per-capability Done/Partial/Deferred status |
+| [DATA_SOURCES.md](docs/DATA_SOURCES.md) | Source catalog, licenses, keyless-first policy |
+| [PRIVACY_AND_CIVILIAN_USE.md](docs/PRIVACY_AND_CIVILIAN_USE.md) | Privacy model + civilian-use limits |
+| [TEST_REPORT.md](docs/TEST_REPORT.md) | Build, typecheck, and e2e results |
 
-`feeds.js` is the single seam to data: it tries the real keyless API and falls
-back to `mockProvider` on any failure, so a real/paid source can later be swapped
-in one place.
+## Data honesty
 
-## Public APIs used (all keyless, CORS-open)
-
-| Feed | Source | Notes |
-|------|--------|-------|
-| FX | `api.frankfurter.dev` | ECB daily reference rates |
-| Crypto | `api.coingecko.com` | public tier; 24h change |
-| Earthquakes | `earthquake.usgs.gov` | M2.5+ past-day GeoJSON |
-| Weather | `api.open-meteo.com` | sample points; your location only if opted in |
-| Country news | `api.rss2json.com` (Google News RSS) | server-side RSS→JSON |
-| Country borders | `world-atlas` via unpkg | degrades to graticule if it fails |
-
-Indices and commodities have no free keyless source and are **clearly-labelled
-mock** data.
-
-## Known limitations
-
-- Indices/commodities are mock; FX is daily (not intraday); crypto is spot.
-- The entity **graph visualization**, full **alerts engine**, and **investigation
-  board** are planned for Phase 2 (the inspector shows linked entities today).
-- Weather/seismic layers fetch on toggle and refresh periodically while enabled.
-- Public APIs can rate-limit; the UI degrades to mock with a visible badge.
-
-## Notes
-
-The classification banner and HUD styling are **cosmetic only** — no government
-affiliation, no classified data.
+Data mode (`LIVE` / `DEMO` / `DEGRADED`) is derived from real fetch results.
+Sample/offline data is labeled everywhere it appears. Later analytical features
+(signal engine, risk scores, AI briefs) will be labeled **inference**, not fact,
+and cite their sources.
