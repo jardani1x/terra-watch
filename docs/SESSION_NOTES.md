@@ -103,11 +103,26 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
   - 2 new Playwright tests (presence; source-toggle OFF round-trip); 16/16
     pass. Build + typecheck clean.
 
+- **Slice 6b part 2 — DONE, committed, tested**: MARKETS panel:
+  - News probing first: **ReliefWeb dropped as keyless default** — v2 API
+    returns 403 without an approved appname (v1 is decommissioned, 410).
+    News now needs a browser-usable keyless source or a BYO tier.
+  - `src/lib/providers/markets.ts` — keyless, CORS-probed FX (ECB daily
+    reference rates via Frankfurter, USD→EUR/JPY/GBP/CNY) + BTC/ETH spot with
+    24h change (CoinGecko free tier). Non-geo → feeds the new `MarketPanel`
+    (left rail), not the map. Partial-failure honest: only successful feeds'
+    quotes shown with the failure noted; both down → labeled SAMPLE mock.
+  - Store: `market` slice + `markets` registered in providers/sources (source
+    toggle + health chip for free); fetched in `refreshAll` parallel with the
+    geo providers but outside FETCHERS (no fake GeoEvents).
+  - 2 new Playwright tests (attributed quotes + real mode label; source-toggle
+    OFF round-trip); 18/18 pass. Build + typecheck clean.
+
 ## Slice 6b remaining (before Slice 7)
 
-News (RSS/source tiers — GDELT is dead, see above), market panel
-(free-tier/BYO), transport (blocked: no CORS-usable keyless ADS-B source found
-yet), infrastructure (open registries), FIRMS wildfire detail.
+News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
+transport (blocked: no CORS-usable keyless ADS-B source found yet),
+infrastructure (open registries), FIRMS wildfire detail (BYO key).
 
 ## Then Slices 7–10
 graph workspace · timeline playback/snapshots · intelligence panels + signal

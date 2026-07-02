@@ -13,6 +13,8 @@ offline fallback), or `offline`.
 | **NASA EONET v3** | open natural events (wildfires, volcanoes, severe storms, +) | none | NASA EONET (courtesy NASA Earth Observatory) | Live; on failure → labeled `mock` sample | 2 |
 | **NOAA NWS Alerts** | active US weather alerts (polygon-mapped only; zone-only alerts are skipped, not guessed) | none | NOAA/NWS — U.S. Government public domain | Live; on failure → labeled `mock` sample | 6 |
 | **GDACS Disasters** | global multi-hazard disaster alerts (cyclones, floods, quakes, droughts, wildfires) with Green/Orange/Red levels | none | GDACS — EC Joint Research Centre / UN OCHA | Live; on failure → labeled `mock` sample | 6b |
+| **Frankfurter (ECB FX)** | daily ECB reference rates USD→EUR/JPY/GBP/CNY (MARKETS panel, not the map) | none | ECB reference rates via Frankfurter | Live; on failure → labeled `mock` sample | 6b |
+| **CoinGecko** | BTC/ETH spot + 24h change (MARKETS panel, not the map) | none (rate-limited free tier) | price data by CoinGecko (attribution shown in panel) | Live; on failure → labeled `mock` sample | 6b |
 | **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source | 1 |
 
 - USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
@@ -28,6 +30,7 @@ offline fallback), or `offline`.
 | Source | Data | Auth | Slice |
 |---|---|---|---|
 | GDELT | global news/event stream | none (rate-limited) | dropped 2026-07-02: GEO API endpoint now returns 404 (retired); DOC API is 1 req/5 s and carries no coordinates |
+| ReliefWeb | humanitarian reports/news | approved appname required | dropped as keyless default 2026-07-02: v2 API returns 403 without an approved appname; could return as an optional BYO-appname source |
 | NASA FIRMS | active wildfire detections (hi-res) | key (free) → optional | 6b+ |
 | Open-Meteo | weather (global forecast) | none | 6b+ |
 | OpenSky | aircraft ADS-B | anonymous tier | dropped 2026-07-02: CORS locked to `opensky-network.org` — unusable from a browser client (adsb.lol probed too: no CORS header at all) |

@@ -5,6 +5,7 @@ import { fetchUsgs, USGS_META } from '../lib/providers/usgs';
 import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { fetchNws, NWS_META } from '../lib/providers/nws';
 import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
+import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
 import {
@@ -78,6 +79,8 @@ interface AppState {
   timeWindow: TimeWindow;
   snapshots: SnapshotMeta[];
   snapshotDelta: SnapshotDelta | null;
+  /** non-geo market snapshot for the MARKETS panel; mode is real, never faked */
+  market: { quotes: MarketQuote[]; mode: DataMode; error: string | null };
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -129,8 +132,8 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       layers: DEFAULT_LAYERS,
-      providers: { usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META), gdacs: providerStub(GDACS_META) },
-      sources: { usgs: true, eonet: true, nws: true, gdacs: true },
+      providers: { usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META), gdacs: providerStub(GDACS_META), markets: providerStub(MARKETS_META) },
+      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true },
       monitors: [],
       events: [],
       selected: null,
@@ -141,6 +144,7 @@ export const useStore = create<AppState>()(
       timeWindow: { cursor: null, playing: false },
       snapshots: [],
       snapshotDelta: null,
+      market: { quotes: [], mode: 'loading', error: null },
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -249,12 +253,26 @@ export const useStore = create<AppState>()(
       refreshAll: async () => {
         const { sources } = get();
         const active = Object.keys(FETCHERS).filter((id) => sources[id] ?? true);
+        const marketsOn = sources['markets'] ?? true;
         set((s) => {
           const providers = { ...s.providers };
           for (const id of active) providers[id] = { ...providers[id], status: 'loading' };
+          if (marketsOn) providers['markets'] = { ...providers['markets'], status: 'loading' };
           return { providers };
         });
-        const results = await Promise.all(active.map(async (id) => ({ id, r: await FETCHERS[id]() })));
+        const [results, marketRes] = await Promise.all([
+          Promise.all(active.map(async (id) => ({ id, r: await FETCHERS[id]() }))),
+          marketsOn ? fetchMarkets() : Promise.resolve(null),
+        ]);
+        if (marketRes) {
+          set((s) => ({
+            market: { quotes: marketRes.quotes, mode: marketRes.mode, error: marketRes.error },
+            providers: {
+              ...s.providers,
+              markets: { ...s.providers['markets'], status: marketRes.mode, latencyMs: marketRes.latencyMs, itemCount: marketRes.quotes.length, error: marketRes.error, lastSuccessAt: marketRes.mode === 'live' ? Date.now() : s.providers['markets'].lastSuccessAt },
+            },
+          }));
+        }
         set((s) => {
           const refetched = new Set(results.map((x) => x.id));
           // keep events from still-enabled sources that weren't just refetched, then add fresh

@@ -207,6 +207,33 @@ test('GDACS source toggle shows OFF in health bar and layer manager', async ({ p
   await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).not.toContainText('OFF');
 });
 
+test('market panel shows attributed quotes with a real mode label', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3500); // let feeds load
+
+  const panel = page.getByLabel('Markets');
+  await expect(panel.getByText('MARKETS')).toBeVisible();
+  // mode tag is derived from the real fetch — LIVE or the honest SAMPLE label
+  await expect(panel.locator('.tag')).toHaveText(/LIVE|SAMPLE/);
+  // both feeds are attributed; USD/EUR exists in live and sample data alike
+  await expect(panel.getByText('USD/EUR')).toBeVisible();
+  await expect(panel.getByText(/Frankfurter · price data by CoinGecko/)).toBeVisible();
+});
+
+test('markets source toggle disables the panel honestly', async ({ page }) => {
+  await page.goto('/');
+  const sourceCheckbox = page.getByRole('checkbox', { name: 'Toggle source: Markets (FX · crypto)' });
+  await expect(sourceCheckbox).toBeChecked();
+  await sourceCheckbox.uncheck();
+
+  await expect(page.getByLabel('Markets').getByText('Source disabled')).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'Markets' })).toContainText('OFF');
+
+  await sourceCheckbox.check(); // leave state clean for other tests
+  await expect(page.getByLabel('Markets').getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
+});
+
 test('command palette can switch to graph view', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
