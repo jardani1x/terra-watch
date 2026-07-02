@@ -152,6 +152,24 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
     (reuses `nearbyEvents`), click flies the map. **Slice 7 complete.**
   - 1 new Playwright test; 21/21 pass. Build + typecheck clean.
 
+- **Slice 8 part 1 — DONE, committed, tested**: Dossier / report workspace:
+  - `src/lib/dossier.ts` — `DossierItem` (event + citation + user note) and
+    pure `dossierMarkdown`/`dossierJson` renderers. Provider attribution is
+    **frozen onto the item at pin time** so exports stay cited even if the
+    source is later disabled; notes are always labeled
+    "Analyst note (user-authored)" — commentary never presented as source
+    material. `src/lib/exports.ts` — shared `downloadText` + CSV helpers
+    (CSV wired up in part 2).
+  - Store: `dossier { title, items }` + `pinToDossier`/`unpinFromDossier`/
+    `setDossierNote`/`setDossierTitle`/`clearDossier`; persisted to
+    localStorage like monitors/graph (deliberate user curation, not a data
+    cache).
+  - `DossierPanel` (left rail) — editable title, per-item note input, click
+    row to fly/select, EXPORT MD / EXPORT JSON / CLEAR; InspectorRail gets
+    `+ Pin to dossier` / `✓ IN DOSSIER` + Unpin next to the graph actions.
+  - 1 new Playwright test (pin→note→export MD+JSON→unpin round-trip);
+    22/22 pass. Build + typecheck clean.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),

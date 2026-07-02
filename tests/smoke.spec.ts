@@ -291,6 +291,46 @@ test('markets source toggle disables the panel honestly', async ({ page }) => {
   await expect(page.getByLabel('Markets').getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
 });
 
+test('dossier: pin from inspector, add note, export MD, unpin', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let live events load
+
+  // empty state is honest, not a placeholder
+  const panel = page.getByLabel('Dossier');
+  await expect(panel.getByText('DOSSIER')).toBeVisible();
+  await expect(panel.getByText('Pin events from the inspector')).toBeVisible();
+
+  // select an event via the timeline, pin it from the inspector
+  await page.getByText('EVENT TIMELINE').click();
+  await page.locator('.tl-item').first().click();
+  await page.getByRole('button', { name: '+ Pin to dossier' }).click();
+  await expect(page.getByText('✓ IN DOSSIER')).toBeVisible();
+  await expect(panel.locator('.dossier-item')).toHaveCount(1);
+  await expect(panel.getByText(/pinned just now/)).toBeVisible();
+
+  // user note is labeled user-authored
+  const note = panel.getByPlaceholder('Analyst note (user-authored)…');
+  await note.fill('test note');
+
+  // exports download with citations preserved
+  const [mdDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByRole('button', { name: 'EXPORT MD' }).click(),
+  ]);
+  expect(mdDownload.suggestedFilename()).toMatch(/terra-watch-dossier-.*\.md/);
+  const [jsonDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    panel.getByRole('button', { name: 'EXPORT JSON' }).click(),
+  ]);
+  expect(jsonDownload.suggestedFilename()).toMatch(/terra-watch-dossier-.*\.json/);
+
+  // unpin returns to the empty state; inspector reflects it
+  await panel.getByRole('button', { name: /Unpin/ }).click();
+  await expect(panel.getByText('Pin events from the inspector')).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Pin to dossier' })).toBeVisible();
+});
+
 test('command palette can switch to graph view', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();

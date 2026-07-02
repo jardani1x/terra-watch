@@ -207,6 +207,10 @@ a { color: var(--accent); }
 .signal-row { cursor: pointer; }
 .signal-row .mon-term { font-size: 11.5px; }
 
+/* ---- Dossier ---- */
+.dossier-item { border-left: 2px solid var(--line-2); margin-bottom: 6px; }
+.dossier-item .dossier-note { font-size: 11px; padding: 4px 8px; margin: 0 0 4px 7px; width: calc(100% - 7px); }
+
 /* ---- Snapshot delta ---- */
 .snapshot-delta {
   margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 3px;

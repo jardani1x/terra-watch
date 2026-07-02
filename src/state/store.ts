@@ -8,6 +8,7 @@ import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
+import type { Dossier } from '../lib/dossier';
 import {
   putSnapshot, deleteSnapshot, getSnapshot, listSnapshots, diffSnapshot,
   type SnapshotMeta, type SnapshotDelta,
@@ -81,6 +82,8 @@ interface AppState {
   snapshotDelta: SnapshotDelta | null;
   /** non-geo market snapshot for the MARKETS panel; mode is real, never faked */
   market: { quotes: MarketQuote[]; mode: DataMode; error: string | null };
+  /** user-curated report workspace; citations frozen at pin time */
+  dossier: Dossier;
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -105,6 +108,11 @@ interface AppState {
   takeSnapshot: () => Promise<void>;
   removeSnapshot: (id: string) => Promise<void>;
   compareSnapshot: (id: string) => Promise<void>;
+  pinToDossier: (e: GeoEvent) => void;
+  unpinFromDossier: (id: string) => void;
+  setDossierNote: (id: string, note: string) => void;
+  setDossierTitle: (title: string) => void;
+  clearDossier: () => void;
 }
 
 function providerStub(meta: { id: string; name: string; license: string; homepage: string }): ProviderHealth {
@@ -145,6 +153,7 @@ export const useStore = create<AppState>()(
       snapshots: [],
       snapshotDelta: null,
       market: { quotes: [], mode: 'loading', error: null },
+      dossier: { title: 'Terra Watch dossier', items: [] },
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -250,6 +259,33 @@ export const useStore = create<AppState>()(
         set({ snapshotDelta: diffSnapshot(snap, get().events) });
       },
 
+      pinToDossier: (e) =>
+        set((s) => {
+          if (s.dossier.items.some((i) => i.id === e.id)) return s;
+          // freeze provider attribution now so the export stays cited even if
+          // the source is later disabled or its health record changes
+          const p = s.providers[e.sourceId];
+          const citation = {
+            name: p?.name ?? e.sourceId,
+            license: p?.license ?? 'unknown license',
+            homepage: p?.homepage ?? '',
+          };
+          const item = { id: e.id, event: e, citation, note: '', addedAt: Date.now() };
+          return { dossier: { ...s.dossier, items: [...s.dossier.items, item] } };
+        }),
+
+      unpinFromDossier: (id) =>
+        set((s) => ({ dossier: { ...s.dossier, items: s.dossier.items.filter((i) => i.id !== id) } })),
+
+      setDossierNote: (id, note) =>
+        set((s) => ({
+          dossier: { ...s.dossier, items: s.dossier.items.map((i) => (i.id === id ? { ...i, note } : i)) },
+        })),
+
+      setDossierTitle: (title) => set((s) => ({ dossier: { ...s.dossier, title } })),
+
+      clearDossier: () => set((s) => ({ dossier: { ...s.dossier, items: [] } })),
+
       refreshAll: async () => {
         const { sources } = get();
         const active = Object.keys(FETCHERS).filter((id) => sources[id] ?? true);
@@ -311,9 +347,11 @@ export const useStore = create<AppState>()(
         sources: s.sources,
         monitors: s.monitors,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
-        // graph nodes are a deliberate user-curated workspace (like monitors), not a
-        // live-data cache, so they're persisted the same way — never raw fetch results.
+        // graph nodes and dossier items are deliberate user-curated workspaces
+        // (like monitors), not live-data caches, so they're persisted the same
+        // way — never raw fetch results.
         graph: s.graph,
+        dossier: s.dossier,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as {
@@ -321,6 +359,7 @@ export const useStore = create<AppState>()(
           monitors?: Monitor[];
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
+          dossier?: Dossier;
         };
         return {
           ...current,
@@ -328,6 +367,7 @@ export const useStore = create<AppState>()(
           monitors: p.monitors ?? current.monitors,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
+          dossier: p.dossier ?? current.dossier,
         };
       },
     },

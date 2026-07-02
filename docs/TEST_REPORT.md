@@ -42,8 +42,9 @@ Run against `vite preview` on :4173.
 | **route explorer lists chokepoints with ADVISORY label and honest counts** | ROUTE EXPLORER carries the ADVISORY tag + "Not a routing service" copy; all 9 static chokepoints render with transparent "N nearby"/"clear feed" counts; clicking Suez flies the map | ✅ pass |
 
 | **scenario engine is labeled SIMULATION and expands a what-if honestly** | SCENARIOS carries the SIMULATION tag + "not a prediction" copy; expanding "Suez Canal blocked" shows static effects (Cape of Good Hope reroute) and a transparent live-context count; collapse works | ✅ pass |
+| **dossier: pin from inspector, add note, export MD, unpin** | honest empty state; `+ Pin to dossier` → `✓ IN DOSSIER` + panel row with frozen citation + "pinned just now"; note input labeled user-authored; `EXPORT MD`/`EXPORT JSON` trigger `terra-watch-dossier-*.md/.json` downloads; unpin restores empty state in panel and inspector | ✅ pass |
 
-**21 passed / 0 failed** (one earlier transient console-errors failure from a live-provider 503 passed on isolated re-run — known external flake). Screenshots written to `docs/screenshots/`.
+**22 passed / 0 failed** (one earlier transient console-errors failure from a live-provider 503 passed on isolated re-run — known external flake). Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events

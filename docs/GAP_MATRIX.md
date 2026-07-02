@@ -33,7 +33,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Country risk panel | **Partial** | 7 | — | ✓ | explainable v1: itemized sum of live GDACS alert weights (Red 3/Orange 2/Green 1) per country, labeled INFERENCE, click-to-view; structural indicators (World Bank) later |
 | Route Explorer Lite | **Partial** | 7 | — | ✓ | static 9-chokepoint reference + transparent count of current events within 500 km + alternate routes, labeled ADVISORY / "not a routing service"; interactive route drawing not planned for lite |
 | Scenario Engine Lite | **Done** | 7 | — | ✓ | 5 prebuilt what-if walkthroughs (static effects w/ historical analogues), labeled SIMULATION; only live element is the transparent nearby-event count |
-| Dossier / report workspace | **Deferred** | 8 | ✓ | — | citations preserved, export MD/JSON |
+| Dossier / report workspace | **Done** | 8 | ✓ | — | pin events from the inspector; provider citation frozen at pin time; user notes labeled "user-authored" in exports; export MD/JSON; persisted like monitors/graph |
 | Export state (JSON/CSV) | **Deferred** | 8 | ✓ | ✓ | per-panel export |
 | Optional AI analyst (BYO key) | **Deferred** | 9 | — | ✓ | cite sources; refuse unsafe; local rules fallback |
 | Privacy controls / clear-data | **Partial** | 1→9 | — | ✓ | privacy doc + no-backend; UI clear-data in Slice 9 |

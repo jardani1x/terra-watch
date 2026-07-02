@@ -15,7 +15,11 @@ export default function InspectorRail() {
   const addToGraph = useStore((s) => s.addToGraph);
   const removeFromGraph = useStore((s) => s.removeFromGraph);
   const searchAround = useStore((s) => s.searchAround);
+  const dossier = useStore((s) => s.dossier);
+  const pinToDossier = useStore((s) => s.pinToDossier);
+  const unpinFromDossier = useStore((s) => s.unpinFromDossier);
   const inGraph = selected != null && graph.nodes.some((n) => n.id === selected.id);
+  const inDossier = selected != null && dossier.items.some((i) => i.id === selected.id);
 
   return (
     <aside className="rail right" aria-label="Object inspector">
@@ -49,6 +53,14 @@ export default function InspectorRail() {
                 </>
               ) : (
                 <button className="kbd" onClick={() => addToGraph(selected)}>+ Add to graph</button>
+              )}
+              {inDossier ? (
+                <>
+                  <span className="tag" style={{ color: 'var(--accent)', borderColor: 'rgba(69,224,176,0.5)' }}>✓ IN DOSSIER</span>
+                  <button className="kbd" onClick={() => unpinFromDossier(selected.id)}>Unpin</button>
+                </>
+              ) : (
+                <button className="kbd" onClick={() => pinToDossier(selected)}>+ Pin to dossier</button>
               )}
             </div>
 
