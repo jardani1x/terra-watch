@@ -10,6 +10,7 @@ import SignalsPanel from './components/SignalsPanel';
 import MarketPanel from './components/MarketPanel';
 import CountryRiskPanel from './components/CountryRiskPanel';
 import RouteExplorerPanel from './components/RouteExplorerPanel';
+import ScenarioPanel from './components/ScenarioPanel';
 import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
@@ -55,6 +56,7 @@ export default function App() {
           <SignalsPanel />
           <CountryRiskPanel />
           <RouteExplorerPanel />
+          <ScenarioPanel />
           <MarketPanel />
           <SnapshotPanel />
           <div className="disclaimer">

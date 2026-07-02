@@ -141,6 +141,17 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
   - 1 new Playwright test; 20/20 pass (one known transient console-errors
     flake from a live-provider 503, passed on isolated re-run).
 
+- **Slice 7 part 3 — DONE, committed, tested**: Scenario Engine Lite:
+  - `src/lib/scenarios.ts` — 5 static what-if walkthroughs (Suez blocked,
+    Hormuz disruption, Panama drought, Malacca congestion, Bosphorus closure),
+    each with premise + effects citing historical analogues (Ever Given 2021,
+    Panama 2023–24 drought, Montreux 2022) and affected chokepoint ids.
+  - `ScenarioPanel` (left rail) — labeled SIMULATION, expand/collapse rows;
+    detail shows the static effects plus one live element: a transparent
+    count of current public events within 500 km of the affected chokepoints
+    (reuses `nearbyEvents`), click flies the map. **Slice 7 complete.**
+  - 1 new Playwright test; 21/21 pass. Build + typecheck clean.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),

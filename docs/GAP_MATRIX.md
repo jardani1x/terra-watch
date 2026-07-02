@@ -32,7 +32,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Signal/correlation engine | **Done** | 6 | ✓ | ✓ | 1°×1° cell co-location of ≥2 event types; panel labeled INFERENCE, contributing events counted, click-to-view; transparent count, no prediction |
 | Country risk panel | **Partial** | 7 | — | ✓ | explainable v1: itemized sum of live GDACS alert weights (Red 3/Orange 2/Green 1) per country, labeled INFERENCE, click-to-view; structural indicators (World Bank) later |
 | Route Explorer Lite | **Partial** | 7 | — | ✓ | static 9-chokepoint reference + transparent count of current events within 500 km + alternate routes, labeled ADVISORY / "not a routing service"; interactive route drawing not planned for lite |
-| Scenario Engine Lite | **Deferred** | 7 | — | ✓ | prebuilt what-ifs; labeled simulation |
+| Scenario Engine Lite | **Done** | 7 | — | ✓ | 5 prebuilt what-if walkthroughs (static effects w/ historical analogues), labeled SIMULATION; only live element is the transparent nearby-event count |
 | Dossier / report workspace | **Deferred** | 8 | ✓ | — | citations preserved, export MD/JSON |
 | Export state (JSON/CSV) | **Deferred** | 8 | ✓ | ✓ | per-panel export |
 | Optional AI analyst (BYO key) | **Deferred** | 9 | — | ✓ | cite sources; refuse unsafe; local rules fallback |

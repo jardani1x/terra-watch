@@ -244,6 +244,26 @@ test('route explorer lists chokepoints with ADVISORY label and honest counts', a
   await expect(page.locator('.maplibregl-canvas')).toBeVisible();
 });
 
+test('scenario engine is labeled SIMULATION and expands a what-if honestly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(2500); // let feeds load
+
+  const panel = page.getByLabel('Scenarios');
+  await expect(panel.getByText('SCENARIOS')).toBeVisible();
+  await expect(panel.getByText('SIMULATION')).toBeVisible();
+  await expect(panel.getByText('not a prediction or a live assessment')).toBeVisible();
+
+  // expand a scenario: static effects + transparent live-context count
+  await panel.getByRole('button', { name: 'Scenario: Suez Canal blocked' }).click();
+  await expect(panel.getByText('Cape of Good Hope', { exact: false }).first()).toBeVisible();
+  await expect(panel.getByText(/Live context: \d+ public events within/)).toBeVisible();
+
+  // collapse works
+  await panel.getByRole('button', { name: 'Scenario: Suez Canal blocked' }).click();
+  await expect(panel.getByText(/Live context:/)).not.toBeVisible();
+});
+
 test('market panel shows attributed quotes with a real mode label', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
