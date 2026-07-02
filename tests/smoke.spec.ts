@@ -84,7 +84,7 @@ test('monitors: add a keyword and see it highlighted', async ({ page }) => {
   await input.fill('earthquake');
   await input.press('Enter');
 
-  await expect(page.locator('.monitor-row', { hasText: 'earthquake' })).toBeVisible();
+  await expect(page.getByLabel('Monitors').locator('.monitor-row', { hasText: 'earthquake' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove monitor earthquake' })).toBeVisible();
 });
 
@@ -148,7 +148,7 @@ test('snapshots: save, compare shows labeled delta, delete', async ({ page }) =>
   await page.waitForTimeout(3000); // let events load so a snapshot has content
 
   await page.getByRole('button', { name: '⊕ SAVE SNAPSHOT' }).click();
-  const row = page.locator('.monitor-row', { hasText: 'events' }).first();
+  const row = page.getByLabel('Snapshots').locator('.monitor-row', { hasText: 'events' }).first();
   await expect(row).toBeVisible();
 
   await row.getByRole('button', { name: /Compare with snapshot/ }).click();
@@ -158,6 +158,33 @@ test('snapshots: save, compare shows labeled delta, delete', async ({ page }) =>
 
   await row.getByRole('button', { name: /Delete snapshot/ }).click();
   await expect(page.getByText('Save a baseline of the current events')).toBeVisible();
+});
+
+test('NWS weather alerts source and layer are present', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('checkbox', { name: 'Weather alerts (US · NWS)' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Toggle source: NOAA NWS Alerts' })).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'NOAA NWS Alerts' })).toBeVisible();
+});
+
+test('signals panel is labeled INFERENCE and renders honestly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3500); // let feeds load
+
+  const panel = page.getByLabel('Signals');
+  await expect(panel.getByText('SIGNALS')).toBeVisible();
+  await expect(panel.getByText('INFERENCE')).toBeVisible();
+  await expect(panel.getByText('not a prediction')).toBeVisible();
+
+  // either real co-location rows or the honest empty state — never a placeholder
+  const rows = await panel.locator('.signal-row').count();
+  if (rows > 0) {
+    await panel.locator('.signal-row').first().click(); // flies the map, must not crash
+    await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+  } else {
+    await expect(panel.getByText('No multi-type co-locations')).toBeVisible();
+  }
 });
 
 test('command palette can switch to graph view', async ({ page }) => {

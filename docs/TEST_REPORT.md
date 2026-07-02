@@ -32,8 +32,10 @@ Run against `vite preview` on :4173.
 | **command palette can switch to graph view** | "Switch to Graph view" command opens `.graph-wrap` | ✅ pass |
 | **timeline playback shows PLAYBACK label and returns to live** | ▶ switches the amber `PLAYBACK · hh:mmZ` label on; `GO LIVE` restores the green `LIVE FEED` label | ✅ pass |
 | **snapshots: save, compare shows labeled delta, delete** | `⊕ SAVE SNAPSHOT` adds a row; `Δ` shows the "+N new · −M no longer present" baseline comparison; `✕` deletes and restores the empty-state copy | ✅ pass |
+| **NWS weather alerts source and layer are present** | Weather-alerts layer checkbox, NWS source toggle, and NOAA NWS health chip all render | ✅ pass |
+| **signals panel is labeled INFERENCE and renders honestly** | SIGNALS section carries the amber INFERENCE tag + "not a prediction" copy; shows either real co-location rows (click flies the map) or the honest empty state | ✅ pass |
 
-**12 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**14 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -62,6 +64,11 @@ Run against `vite preview` on :4173.
 - **Snapshots**: local IndexedDB baselines (7-day retention, pruned on load; never sent
   anywhere). Comparing shows a transparent added/removed event-id count vs the baseline,
   labeled as a delta over public data.
+- **NWS weather alerts**: third live provider; only polygon-carrying alerts are mapped
+  (centroid, noted in inspector props) — zone-only alerts are skipped, never guessed.
+- **Signals (inference)**: 1°×1° cell co-location of ≥2 public event types, computed
+  client-side over the current feed. Panel is labeled INFERENCE with "not a prediction"
+  copy; every signal cites its contributing count and flies the map to the cell.
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)

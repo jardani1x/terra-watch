@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 5).
+the live v1 site). Last updated: 2026-07-02 (Slice 6 part 1).
 
 ## Progress
 
@@ -68,7 +68,29 @@ the live v1 site). Last updated: 2026-07-02 (Slice 5).
     `{ exact: true }`, and the graph test now selects events via the timeline
     label click instead of the head center (which is the scrubber now).
 
-## Then Slices 6–10
+- **Slice 6 part 1 — DONE, committed, tested**: NWS provider + signal engine:
+  - `src/lib/providers/nws.ts` — NOAA NWS active alerts (keyless, CORS ok,
+    US-only). Only polygon-carrying alerts are mapped (centroid of first ring,
+    noted in inspector props); zone-only alerts are skipped, never guessed.
+    Marker size scales with alert severity.
+  - `src/lib/signals.ts` + `SignalsPanel` — 1°×1° cell co-location of ≥2
+    distinct public event types; panel labeled INFERENCE ("transparent count,
+    not a prediction"), rows fly the map to the cell. Pure client-side, no
+    store changes needed (computed via `useMemo` from `events`).
+  - **GDELT news deferred to 6b**: `api.gdeltproject.org` timed out (25s, no
+    response) during dev while gdeltproject.org itself was up — API service
+    down/flaky. Probe it before wiring (curl the /api/v2/geo/geo endpoint).
+  - Gotcha: SignalsPanel reuses `.monitor-row`, and signal rows contain words
+    like "earthquake"/"events" — the Monitors and Snapshots tests had to be
+    scoped to their sections via `getByLabel('Monitors'/'Snapshots')`.
+  - 2 new Playwright tests; 14/14 pass. Build + typecheck clean.
+
+## Slice 6b remaining (before Slice 7)
+
+News (GDELT retry, RSS tiers), market panel (free-tier/BYO), transport
+(OpenSky), infrastructure (open registries), FIRMS wildfire detail.
+
+## Then Slices 7–10
 graph workspace · timeline playback/snapshots · intelligence panels + signal
 engine · country risk + route/scenario lite · dossier + export · optional AI
 analyst · QA/mobile/a11y/deploy. See `docs/GAP_MATRIX.md`.

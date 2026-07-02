@@ -203,6 +203,10 @@ a { color: var(--accent); }
 .tl-live { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--accent); }
 .tl-playback { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--amber); }
 
+/* ---- Signals ---- */
+.signal-row { cursor: pointer; }
+.signal-row .mon-term { font-size: 11.5px; }
+
 /* ---- Snapshot delta ---- */
 .snapshot-delta {
   margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 3px;
