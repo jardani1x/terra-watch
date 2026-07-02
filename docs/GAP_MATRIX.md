@@ -1,6 +1,6 @@
 # Gap Matrix
 
-Status of each mandated capability. Updated after Slice 6 part 1. Honest labels:
+Status of each mandated capability. Updated after Slice 6b part 1 (GDACS). Honest labels:
 **Done** (built + tested), **Partial** (basic version shipped, more planned),
 **Deferred** (planned, not yet started).
 
@@ -24,11 +24,11 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Custom keyword monitors | **Done** | 3 | — | ✓ | local-persisted; highlights matches in timeline (left border) and on the map (stroke ring) with live match counts |
 | Link graph workspace | **Partial** | 4 | ✓ | ✓ | add-to-graph, search-around (proximity+time, source-cited), 3 layouts, JSON export; only geo-events so far, no news/market entities (Slice 6) |
 | Snapshots / playback | **Done** | 5 | ✓ | ✓ | IndexedDB baselines, 7-day retention, labeled added/removed delta vs baseline; 24h timeline playback |
-| News intelligence panel | **Deferred** | 6b | — | ✓ | GDELT API was unreachable during Slice 6 dev (2026-07-02); retry, then RSS/source tiers |
+| News intelligence panel | **Deferred** | 6b | — | ✓ | GDELT dropped 2026-07-02 (GEO API endpoint returns 404 — retired; DOC API is 1 req/5 s, no coordinates); plan: RSS/source tiers |
 | Market panel | **Deferred** | 6 | — | ✓ | free-tier / BYO key |
-| Natural events panel | **Partial** | 1,2,6→6b | — | ✓ | quakes (USGS) + wildfires/volcanoes/storms (EONET) + US weather alerts (NWS) live; FIRMS next |
+| Natural events panel | **Partial** | 1,2,6,6b | — | ✓ | quakes (USGS) + wildfires/volcanoes/storms (EONET) + US weather alerts (NWS) + global GDACS disaster alerts (Green/Orange/Red, size-scaled) live; FIRMS next |
 | Infrastructure panel | **Deferred** | 6 | ✓ | ✓ | open registries only |
-| Transport panel | **Deferred** | 6 | — | ✓ | OpenSky ADS-B |
+| Transport panel | **Deferred** | 6b+ | — | ✓ | blocked for keyless browser use (2026-07-02): OpenSky CORS is locked to opensky-network.org; adsb.lol sends no CORS header — needs a browser-usable source |
 | Signal/correlation engine | **Done** | 6 | ✓ | ✓ | 1°×1° cell co-location of ≥2 event types; panel labeled INFERENCE, contributing events counted, click-to-view; transparent count, no prediction |
 | Country risk panel | **Deferred** | 7 | — | ✓ | explainable v1 score, component breakdown |
 | Route Explorer Lite | **Deferred** | 7 | — | ✓ | chokepoints, disruption, alternates; labeled simulation |

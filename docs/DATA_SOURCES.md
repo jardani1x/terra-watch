@@ -12,21 +12,25 @@ offline fallback), or `offline`.
 | **USGS Earthquakes** | M2.5+ quakes, past 24h (GeoJSON) | none | USGS / U.S. public domain | Live; on failure → labeled `mock` sample | 1 |
 | **NASA EONET v3** | open natural events (wildfires, volcanoes, severe storms, +) | none | NASA EONET (courtesy NASA Earth Observatory) | Live; on failure → labeled `mock` sample | 2 |
 | **NOAA NWS Alerts** | active US weather alerts (polygon-mapped only; zone-only alerts are skipped, not guessed) | none | NOAA/NWS — U.S. Government public domain | Live; on failure → labeled `mock` sample | 6 |
+| **GDACS Disasters** | global multi-hazard disaster alerts (cyclones, floods, quakes, droughts, wildfires) with Green/Orange/Red levels | none | GDACS — EC Joint Research Centre / UN OCHA | Live; on failure → labeled `mock` sample | 6b |
 | **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source | 1 |
 
 - USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
 - EONET feed: `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200`
 - NWS feed: `https://api.weather.gov/alerts/active?status=actual` (marker = centroid of
   the alert polygon, noted in the inspector)
+- GDACS feed: `https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP` (each event's
+  `Point_Centroid` feature only — polygon/track duplicates are skipped; marker size
+  scales with the Green/Orange/Red alert level; centroid placement noted in the inspector)
 
 ## Planned (later slices — keyless open data first)
 
 | Source | Data | Auth | Slice |
 |---|---|---|---|
-| GDELT | global news/event stream | none (rate-limited) | 6b — API was unreachable (timeouts) during Slice 6 dev on 2026-07-02; retry before wiring |
-| NASA FIRMS | active wildfire detections (hi-res) | key (free) → optional | 6b |
-| Open-Meteo | weather (global forecast) | none | 6b |
-| OpenSky | aircraft ADS-B | anonymous tier (rate-limited) | 6b (transport) |
+| GDELT | global news/event stream | none (rate-limited) | dropped 2026-07-02: GEO API endpoint now returns 404 (retired); DOC API is 1 req/5 s and carries no coordinates |
+| NASA FIRMS | active wildfire detections (hi-res) | key (free) → optional | 6b+ |
+| Open-Meteo | weather (global forecast) | none | 6b+ |
+| OpenSky | aircraft ADS-B | anonymous tier | dropped 2026-07-02: CORS locked to `opensky-network.org` — unusable from a browser client (adsb.lol probed too: no CORS header at all) |
 | Celestrak TLE + SGP4 | satellite positions (computed in-browser) | none | Phase 2 |
 | REST Countries / Natural Earth | country metadata + boundaries | none | 2/7 |
 | World Bank / FRED | structural indicators for risk score | none/free key | 7 (country risk) |

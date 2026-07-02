@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 6 part 1).
+the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
 
 ## Progress
 
@@ -85,10 +85,29 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6 part 1).
     scoped to their sections via `getByLabel('Monitors'/'Snapshots')`.
   - 2 new Playwright tests; 14/14 pass. Build + typecheck clean.
 
+- **Slice 6b part 1 — DONE, committed, tested**: GDACS global disaster alerts:
+  - Probed the deferred candidates first: **GDELT GEO API now returns 404**
+    (endpoint retired, not just flaky — the DOC API is rate-limited to 1 req/5 s
+    and carries no coordinates), and **OpenSky is CORS-locked to
+    opensky-network.org** (adsb.lol probed as an ADS-B alternative: no CORS
+    header at all). Both dropped for keyless browser use; noted in
+    `docs/DATA_SOURCES.md` and the gap matrix.
+  - `src/lib/providers/gdacs.ts` — GDACS event list (keyless, CORS `*`,
+    live-probed: 107 features / 33 centroids). The MAP feed repeats each event
+    as centroid + polygon + cyclone-track features; only `Class ===
+    'Point_Centroid'` points are ingested, deduped by event id. Timestamps are
+    UTC without a zone suffix (parsed as UTC). Marker size scales with the
+    Green/Orange/Red alert level (`GDACS_LEVEL_SIZE` in `MapCanvas`).
+  - New `disaster-alerts` layer (Advisories group, `#f06e9c`); provider/source/
+    fetcher registered in the store like NWS.
+  - 2 new Playwright tests (presence; source-toggle OFF round-trip); 16/16
+    pass. Build + typecheck clean.
+
 ## Slice 6b remaining (before Slice 7)
 
-News (GDELT retry, RSS tiers), market panel (free-tier/BYO), transport
-(OpenSky), infrastructure (open registries), FIRMS wildfire detail.
+News (RSS/source tiers — GDELT is dead, see above), market panel
+(free-tier/BYO), transport (blocked: no CORS-usable keyless ADS-B source found
+yet), infrastructure (open registries), FIRMS wildfire detail.
 
 ## Then Slices 7–10
 graph workspace · timeline playback/snapshots · intelligence panels + signal

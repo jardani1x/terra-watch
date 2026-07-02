@@ -28,10 +28,12 @@ const STYLE: StyleSpecification = {
 };
 
 const ALERT_SIZE: Record<string, number> = { Extreme: 11, Severe: 9, Moderate: 7, Minor: 5 };
+const GDACS_LEVEL_SIZE: Record<string, number> = { Red: 11, Orange: 8, Green: 5.5 };
 
 function sizeOf(e: GeoEvent): number {
   if (e.type === 'earthquake' && e.magnitude != null) return Math.max(3, Math.min(20, e.magnitude * 2.2));
   if (e.type === 'weather-alert') return ALERT_SIZE[String(e.props.severity)] ?? 6;
+  if (e.type === 'disaster-alert') return GDACS_LEVEL_SIZE[String(e.props.alertLevel)] ?? 6;
   return 6;
 }
 

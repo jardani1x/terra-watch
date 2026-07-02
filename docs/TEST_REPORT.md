@@ -10,8 +10,8 @@ Environment: Node 24.15, npm 11.12, Playwright (Chromium headless), Raspberry Pi
 | Typecheck (strict) | `tsc --noEmit` | ✅ pass (0 errors) |
 | Production build | `vite build` | ✅ pass — `dist/` emitted |
 
-Build output: `index.html` 0.93 kB, CSS 72.5 kB (10.9 kB gz), JS 979 kB
-(276 kB gz). The JS chunk-size warning (MapLibre) is tracked for code-splitting
+Build output: `index.html` 0.93 kB, CSS 73.9 kB (11.2 kB gz), JS 998 kB
+(282 kB gz). The JS chunk-size warning (MapLibre) is tracked for code-splitting
 in Slice 10.
 
 ## End-to-end (Playwright, `tests/smoke.spec.ts`)
@@ -34,8 +34,10 @@ Run against `vite preview` on :4173.
 | **snapshots: save, compare shows labeled delta, delete** | `⊕ SAVE SNAPSHOT` adds a row; `Δ` shows the "+N new · −M no longer present" baseline comparison; `✕` deletes and restores the empty-state copy | ✅ pass |
 | **NWS weather alerts source and layer are present** | Weather-alerts layer checkbox, NWS source toggle, and NOAA NWS health chip all render | ✅ pass |
 | **signals panel is labeled INFERENCE and renders honestly** | SIGNALS section carries the amber INFERENCE tag + "not a prediction" copy; shows either real co-location rows (click flies the map) or the honest empty state | ✅ pass |
+| **GDACS disaster alerts source and layer are present** | Disaster-alerts layer checkbox, GDACS source toggle, and GDACS health chip all render | ✅ pass |
+| **GDACS source toggle shows OFF in health bar and layer manager** | unchecking the GDACS source shows `OFF` in its health chip and `OFF · source disabled` in the layer row; re-checking clears both | ✅ pass |
 
-**14 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**16 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -66,6 +68,11 @@ Run against `vite preview` on :4173.
   labeled as a delta over public data.
 - **NWS weather alerts**: third live provider; only polygon-carrying alerts are mapped
   (centroid, noted in inspector props) — zone-only alerts are skipped, never guessed.
+- **GDACS disaster alerts**: fourth live provider (keyless, CORS `*`, live-probed before
+  the adapter was written). Global multi-hazard alerts; only each event's
+  `Point_Centroid` feature is ingested (polygon/track duplicates skipped), markers
+  size-scale with the Green/Orange/Red alert level, centroid placement noted in
+  inspector props.
 - **Signals (inference)**: 1°×1° cell co-location of ≥2 public event types, computed
   client-side over the current feed. Panel is labeled INFERENCE with "not a prediction"
   copy; every signal cites its contributing count and flies the map to the cell.

@@ -4,6 +4,7 @@ import type { DataMode, GeoEvent, ProviderHealth } from '../lib/providers/types'
 import { fetchUsgs, USGS_META } from '../lib/providers/usgs';
 import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { fetchNws, NWS_META } from '../lib/providers/nws';
+import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
 import {
@@ -114,20 +115,22 @@ const DEFAULT_LAYERS: LayerDef[] = [
   { id: 'severe-storms', name: 'Severe storms', group: 'Natural events', enabled: true, providerId: 'eonet', eventTypes: ['severeStorms'], color: '#6db3ff' },
   { id: 'other-natural', name: 'Other natural events', group: 'Natural events', enabled: false, providerId: 'eonet', eventTypes: [], catchAll: true, color: '#b39ddb' },
   { id: 'weather-alerts', name: 'Weather alerts (US · NWS)', group: 'Advisories', enabled: true, providerId: 'nws', eventTypes: ['weather-alert'], color: '#ffe066' },
+  { id: 'disaster-alerts', name: 'Disaster alerts (GDACS)', group: 'Advisories', enabled: true, providerId: 'gdacs', eventTypes: ['disaster-alert'], color: '#f06e9c' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
   usgs: fetchUsgs,
   eonet: fetchEonet,
   nws: fetchNws,
+  gdacs: fetchGdacs,
 };
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       layers: DEFAULT_LAYERS,
-      providers: { usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META) },
-      sources: { usgs: true, eonet: true, nws: true },
+      providers: { usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META), gdacs: providerStub(GDACS_META) },
+      sources: { usgs: true, eonet: true, nws: true, gdacs: true },
       monitors: [],
       events: [],
       selected: null,

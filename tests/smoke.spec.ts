@@ -187,6 +187,26 @@ test('signals panel is labeled INFERENCE and renders honestly', async ({ page })
   }
 });
 
+test('GDACS disaster alerts source and layer are present', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('checkbox', { name: 'Disaster alerts (GDACS)' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Toggle source: GDACS Disasters' })).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).toBeVisible();
+});
+
+test('GDACS source toggle shows OFF in health bar and layer manager', async ({ page }) => {
+  await page.goto('/');
+  const sourceCheckbox = page.getByRole('checkbox', { name: 'Toggle source: GDACS Disasters' });
+  await expect(sourceCheckbox).toBeChecked();
+  await sourceCheckbox.uncheck();
+
+  await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).toContainText('OFF');
+  await expect(page.getByText('OFF · source disabled')).toBeVisible();
+
+  await sourceCheckbox.check(); // leave state clean for other tests
+  await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).not.toContainText('OFF');
+});
+
 test('command palette can switch to graph view', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
