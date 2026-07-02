@@ -30,7 +30,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Infrastructure panel | **Deferred** | 6 | ✓ | ✓ | open registries only |
 | Transport panel | **Deferred** | 6b+ | — | ✓ | blocked for keyless browser use (2026-07-02): OpenSky CORS is locked to opensky-network.org; adsb.lol sends no CORS header — needs a browser-usable source |
 | Signal/correlation engine | **Done** | 6 | ✓ | ✓ | 1°×1° cell co-location of ≥2 event types; panel labeled INFERENCE, contributing events counted, click-to-view; transparent count, no prediction |
-| Country risk panel | **Deferred** | 7 | — | ✓ | explainable v1 score, component breakdown |
+| Country risk panel | **Partial** | 7 | — | ✓ | explainable v1: itemized sum of live GDACS alert weights (Red 3/Orange 2/Green 1) per country, labeled INFERENCE, click-to-view; structural indicators (World Bank) later |
 | Route Explorer Lite | **Deferred** | 7 | — | ✓ | chokepoints, disruption, alternates; labeled simulation |
 | Scenario Engine Lite | **Deferred** | 7 | — | ✓ | prebuilt what-ifs; labeled simulation |
 | Dossier / report workspace | **Deferred** | 8 | ✓ | — | citations preserved, export MD/JSON |

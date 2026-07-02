@@ -1,0 +1,49 @@
+import { useMemo } from 'react';
+import { useStore } from '../state/store';
+import { computeCountryRisk } from '../lib/risk';
+
+const MAX_ROWS = 8;
+
+/** Explainable v1 country weighting over the current public alert feed.
+ *  Every score is an itemized sum of live GDACS alert levels — labeled
+ *  INFERENCE, never a forecast or a "threat" claim. */
+export default function CountryRiskPanel() {
+  const events = useStore((s) => s.events);
+  const flyTo = useStore((s) => s.flyTo);
+  const setView = useStore((s) => s.setView);
+
+  const risks = useMemo(() => computeCountryRisk(events), [events]);
+
+  return (
+    <section aria-label="Country risk">
+      <div className="rail-sec-title">
+        COUNTRY RISK <span className="tag" style={{ color: 'var(--amber)', borderColor: 'rgba(255,180,84,0.5)' }}>INFERENCE</span>
+      </div>
+      <p className="inspector-empty" style={{ marginTop: 0 }}>
+        Sum of current GDACS alert weights (Red 3 · Orange 2 · Green 1) per
+        country. An itemized count, not a forecast.
+      </p>
+      {risks.length === 0 && (
+        <p className="inspector-empty">No country-attributed alerts in the current feed.</p>
+      )}
+      {risks.slice(0, MAX_ROWS).map((r) => (
+        <div
+          className="monitor-row risk-row"
+          key={r.country}
+          onClick={() => { setView('map'); flyTo([r.lon, r.lat], 4); }}
+          role="button"
+          aria-label={`Country risk ${r.country}: weight ${r.score} from ${r.components.length} alerts`}
+        >
+          <span className="mon-term">
+            {r.country}
+            <div className="lr-meta">{r.types.join(' + ')} · {r.components.length} alerts · click to view</div>
+          </span>
+          <span className="mon-count" title={r.components.join(', ')}>{r.score}</span>
+        </div>
+      ))}
+      {risks.length > MAX_ROWS && (
+        <div className="lr-meta" style={{ padding: '4px 7px' }}>+{risks.length - MAX_ROWS} more countries</div>
+      )}
+    </section>
+  );
+}

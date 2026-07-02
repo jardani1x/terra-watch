@@ -8,6 +8,7 @@ import Monitors from './components/Monitors';
 import SnapshotPanel from './components/SnapshotPanel';
 import SignalsPanel from './components/SignalsPanel';
 import MarketPanel from './components/MarketPanel';
+import CountryRiskPanel from './components/CountryRiskPanel';
 import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
@@ -51,6 +52,7 @@ export default function App() {
           <SourceManager />
           <Monitors />
           <SignalsPanel />
+          <CountryRiskPanel />
           <MarketPanel />
           <SnapshotPanel />
           <div className="disclaimer">

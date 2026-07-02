@@ -207,6 +207,26 @@ test('GDACS source toggle shows OFF in health bar and layer manager', async ({ p
   await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).not.toContainText('OFF');
 });
 
+test('country risk panel is labeled INFERENCE and renders honestly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3500); // let feeds load
+
+  const panel = page.getByLabel('Country risk');
+  await expect(panel.getByText('COUNTRY RISK')).toBeVisible();
+  await expect(panel.getByText('INFERENCE')).toBeVisible();
+  await expect(panel.getByText('not a forecast')).toBeVisible();
+
+  // either itemized country rows (click flies the map) or the honest empty state
+  const rows = await panel.locator('.risk-row').count();
+  if (rows > 0) {
+    await panel.locator('.risk-row').first().click();
+    await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+  } else {
+    await expect(panel.getByText('No country-attributed alerts')).toBeVisible();
+  }
+});
+
 test('market panel shows attributed quotes with a real mode label', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();

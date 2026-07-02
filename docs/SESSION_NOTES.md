@@ -118,7 +118,18 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
   - 2 new Playwright tests (attributed quotes + real mode label; source-toggle
     OFF round-trip); 18/18 pass. Build + typecheck clean.
 
-## Slice 6b remaining (before Slice 7)
+- **Slice 7 part 1 — DONE, committed, tested**: country risk panel (v1):
+  - `src/lib/risk.ts` `computeCountryRisk` — pure function over the live feed:
+    groups country-attributed alerts (GDACS `props.country` + `alertLevel`),
+    score = itemized sum of level weights (Red 3 / Orange 2 / Green 1),
+    components listed per event, multi-country alerts credit the primary.
+  - `CountryRiskPanel` (left rail) — labeled INFERENCE, "not a forecast" copy,
+    rows show hazard types + alert count, hover shows the itemized components,
+    click flies the map. No store changes, no persistence, no new deps.
+  - 1 new Playwright test (INFERENCE label + rows-or-honest-empty); 19/19
+    pass. Build + typecheck clean.
+
+## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),

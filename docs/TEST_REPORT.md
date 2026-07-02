@@ -38,8 +38,9 @@ Run against `vite preview` on :4173.
 | **GDACS source toggle shows OFF in health bar and layer manager** | unchecking the GDACS source shows `OFF` in its health chip and `OFF · source disabled` in the layer row; re-checking clears both | ✅ pass |
 | **market panel shows attributed quotes with a real mode label** | MARKETS panel renders a LIVE or honest SAMPLE tag (derived from the fetch), a USD/EUR row, and the Frankfurter + CoinGecko attribution line | ✅ pass |
 | **markets source toggle disables the panel honestly** | unchecking the Markets source shows "Source disabled" in the panel and `OFF` in the health chip; re-checking restores live quotes | ✅ pass |
+| **country risk panel is labeled INFERENCE and renders honestly** | COUNTRY RISK section carries the INFERENCE tag + "not a forecast" copy; shows either itemized country rows (click flies the map) or the honest empty state | ✅ pass |
 
-**18 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**19 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
