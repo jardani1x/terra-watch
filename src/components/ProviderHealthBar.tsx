@@ -8,21 +8,29 @@ const DOT: Record<DataMode, string> = {
 
 export default function ProviderHealthBar() {
   const providers = useStore((s) => s.providers);
+  const sources = useStore((s) => s.sources);
   const refreshAll = useStore((s) => s.refreshAll);
 
   return (
     <footer className="healthbar" aria-label="Provider health and data freshness">
       <span style={{ color: 'var(--muted)' }}>SOURCES</span>
-      {Object.values(providers).map((p) => (
-        <span className="health-chip" key={p.id} title={p.error ? `Error: ${p.error}` : `${p.name} — ${p.license}`}>
-          <span className={`dot ${DOT[p.status]}`} />
-          <b>{p.name}</b>
-          <span>{p.status.toUpperCase()}</span>
-          <span className="lat">{p.itemCount} items</span>
-          {p.latencyMs != null && <span className="lat">{p.latencyMs}ms</span>}
-          <span className="lat">{p.lastSuccessAt ? ago(p.lastSuccessAt) : '—'}</span>
-        </span>
-      ))}
+      {Object.values(providers).map((p) => {
+        const on = sources[p.id] ?? true;
+        return (
+          <span
+            className={`health-chip${on ? '' : ' off'}`}
+            key={p.id}
+            title={on ? (p.error ? `Error: ${p.error}` : `${p.name} — ${p.license}`) : `${p.name} — disabled by user`}
+          >
+            <span className={`dot ${on ? DOT[p.status] : 'offline'}`} />
+            <b>{p.name}</b>
+            <span>{on ? p.status.toUpperCase() : 'OFF'}</span>
+            {on && <span className="lat">{p.itemCount} items</span>}
+            {on && p.latencyMs != null && <span className="lat">{p.latencyMs}ms</span>}
+            {on && <span className="lat">{p.lastSuccessAt ? ago(p.lastSuccessAt) : '—'}</span>}
+          </span>
+        );
+      })}
       <button className="kbd" onClick={() => refreshAll()} style={{ marginLeft: 'auto' }}>↻ REFRESH</button>
     </footer>
   );

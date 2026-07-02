@@ -124,6 +124,26 @@ a { color: var(--accent); }
 }
 .health-chip b { color: var(--text); font-weight: 400; }
 .health-chip .lat { color: var(--muted); }
+.health-chip.off { opacity: 0.45; }
+
+/* ---- Monitors ---- */
+.monitor-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 7px; border-radius: 3px;
+  border: 1px solid transparent; font-size: 12.5px;
+}
+.monitor-row:hover { border-color: var(--line); background: rgba(255,255,255,0.02); }
+.monitor-row .mon-term { flex: 1; }
+.monitor-row .mon-count { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+.monitor-row .mon-remove {
+  font-family: var(--mono); font-size: 11px; color: var(--muted); background: none; border: none;
+  padding: 0 2px; line-height: 1;
+}
+.monitor-row .mon-remove:hover { color: var(--danger); }
+.monitor-input {
+  width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--line-2); color: var(--text);
+  border-radius: 3px; padding: 5px 10px; font-family: var(--mono); font-size: 12px; margin-bottom: 8px;
+}
+.monitor-input::placeholder { color: var(--muted); }
 
 /* ---- Inspector ---- */
 .inspector-empty { color: var(--muted); font-size: 12px; line-height: 1.6; }

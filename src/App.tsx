@@ -3,6 +3,8 @@ import { useStore } from './state/store';
 import StatusBar from './components/StatusBar';
 import MapCanvas from './components/MapCanvas';
 import LayerManager from './components/LayerManager';
+import SourceManager from './components/SourceManager';
+import Monitors from './components/Monitors';
 import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
@@ -40,6 +42,8 @@ export default function App() {
       <div className="shell-body">
         <aside className={`rail left ${mobileRail === 'left' ? 'open' : ''}`} aria-label="Layers and controls">
           <LayerManager />
+          <SourceManager />
+          <Monitors />
           <div className="disclaimer">
             Data is fetched client-side from public providers. Nothing you do here
             is sent to a Terra Watch server. See <b>Privacy</b> in the docs.

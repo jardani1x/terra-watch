@@ -1,6 +1,6 @@
 # Gap Matrix
 
-Status of each mandated capability. Updated after Slice 2. Honest labels:
+Status of each mandated capability. Updated after Slice 3. Honest labels:
 **Done** (built + tested), **Partial** (basic version shipped, more planned),
 **Deferred** (planned, not yet started).
 
@@ -15,13 +15,13 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Provider health / freshness bar | **Done** | 1 | ✓(audit) | ✓ | status·items·latency·freshness per source |
 | Data mode never faked | **Done** | 1 | — | ✓ | LIVE/DEMO/DEGRADED derived from fetch |
 | Object inspector + source card | **Done** | 1 | ✓ | ✓ | detail + license + authoritative link |
-| Command palette (Cmd/Ctrl-K) | **Partial** | 1→3 | ✓ | ✓ | Opens; commands = refresh + layer toggles; region/nav commands in Slice 3 |
-| Timeline (rolling feed) | **Partial** | 1→5 | ✓ | ✓ | Live feed + click-inspect; time filters/playback/correlation in Slice 5 |
+| Command palette (Cmd/Ctrl-K) | **Done** | 1→3 | ✓ | ✓ | refresh + layer toggles + region fly-to (`REGIONS`) + per-source enable/disable |
+| Timeline (rolling feed) | **Partial** | 1→5 | ✓ | ✓ | Live feed + click-inspect + monitor-match highlight; time filters/playback/correlation in Slice 5 |
 | Normalized ontology | **Partial** | 1→3 | ✓ | ✓ | GeoEvent (typed, categorized) + Provider across 2 providers; entities/relations in later slices |
 | Civilian-use disclaimers | **Done** | 1 | — | — | Inspector + privacy language, no militarized copy |
-| Search "this view" | **Partial** | 1→3 | ✓ | ✓ | Search box opens palette; view-scoped search in Slice 3 |
-| Source manager (per-source toggle) | **Deferred** | 3 | ✓ | ✓ | fetch-time filtering |
-| Custom keyword monitors | **Deferred** | 3 | — | ✓ | local-persisted highlighter |
+| Search "this view" | **Partial** | 1→3 | ✓ | ✓ | Search box opens palette; view-scoped search still deferred |
+| Source manager (per-source toggle) | **Done** | 3 | ✓ | ✓ | fetch-time filtering, OFF shown in health bar + layer rows, persisted to localStorage |
+| Custom keyword monitors | **Done** | 3 | — | ✓ | local-persisted; highlights matches in timeline (left border) and on the map (stroke ring) with live match counts |
 | Link graph workspace | **Deferred** | 4 | ✓ | ✓ | add-to-graph, search-around, layouts, export |
 | Snapshots / playback | **Deferred** | 5 | ✓ | ✓ | IndexedDB baselines |
 | News intelligence panel | **Deferred** | 6 | — | ✓ | GDELT/RSS with source tiers |

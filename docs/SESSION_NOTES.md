@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-01.
+the live v1 site). Last updated: 2026-07-02.
 
 ## Progress
 
@@ -11,28 +11,25 @@ the live v1 site). Last updated: 2026-07-01.
 - **Slice 2 — DONE, committed, tested** (`d469cf3`): NASA EONET provider
   (wildfires/volcanoes/severe storms/other), shared `src/lib/layers.ts` event→
   layer model, generalized map rendering, per-layer counts, type-aware inspector.
-- **Slice 3 — WIP, store only, UNVERIFIED at runtime** (this commit): rewrote
-  `src/state/store.ts` to add:
-  - localStorage persistence via `zustand/middleware` `persist` (persists only
-    user settings: source toggles, monitors, per-layer enabled — never fetched
-    data). Key: `terra-watch:v2`.
-  - `sources` map + `toggleSource` with **fetch-time skipping** of disabled
-    providers (events from disabled sources dropped on refresh).
-  - `monitors` (custom keyword) state: `addMonitor` / `removeMonitor` + colors.
-  - `REGIONS` presets + `flyTo` / `mapCmd` channel for palette-driven map nav.
-  - `typecheck passes`; **not built/e2e-tested; no UI wired yet.**
-
-## Slice 3 remaining (next session)
-
-1. **SourceManager UI** — per-source enable/disable (reads/writes `sources`);
-   ProviderHealthBar + LayerManager should show disabled sources as "OFF".
-2. **Monitors UI** — add/remove keyword monitors; highlight matching events in
-   the timeline (and optionally map); show match counts.
-3. **CommandPalette expansion** — region fly-to commands (uses `REGIONS`+`flyTo`),
-   enable/disable source commands.
-4. **MapCanvas** — subscribe to `mapCmd` and call `map.flyTo`.
-5. **Tests** — source toggle persists + stops fetch; monitor add highlights;
-   palette region command flies map. Update `docs/TEST_REPORT.md` + `GAP_MATRIX.md`.
+- **Slice 3 — DONE, committed, tested**: store (`70aae12`, previous commit) plus
+  this session's UI wiring:
+  - `src/components/SourceManager.tsx` — per-source enable/disable, reads/writes
+    `store.sources` via `toggleSource`. `LayerManager` and `ProviderHealthBar`
+    now show disabled sources as **OFF** instead of a stale freshness dot.
+  - `src/components/Monitors.tsx` + `src/lib/monitors.ts` (`matchMonitor`) —
+    add/remove keyword monitors with live match counts; matches get a colored
+    left border in `TimelineDrawer` and a colored stroke ring on the
+    `MapCanvas` marker (`circle-stroke-color`/`-width` keyed off a
+    `monitorColor` feature property).
+  - `CommandPalette` — added region fly-to commands (from `REGIONS`) and
+    per-source enable/disable commands, alongside the existing refresh/layer
+    commands.
+  - `MapCanvas` — subscribes to `store.mapCmd` and calls `map.flyTo`, so both
+    the palette's region commands and any future flyTo caller animate the map.
+  - Tests added to `tests/smoke.spec.ts`: source toggle shows OFF + persists
+    across reload, monitor add + highlight, palette region command. All 8
+    Playwright tests pass; `tsc --noEmit` + `vite build` clean. See
+    `docs/TEST_REPORT.md`.
 
 ## Then Slices 4–10
 graph workspace · timeline playback/snapshots · intelligence panels + signal

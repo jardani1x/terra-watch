@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
+import { matchMonitor } from '../lib/monitors';
 
 /** Slice 1 timeline: a live, sorted rolling feed of the events on the map,
  *  click-to-inspect. Playback + correlation markers land in Slice 5. */
 export default function TimelineDrawer() {
   const [collapsed, setCollapsed] = useState(true);
   const events = useStore((s) => s.events);
+  const monitors = useStore((s) => s.monitors);
   const select = useStore((s) => s.select);
 
   const sorted = [...events].sort((a, b) => b.time - a.time).slice(0, 200);
@@ -22,14 +24,22 @@ export default function TimelineDrawer() {
       </div>
       <div className="timeline-list">
         {sorted.length === 0 && <div className="inspector-empty" style={{ padding: 12 }}>No events loaded yet.</div>}
-        {sorted.map((e) => (
-          <div className="tl-item" key={e.id} onClick={() => select(e)}>
-            <span className="tl-time">{hhmm(e.time)}</span>
-            <span className={`dot ${e.magnitude && e.magnitude >= 6 ? 'offline' : e.magnitude && e.magnitude >= 5 ? 'cache' : 'live'}`} />
-            <span>{e.title}</span>
-            <span className="tl-mag">{e.magnitude != null ? `M${e.magnitude.toFixed(1)}` : ''} <span style={{ color: 'var(--muted)' }}>{ago(e.time)}</span></span>
-          </div>
-        ))}
+        {sorted.map((e) => {
+          const match = matchMonitor(e, monitors);
+          return (
+            <div
+              className="tl-item"
+              key={e.id}
+              onClick={() => select(e)}
+              style={match ? { borderLeft: `3px solid ${match.color}`, paddingLeft: 6 } : undefined}
+            >
+              <span className="tl-time">{hhmm(e.time)}</span>
+              <span className={`dot ${e.magnitude && e.magnitude >= 6 ? 'offline' : e.magnitude && e.magnitude >= 5 ? 'cache' : 'live'}`} />
+              <span>{e.title}</span>
+              <span className="tl-mag">{e.magnitude != null ? `M${e.magnitude.toFixed(1)}` : ''} <span style={{ color: 'var(--muted)' }}>{ago(e.time)}</span></span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

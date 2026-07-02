@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import maplibregl, { type StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useStore } from '../state/store';
+import { useStore, type Monitor } from '../state/store';
 import type { GeoEvent } from '../lib/providers/types';
 import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
+import { matchMonitor } from '../lib/monitors';
 
 // Keyless dark basemap: CARTO dark raster tiles (free, attribution required).
 const STYLE: StyleSpecification = {
@@ -31,7 +32,7 @@ function sizeOf(e: GeoEvent): number {
   return 6;
 }
 
-function toFeatureCollection(events: GeoEvent[], layers: LayerDef[]): GeoJSON.FeatureCollection {
+function toFeatureCollection(events: GeoEvent[], layers: LayerDef[], monitors: Monitor[]): GeoJSON.FeatureCollection {
   const colorByLayer = Object.fromEntries(layers.map((l) => [l.id, l.color]));
   return {
     type: 'FeatureCollection',
@@ -43,11 +44,15 @@ function toFeatureCollection(events: GeoEvent[], layers: LayerDef[]): GeoJSON.Fe
         const color = e.type === 'earthquake'
           ? (e.magnitude ?? 0) >= 6 ? '#ff5a52' : (e.magnitude ?? 0) >= 5 ? '#ffb454' : '#45e0b0'
           : (owner ? colorByLayer[owner] : '#45e0b0');
+        const match = matchMonitor(e, monitors);
         return {
           type: 'Feature',
           id: e.id,
           geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-          properties: { id: e.id, color, size: sizeOf(e), title: e.title },
+          properties: {
+            id: e.id, color, size: sizeOf(e), title: e.title,
+            ...(match ? { monitorColor: match.color } : {}),
+          },
         } as GeoJSON.Feature;
       }),
   };
@@ -60,7 +65,9 @@ export default function MapCanvas() {
 
   const events = useStore((s) => s.events);
   const layers = useStore((s) => s.layers);
+  const monitors = useStore((s) => s.monitors);
   const select = useStore((s) => s.select);
+  const mapCmd = useStore((s) => s.mapCmd);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -75,7 +82,7 @@ export default function MapCanvas() {
     mapRef.current = map;
 
     map.on('load', () => {
-      map.addSource('events', { type: 'geojson', data: toFeatureCollection([], []) });
+      map.addSource('events', { type: 'geojson', data: toFeatureCollection([], [], []) });
       map.addLayer({
         id: 'events-layer',
         type: 'circle',
@@ -84,13 +91,13 @@ export default function MapCanvas() {
           'circle-radius': ['get', 'size'],
           'circle-color': ['get', 'color'],
           'circle-opacity': 0.78,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': 'rgba(255,255,255,0.5)',
+          'circle-stroke-width': ['case', ['has', 'monitorColor'], 3, 1],
+          'circle-stroke-color': ['case', ['has', 'monitorColor'], ['get', 'monitorColor'], 'rgba(255,255,255,0.5)'],
         },
       });
       readyRef.current = true;
       const st = useStore.getState();
-      (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers));
+      (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers, st.monitors));
 
       map.on('click', 'events-layer', (ev) => {
         const id = ev.features?.[0]?.properties?.id as string | undefined;
@@ -104,12 +111,19 @@ export default function MapCanvas() {
     return () => { map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [select]);
 
-  // push data whenever events or layer visibility/colors change
+  // push data whenever events, layer visibility/colors, or monitors change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(events, layers));
-  }, [events, layers]);
+    (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(events, layers, monitors));
+  }, [events, layers, monitors]);
+
+  // command-palette / region-driven map navigation
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapCmd) return;
+    map.flyTo({ center: mapCmd.center, zoom: mapCmd.zoom, essential: true });
+  }, [mapCmd]);
 
   return <div ref={ref} style={{ position: 'absolute', inset: 0 }} aria-label="Interactive world map" />;
 }

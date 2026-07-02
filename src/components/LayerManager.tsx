@@ -10,6 +10,7 @@ const DOT: Record<DataMode, string> = {
 export default function LayerManager() {
   const layers = useStore((s) => s.layers);
   const providers = useStore((s) => s.providers);
+  const sources = useStore((s) => s.sources);
   const events = useStore((s) => s.events);
   const toggleLayer = useStore((s) => s.toggleLayer);
 
@@ -31,6 +32,7 @@ export default function LayerManager() {
           {ls.map((l) => {
             const p = providers[l.providerId];
             const mode = p?.status ?? 'offline';
+            const sourceOn = sources[l.providerId] ?? true;
             return (
               <label className="layer-row" key={l.id}>
                 <input type="checkbox" checked={l.enabled} onChange={() => toggleLayer(l.id)} aria-label={l.name} />
@@ -38,10 +40,16 @@ export default function LayerManager() {
                 <span className="lr-body">
                   <div className="lr-name">{l.name}</div>
                   <div className="lr-meta">
-                    <span className={`dot ${DOT[mode]}`} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                    {p?.name ?? l.providerId}
-                    {mode === 'mock' && ' · SAMPLE'}
-                    {p?.lastSuccessAt ? ` · ${ago(p.lastSuccessAt)}` : ''}
+                    {sourceOn ? (
+                      <>
+                        <span className={`dot ${DOT[mode]}`} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                        {p?.name ?? l.providerId}
+                        {mode === 'mock' && ' · SAMPLE'}
+                        {p?.lastSuccessAt ? ` · ${ago(p.lastSuccessAt)}` : ''}
+                      </>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>OFF · source disabled</span>
+                    )}
                   </div>
                 </span>
                 <span className="lr-count">{counts[l.id] ?? 0}</span>

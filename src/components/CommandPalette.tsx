@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore } from '../state/store';
+import { useStore, REGIONS } from '../state/store';
 
 interface Command {
   id: string;
@@ -13,8 +13,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const layers = useStore((s) => s.layers);
+  const providers = useStore((s) => s.providers);
+  const sources = useStore((s) => s.sources);
   const toggleLayer = useStore((s) => s.toggleLayer);
+  const toggleSource = useStore((s) => s.toggleSource);
   const refreshAll = useStore((s) => s.refreshAll);
+  const flyTo = useStore((s) => s.flyTo);
 
   const commands = useMemo<Command[]>(() => {
     const base: Command[] = [
@@ -26,8 +30,20 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       hint: 'layer',
       run: () => toggleLayer(l.id),
     }));
-    return [...base, ...layerCmds];
-  }, [layers, toggleLayer, refreshAll]);
+    const regionCmds = Object.entries(REGIONS).map(([name, r]) => ({
+      id: `region-${name}`,
+      label: `Go to region: ${name}`,
+      hint: 'region',
+      run: () => flyTo(r.center, r.zoom),
+    }));
+    const sourceCmds = Object.values(providers).map((p) => ({
+      id: `source-${p.id}`,
+      label: `${(sources[p.id] ?? true) ? 'Disable' : 'Enable'} source: ${p.name}`,
+      hint: 'source',
+      run: () => toggleSource(p.id),
+    }));
+    return [...base, ...regionCmds, ...sourceCmds, ...layerCmds];
+  }, [layers, providers, sources, toggleLayer, toggleSource, refreshAll, flyTo]);
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()));
 
