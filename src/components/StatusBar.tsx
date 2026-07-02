@@ -14,6 +14,8 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
   const [clock, setClock] = useState(utcClock());
   const overallMode = useStore((s) => s.overallMode());
   const setMobileRail = useStore((s) => s.setMobileRail);
+  const view = useStore((s) => s.view);
+  const setView = useStore((s) => s.setView);
 
   useEffect(() => {
     const t = setInterval(() => setClock(utcClock()), 1000);
@@ -36,6 +38,25 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
       <span className={`mode-pill ${mode.cls}`} title="Data mode is derived from live provider health — never faked.">
         {mode.text}
       </span>
+
+      <div className="view-toggle" role="tablist" aria-label="Workspace view">
+        <button
+          role="tab"
+          aria-selected={view === 'map'}
+          className={`kbd ${view === 'map' ? 'active' : ''}`}
+          onClick={() => setView('map')}
+        >
+          MAP
+        </button>
+        <button
+          role="tab"
+          aria-selected={view === 'graph'}
+          className={`kbd ${view === 'graph' ? 'active' : ''}`}
+          onClick={() => setView('graph')}
+        >
+          GRAPH
+        </button>
+      </div>
 
       <div className="sb-spacer" />
 

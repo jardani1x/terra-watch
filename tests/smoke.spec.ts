@@ -88,6 +88,63 @@ test('monitors: add a keyword and see it highlighted', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Remove monitor earthquake' })).toBeVisible();
 });
 
+test('graph workspace: add, search around, switch layout, export, clear', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let live events load
+
+  // click the first earthquake marker on the map to select it
+  await page.locator('.maplibregl-canvas').click({ position: { x: 480, y: 300 } });
+
+  const addBtn = page.getByRole('button', { name: '+ Add to graph' });
+  // fall back to clicking a timeline row if the map click missed a feature
+  if (!(await addBtn.isVisible().catch(() => false))) {
+    await page.locator('.timeline-head').click();
+    await page.locator('.tl-item').first().click();
+  }
+  await expect(page.getByRole('button', { name: '+ Add to graph' })).toBeVisible();
+  await page.getByRole('button', { name: '+ Add to graph' }).click();
+  await expect(page.getByText('✓ IN GRAPH')).toBeVisible();
+
+  // switch to graph view
+  await page.getByRole('tab', { name: 'GRAPH' }).click();
+  await expect(page.locator('.graph-svg')).toBeVisible();
+  await expect(page.locator('.graph-node')).toHaveCount(1);
+
+  const toolbar = page.locator('.graph-toolbar');
+
+  // expand via search around
+  await toolbar.getByRole('button', { name: 'SEARCH AROUND' }).click();
+  await page.waitForTimeout(300);
+
+  // switch layouts without crashing
+  await toolbar.getByRole('button', { name: 'RADIAL' }).click();
+  await toolbar.getByRole('button', { name: 'GRID' }).click();
+  await expect(page.locator('.graph-svg')).toBeVisible();
+
+  // export triggers a download
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    toolbar.getByRole('button', { name: 'EXPORT JSON' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/terra-watch-graph-.*\.json/);
+
+  // clear empties the graph
+  await toolbar.getByRole('button', { name: 'CLEAR' }).click();
+  await expect(page.getByText('Graph is empty.')).toBeVisible();
+});
+
+test('command palette can switch to graph view', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.keyboard.press('Control+k');
+  const input = page.getByPlaceholder(/Type a command/i);
+  await input.fill('Switch to Graph view');
+  await input.press('Enter');
+  await expect(page.getByRole('dialog', { name: /command palette/i })).not.toBeVisible();
+  await expect(page.locator('.graph-wrap')).toBeVisible();
+});
+
 test('command palette region command flies the map', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();

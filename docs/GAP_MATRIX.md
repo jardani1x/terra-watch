@@ -1,6 +1,6 @@
 # Gap Matrix
 
-Status of each mandated capability. Updated after Slice 3. Honest labels:
+Status of each mandated capability. Updated after Slice 4. Honest labels:
 **Done** (built + tested), **Partial** (basic version shipped, more planned),
 **Deferred** (planned, not yet started).
 
@@ -22,7 +22,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Search "this view" | **Partial** | 1→3 | ✓ | ✓ | Search box opens palette; view-scoped search still deferred |
 | Source manager (per-source toggle) | **Done** | 3 | ✓ | ✓ | fetch-time filtering, OFF shown in health bar + layer rows, persisted to localStorage |
 | Custom keyword monitors | **Done** | 3 | — | ✓ | local-persisted; highlights matches in timeline (left border) and on the map (stroke ring) with live match counts |
-| Link graph workspace | **Deferred** | 4 | ✓ | ✓ | add-to-graph, search-around, layouts, export |
+| Link graph workspace | **Partial** | 4 | ✓ | ✓ | add-to-graph, search-around (proximity+time, source-cited), 3 layouts, JSON export; only geo-events so far, no news/market entities (Slice 6) |
 | Snapshots / playback | **Deferred** | 5 | ✓ | ✓ | IndexedDB baselines |
 | News intelligence panel | **Deferred** | 6 | — | ✓ | GDELT/RSS with source tiers |
 | Market panel | **Deferred** | 6 | — | ✓ | free-tier / BYO key |

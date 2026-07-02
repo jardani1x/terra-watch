@@ -4,6 +4,7 @@ import type { DataMode, GeoEvent, ProviderHealth } from '../lib/providers/types'
 import { fetchUsgs, USGS_META } from '../lib/providers/usgs';
 import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { isEventVisible, type LayerDef } from '../lib/layers';
+import { findRelated } from '../lib/graph';
 
 export type { LayerDef } from '../lib/layers';
 
@@ -11,6 +12,26 @@ export interface Monitor {
   id: string;
   term: string;
   color: string;
+}
+
+export interface GraphNode {
+  id: string;
+  event: GeoEvent;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+export type GraphLayout = 'force' | 'radial' | 'grid';
+
+export interface GraphState {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  layout: GraphLayout;
 }
 
 /** Region presets used by the command palette to fly the map. */
@@ -37,6 +58,8 @@ interface AppState {
   selected: GeoEvent | null;
   mobileRail: 'left' | 'right' | null;
   mapCmd: MapCmd | null;
+  view: 'map' | 'graph';
+  graph: GraphState;
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -48,6 +71,12 @@ interface AppState {
   refreshAll: () => Promise<void>;
   visibleEvents: () => GeoEvent[];
   overallMode: () => DataMode;
+  setView: (v: 'map' | 'graph') => void;
+  addToGraph: (e: GeoEvent) => void;
+  removeFromGraph: (id: string) => void;
+  searchAround: (id: string) => void;
+  clearGraph: () => void;
+  setGraphLayout: (l: GraphLayout) => void;
 }
 
 function providerStub(meta: { id: string; name: string; license: string; homepage: string }): ProviderHealth {
@@ -78,6 +107,8 @@ export const useStore = create<AppState>()(
       selected: null,
       mobileRail: null,
       mapCmd: null,
+      view: 'map',
+      graph: { nodes: [], edges: [], layout: 'force' },
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -101,6 +132,45 @@ export const useStore = create<AppState>()(
       select: (e) => set({ selected: e }),
       setMobileRail: (r) => set({ mobileRail: r }),
       flyTo: (center, zoom) => set((s) => ({ mapCmd: { seq: (s.mapCmd?.seq ?? 0) + 1, center, zoom } })),
+
+      setView: (v) => set({ view: v }),
+
+      addToGraph: (e) =>
+        set((s) => {
+          if (s.graph.nodes.some((n) => n.id === e.id)) return s;
+          return { graph: { ...s.graph, nodes: [...s.graph.nodes, { id: e.id, event: e }] } };
+        }),
+
+      removeFromGraph: (id) =>
+        set((s) => ({
+          graph: {
+            ...s.graph,
+            nodes: s.graph.nodes.filter((n) => n.id !== id),
+            edges: s.graph.edges.filter((ed) => ed.source !== id && ed.target !== id),
+          },
+        })),
+
+      searchAround: (id) =>
+        set((s) => {
+          const node = s.graph.nodes.find((n) => n.id === id);
+          if (!node) return s;
+          const existingIds = new Set(s.graph.nodes.map((n) => n.id));
+          const related = findRelated(node.event, s.events, existingIds);
+          const newNodes = related
+            .filter((r) => !existingIds.has(r.event.id))
+            .map((r) => ({ id: r.event.id, event: r.event }));
+          const existingEdgeKeys = new Set(s.graph.edges.map((ed) => [ed.source, ed.target].sort().join('|')));
+          const newEdges = related
+            .filter((r) => !existingEdgeKeys.has([id, r.event.id].sort().join('|')))
+            .map((r) => ({ id: `${id}-${r.event.id}`, source: id, target: r.event.id, label: r.label }));
+          return {
+            graph: { ...s.graph, nodes: [...s.graph.nodes, ...newNodes], edges: [...s.graph.edges, ...newEdges] },
+          };
+        }),
+
+      clearGraph: () => set((s) => ({ graph: { ...s.graph, nodes: [], edges: [] } })),
+
+      setGraphLayout: (l) => set((s) => ({ graph: { ...s.graph, layout: l } })),
 
       refreshAll: async () => {
         const { sources } = get();
@@ -149,14 +219,23 @@ export const useStore = create<AppState>()(
         sources: s.sources,
         monitors: s.monitors,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
+        // graph nodes are a deliberate user-curated workspace (like monitors), not a
+        // live-data cache, so they're persisted the same way — never raw fetch results.
+        graph: s.graph,
       }),
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as { sources?: Record<string, boolean>; monitors?: Monitor[]; layerEnabled?: Record<string, boolean> };
+        const p = (persisted ?? {}) as {
+          sources?: Record<string, boolean>;
+          monitors?: Monitor[];
+          layerEnabled?: Record<string, boolean>;
+          graph?: GraphState;
+        };
         return {
           ...current,
           sources: { ...current.sources, ...(p.sources ?? {}) },
           monitors: p.monitors ?? current.monitors,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
+          graph: p.graph ?? current.graph,
         };
       },
     },

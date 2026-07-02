@@ -19,10 +19,18 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const toggleSource = useStore((s) => s.toggleSource);
   const refreshAll = useStore((s) => s.refreshAll);
   const flyTo = useStore((s) => s.flyTo);
+  const setView = useStore((s) => s.setView);
+  const clearGraph = useStore((s) => s.clearGraph);
+  const graphNodeCount = useStore((s) => s.graph.nodes.length);
 
   const commands = useMemo<Command[]>(() => {
     const base: Command[] = [
       { id: 'refresh', label: 'Refresh all sources', hint: 'data', run: () => refreshAll() },
+      { id: 'view-map', label: 'Switch to Map view', hint: 'view', run: () => setView('map') },
+      { id: 'view-graph', label: 'Switch to Graph view', hint: 'view', run: () => setView('graph') },
+      ...(graphNodeCount > 0
+        ? [{ id: 'graph-clear', label: 'Clear graph workspace', hint: 'graph', run: () => clearGraph() }]
+        : []),
     ];
     const layerCmds = layers.map((l) => ({
       id: `toggle-${l.id}`,
@@ -43,7 +51,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       run: () => toggleSource(p.id),
     }));
     return [...base, ...regionCmds, ...sourceCmds, ...layerCmds];
-  }, [layers, providers, sources, toggleLayer, toggleSource, refreshAll, flyTo]);
+  }, [layers, providers, sources, toggleLayer, toggleSource, refreshAll, flyTo, setView, clearGraph, graphNodeCount]);
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()));
 

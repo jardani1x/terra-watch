@@ -9,12 +9,14 @@ import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
 import CommandPalette from './components/CommandPalette';
+import GraphWorkspace from './components/GraphWorkspace';
 
 export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const refreshAll = useStore((s) => s.refreshAll);
   const mobileRail = useStore((s) => s.mobileRail);
   const setMobileRail = useStore((s) => s.setMobileRail);
+  const view = useStore((s) => s.view);
 
   // initial + periodic data pull
   useEffect(() => {
@@ -51,8 +53,14 @@ export default function App() {
         </aside>
 
         <div className="map-wrap">
-          <MapCanvas />
-          <TimelineDrawer />
+          {view === 'map' ? (
+            <>
+              <MapCanvas />
+              <TimelineDrawer />
+            </>
+          ) : (
+            <GraphWorkspace />
+          )}
         </div>
 
         <InspectorRail />

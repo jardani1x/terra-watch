@@ -11,6 +11,11 @@ const LABELS: Record<string, string> = {
 export default function InspectorRail() {
   const selected = useStore((s) => s.selected);
   const providers = useStore((s) => s.providers);
+  const graph = useStore((s) => s.graph);
+  const addToGraph = useStore((s) => s.addToGraph);
+  const removeFromGraph = useStore((s) => s.removeFromGraph);
+  const searchAround = useStore((s) => s.searchAround);
+  const inGraph = selected != null && graph.nodes.some((n) => n.id === selected.id);
 
   return (
     <aside className="rail right" aria-label="Object inspector">
@@ -34,6 +39,18 @@ export default function InspectorRail() {
           <div>
             <div className="insp-type">{selected.category ?? selected.type}</div>
             <div className="insp-title">{selected.title}</div>
+
+            <div className="graph-actions">
+              {inGraph ? (
+                <>
+                  <span className="tag" style={{ color: 'var(--accent)', borderColor: 'rgba(69,224,176,0.5)' }}>✓ IN GRAPH</span>
+                  <button className="kbd" onClick={() => searchAround(selected.id)}>Search around</button>
+                  <button className="kbd" onClick={() => removeFromGraph(selected.id)}>Remove</button>
+                </>
+              ) : (
+                <button className="kbd" onClick={() => addToGraph(selected)}>+ Add to graph</button>
+              )}
+            </div>
 
             <div style={{ marginTop: 10 }}>
               {selected.magnitude != null && (

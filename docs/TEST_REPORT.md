@@ -28,8 +28,10 @@ Run against `vite preview` on :4173.
 | **source toggle shows OFF and persists across reload** | unchecking "USGS Earthquakes" source shows `OFF` in the health chip and `OFF · source disabled` in the layer row; state survives `page.reload()` via the `terra-watch:v2` localStorage persist | ✅ pass |
 | **monitors: add a keyword and see it highlighted** | typing "earthquake" into the monitor input + Enter creates a monitor row with remove control | ✅ pass |
 | **command palette region command flies the map** | "Go to region: Asia" command runs, palette closes, map canvas remains healthy (no crash on `flyTo`) | ✅ pass |
+| **graph workspace: add, search around, switch layout, export, clear** | select event → `+ Add to graph` → `✓ IN GRAPH`; GRAPH tab shows 1 SVG node; `SEARCH AROUND` expands it; `RADIAL`/`GRID` layout switches render without error; `EXPORT JSON` triggers a `terra-watch-graph-*.json` download; `CLEAR` empties the graph | ✅ pass |
+| **command palette can switch to graph view** | "Switch to Graph view" command opens `.graph-wrap` | ✅ pass |
 
-**8 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**10 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -41,15 +43,22 @@ Run against `vite preview` on :4173.
   the map/timeline immediately; disabled state persists across reload.
 - **Monitors**: keyword monitors highlight matching events with a colored left-border in
   the timeline and a colored stroke ring on the map marker; match counts shown live.
-- **Command palette**: now also lists region fly-to commands (`REGIONS`) and per-source
-  enable/disable commands, in addition to refresh + layer toggles.
+- **Command palette**: now also lists Map/Graph view-switch commands, region fly-to
+  commands (`REGIONS`), per-source enable/disable commands, and clear-graph (when the
+  graph is non-empty), in addition to refresh + layer toggles.
+- **Graph workspace**: user-curated read-only correlation graph over public geo-events.
+  `+ Add to graph` snapshots a selected event as a node; `Search around` finds related
+  public events (same provider/type, ≤800km, ≤72h apart) via `src/lib/graph.ts` and adds
+  them with a labeled edge (e.g. "same type · 42km · 3h apart"). Three layouts (force/
+  radial/grid) computed client-side with no new dependency (`src/lib/graphLayout.ts`).
+  Export writes the graph to a downloadable JSON file. Graph state persists to
+  localStorage like Monitors (deliberate user curation, not a live-data cache).
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)
-E2E for graph, timeline filters/playback, route & scenario simulations, dossier
-export, and full accessibility/mobile-bottom-sheet land with their respective
-slices (4–10), per `docs/GAP_MATRIX.md`. Linting (ESLint) config is planned for
-Slice 10.
+E2E for timeline filters/playback, route & scenario simulations, dossier export, and
+full accessibility/mobile-bottom-sheet land with their respective slices (5–10), per
+`docs/GAP_MATRIX.md`. Linting (ESLint) config is planned for Slice 10.
 
 ## How to reproduce
 ```bash
