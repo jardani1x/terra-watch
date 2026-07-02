@@ -1,4 +1,5 @@
 import { useStore } from '../state/store';
+import { downloadText, quotesToCsv } from '../lib/exports';
 
 /** Market snapshot panel — non-geo data, so it lives in the rail, not on the
  *  map. Mode label is derived from the real fetch result, never hardcoded. */
@@ -42,8 +43,16 @@ export default function MarketPanel() {
             </div>
           ))}
           {market.error && <div className="lr-meta" style={{ padding: '4px 7px' }}>⚠ {market.error}</div>}
-          <div className="lr-meta" style={{ padding: '4px 7px' }}>
-            ECB reference rates via Frankfurter · price data by CoinGecko
+          <div className="lr-meta" style={{ padding: '4px 7px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1 }}>ECB reference rates via Frankfurter · price data by CoinGecko</span>
+            <button
+              className="kbd"
+              disabled={market.quotes.length === 0}
+              aria-label="Export market quotes as CSV"
+              onClick={() => downloadText(`terra-watch-markets-${Date.now()}.csv`, 'text/csv', quotesToCsv(market.quotes))}
+            >
+              ⤓ CSV
+            </button>
           </div>
         </>
       )}

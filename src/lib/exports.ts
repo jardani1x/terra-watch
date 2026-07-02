@@ -1,3 +1,6 @@
+import type { GeoEvent } from './providers/types';
+import type { MarketQuote } from './providers/markets';
+
 // ---- Client-side file export helpers (Slice 8) ----
 // Everything is generated in the browser from data already on screen; nothing
 // is sent anywhere. Filenames carry a timestamp so repeated exports don't clash.
@@ -21,4 +24,34 @@ export function csvEscape(v: string | number | undefined | null): string {
 
 export function toCsv(header: string[], rows: (string | number | undefined | null)[][]): string {
   return [header, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n') + '\n';
+}
+
+export function eventsToCsv(events: GeoEvent[]): string {
+  return toCsv(
+    ['id', 'type', 'category', 'title', 'time_utc', 'lat', 'lon', 'magnitude', 'source', 'url'],
+    events.map((e) => [
+      e.id, e.type, e.category, e.title, new Date(e.time).toISOString(),
+      e.lat, e.lon, e.magnitude, e.sourceId, e.url,
+    ]),
+  );
+}
+
+export function eventsToJson(events: GeoEvent[], now = Date.now()): string {
+  return JSON.stringify(
+    {
+      exportedAt: new Date(now).toISOString(),
+      tool: 'Terra Watch (civilian OSINT dashboard)',
+      count: events.length,
+      events,
+    },
+    null,
+    2,
+  );
+}
+
+export function quotesToCsv(quotes: MarketQuote[]): string {
+  return toCsv(
+    ['id', 'label', 'value', 'change_24h_pct', 'source', 'as_of'],
+    quotes.map((q) => [q.id, q.label, q.value, q.change24h, q.source, q.asOf]),
+  );
 }

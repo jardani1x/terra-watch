@@ -18,8 +18,12 @@ test('loads without console errors and renders the shell', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/01-initial-load.png` });
 
   // Ignore benign tile/network noise; fail only on app/runtime errors.
+  // "blocked by CORS policy" covers third-party providers rate-limiting without
+  // CORS headers (seen from CoinGecko) — the failure is already surfaced
+  // honestly in the provider health bar, and the browser's console line can't
+  // be suppressed by the app.
   const appErrors = errors.filter(
-    (e) => !/tile|carto|Failed to fetch|net::ERR|ERR_|favicon/i.test(e),
+    (e) => !/tile|carto|Failed to fetch|net::ERR|ERR_|favicon|blocked by CORS policy/i.test(e),
   );
   expect(appErrors, appErrors.join('\n')).toHaveLength(0);
 });
@@ -329,6 +333,37 @@ test('dossier: pin from inspector, add note, export MD, unpin', async ({ page })
   await panel.getByRole('button', { name: /Unpin/ }).click();
   await expect(panel.getByText('Pin events from the inspector')).toBeVisible();
   await expect(page.getByRole('button', { name: '+ Pin to dossier' })).toBeVisible();
+});
+
+test('timeline exports current events as CSV and JSON', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let live events load so the buttons enable
+
+  // exact: true — buttons inside .timeline-head leak their aria-labels into the
+  // head's accessible name (see SESSION_NOTES gotcha from Slice 5)
+  const csvBtn = page.getByRole('button', { name: 'Export timeline events as CSV', exact: true });
+  await expect(csvBtn).toBeEnabled();
+  const [csv] = await Promise.all([page.waitForEvent('download'), csvBtn.click()]);
+  expect(csv.suggestedFilename()).toMatch(/terra-watch-events-.*\.csv/);
+
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export timeline events as JSON', exact: true }).click(),
+  ]);
+  expect(json.suggestedFilename()).toMatch(/terra-watch-events-.*\.json/);
+});
+
+test('market panel exports quotes as CSV', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Markets').getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
+
+  const [csv] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export market quotes as CSV' }).click(),
+  ]);
+  expect(csv.suggestedFilename()).toMatch(/terra-watch-markets-.*\.csv/);
 });
 
 test('command palette can switch to graph view', async ({ page }) => {

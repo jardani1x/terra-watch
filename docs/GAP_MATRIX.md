@@ -34,7 +34,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Route Explorer Lite | **Partial** | 7 | — | ✓ | static 9-chokepoint reference + transparent count of current events within 500 km + alternate routes, labeled ADVISORY / "not a routing service"; interactive route drawing not planned for lite |
 | Scenario Engine Lite | **Done** | 7 | — | ✓ | 5 prebuilt what-if walkthroughs (static effects w/ historical analogues), labeled SIMULATION; only live element is the transparent nearby-event count |
 | Dossier / report workspace | **Done** | 8 | ✓ | — | pin events from the inspector; provider citation frozen at pin time; user notes labeled "user-authored" in exports; export MD/JSON; persisted like monitors/graph |
-| Export state (JSON/CSV) | **Deferred** | 8 | ✓ | ✓ | per-panel export |
+| Export state (JSON/CSV) | **Done** | 8 | ✓ | ✓ | per-panel: timeline events (CSV+JSON, respects playback window), markets (CSV), dossier (MD+JSON), graph (JSON since Slice 4); all client-side, timestamped filenames |
 | Optional AI analyst (BYO key) | **Deferred** | 9 | — | ✓ | cite sources; refuse unsafe; local rules fallback |
 | Privacy controls / clear-data | **Partial** | 1→9 | — | ✓ | privacy doc + no-backend; UI clear-data in Slice 9 |
 | Mobile bottom-sheet layout | **Partial** | 1→10 | — | ✓ | responsive rails done; bottom-sheet polish in Slice 10 |

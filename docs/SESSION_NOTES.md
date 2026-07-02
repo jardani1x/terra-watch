@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
+the live v1 site). Last updated: 2026-07-02 (Slice 8 complete — dossier + export).
 
 ## Progress
 
@@ -170,16 +170,35 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
   - 1 new Playwright test (pin→note→export MD+JSON→unpin round-trip);
     22/22 pass. Build + typecheck clean.
 
+- **Slice 8 part 2 — DONE, committed, tested**: per-panel JSON/CSV export —
+  **Slice 8 complete**:
+  - `src/lib/exports.ts` grew `eventsToCsv`/`eventsToJson` (id/type/category/
+    title/time_utc/lat/lon/magnitude/source/url) and `quotesToCsv`, all
+    RFC-4180-escaped via the shared `toCsv`.
+  - TimelineDrawer head: `⤓ CSV` / `⤓ JSON` buttons export the **windowed**
+    events (respects the playback cursor — you export what you see);
+    MarketPanel: `⤓ CSV` next to the attribution line. Graph JSON export
+    existed since Slice 4; dossier MD/JSON since 8 part 1.
+  - Gotcha (recurred): the new head buttons also leak aria-labels into
+    `.timeline-head`'s accessible name — export-button locators need
+    `{ exact: true }`.
+  - Test-noise fix: CoinGecko rate-limits repeated suite runs and replies
+    without CORS headers; the browser's un-suppressible "blocked by CORS
+    policy" console line is now in the benign-noise filter of the
+    console-errors test (the failure itself stays honestly visible in the
+    provider health chip; failed in isolated re-run too, so filtered rather
+    than retried).
+  - 2 new Playwright tests; 24/24 pass. Build + typecheck clean.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),
 infrastructure (open registries), FIRMS wildfire detail (BYO key).
 
-## Then Slices 7–10
-graph workspace · timeline playback/snapshots · intelligence panels + signal
-engine · country risk + route/scenario lite · dossier + export · optional AI
-analyst · QA/mobile/a11y/deploy. See `docs/GAP_MATRIX.md`.
+## Then Slices 9–10
+optional AI analyst (BYO key) + privacy clear-data UI (Slice 9) ·
+QA/mobile/a11y/lint/deploy (Slice 10). See `docs/GAP_MATRIX.md`.
 
 ## Run / verify
 ```bash

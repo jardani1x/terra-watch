@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
 import { matchMonitor } from '../lib/monitors';
+import { downloadText, eventsToCsv, eventsToJson } from '../lib/exports';
 
 const DAY_MS = 24 * 3600_000;
 const TICK_MS = 400;
@@ -72,7 +73,25 @@ export default function TimelineDrawer() {
           )}
         </span>
 
-        <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', fontWeight: 400 }}>
+        <span onClick={(e) => e.stopPropagation()} className="tl-controls" style={{ marginLeft: 'auto' }}>
+          <button
+            className="kbd"
+            disabled={windowed.length === 0}
+            aria-label="Export timeline events as CSV"
+            onClick={() => downloadText(`terra-watch-events-${Date.now()}.csv`, 'text/csv', eventsToCsv(windowed))}
+          >
+            ⤓ CSV
+          </button>
+          <button
+            className="kbd"
+            disabled={windowed.length === 0}
+            aria-label="Export timeline events as JSON"
+            onClick={() => downloadText(`terra-watch-events-${Date.now()}.json`, 'application/json', eventsToJson(windowed))}
+          >
+            ⤓ JSON
+          </button>
+        </span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', fontWeight: 400 }}>
           rolling 24h · newest first
         </span>
       </div>
