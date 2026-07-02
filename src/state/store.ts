@@ -5,6 +5,11 @@ import { fetchUsgs, USGS_META } from '../lib/providers/usgs';
 import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
+import {
+  putSnapshot, deleteSnapshot, getSnapshot, listSnapshots, diffSnapshot,
+  type SnapshotMeta, type SnapshotDelta,
+} from '../lib/snapshots';
+import { hhmm } from '../lib/format';
 
 export type { LayerDef } from '../lib/layers';
 
@@ -48,6 +53,14 @@ const MONITOR_COLORS = ['#45e0b0', '#ffb454', '#6db3ff', '#ff7a3c', '#b39ddb', '
 
 interface MapCmd { seq: number; center: [number, number]; zoom: number }
 
+/** Timeline playback: cursor === null means live (now); a timestamp means the
+ *  user is scrubbing history. Playback state is always shown in the UI —
+ *  scrubbed views are labeled PLAYBACK, never presented as live. */
+export interface TimeWindow {
+  cursor: number | null;
+  playing: boolean;
+}
+
 interface AppState {
   layers: LayerDef[];
   providers: Record<string, ProviderHealth>;
@@ -60,6 +73,9 @@ interface AppState {
   mapCmd: MapCmd | null;
   view: 'map' | 'graph';
   graph: GraphState;
+  timeWindow: TimeWindow;
+  snapshots: SnapshotMeta[];
+  snapshotDelta: SnapshotDelta | null;
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -77,6 +93,13 @@ interface AppState {
   searchAround: (id: string) => void;
   clearGraph: () => void;
   setGraphLayout: (l: GraphLayout) => void;
+  setTimeCursor: (ms: number | null) => void;
+  setPlaying: (p: boolean) => void;
+  windowedEvents: () => GeoEvent[];
+  loadSnapshots: () => Promise<void>;
+  takeSnapshot: () => Promise<void>;
+  removeSnapshot: (id: string) => Promise<void>;
+  compareSnapshot: (id: string) => Promise<void>;
 }
 
 function providerStub(meta: { id: string; name: string; license: string; homepage: string }): ProviderHealth {
@@ -109,6 +132,9 @@ export const useStore = create<AppState>()(
       mapCmd: null,
       view: 'map',
       graph: { nodes: [], edges: [], layout: 'force' },
+      timeWindow: { cursor: null, playing: false },
+      snapshots: [],
+      snapshotDelta: null,
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -171,6 +197,48 @@ export const useStore = create<AppState>()(
       clearGraph: () => set((s) => ({ graph: { ...s.graph, nodes: [], edges: [] } })),
 
       setGraphLayout: (l) => set((s) => ({ graph: { ...s.graph, layout: l } })),
+
+      setTimeCursor: (ms) =>
+        set((s) => ({ timeWindow: { cursor: ms, playing: ms === null ? false : s.timeWindow.playing } })),
+
+      setPlaying: (p) =>
+        set((s) => ({
+          // starting playback from live begins at the oldest end of the 24h feed
+          timeWindow: { cursor: p && s.timeWindow.cursor === null ? Date.now() - 24 * 3600_000 : s.timeWindow.cursor, playing: p },
+        })),
+
+      windowedEvents: () => {
+        const { events, timeWindow } = get();
+        if (timeWindow.cursor === null) return events;
+        return events.filter((e) => e.time <= timeWindow.cursor!);
+      },
+
+      loadSnapshots: async () => {
+        const snapshots = await listSnapshots();
+        set({ snapshots });
+      },
+
+      takeSnapshot: async () => {
+        const { events } = get();
+        const at = Date.now();
+        const snap = { id: `${at}`, name: `${hhmm(at)} · ${events.length} events`, at, events };
+        await putSnapshot(snap);
+        set({ snapshots: await listSnapshots() });
+      },
+
+      removeSnapshot: async (id) => {
+        await deleteSnapshot(id);
+        set((s) => ({
+          snapshots: s.snapshots.filter((m) => m.id !== id),
+          snapshotDelta: s.snapshotDelta?.snapshotId === id ? null : s.snapshotDelta,
+        }));
+      },
+
+      compareSnapshot: async (id) => {
+        const snap = await getSnapshot(id);
+        if (!snap) return;
+        set({ snapshotDelta: diffSnapshot(snap, get().events) });
+      },
 
       refreshAll: async () => {
         const { sources } = get();

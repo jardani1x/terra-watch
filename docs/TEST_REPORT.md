@@ -30,8 +30,10 @@ Run against `vite preview` on :4173.
 | **command palette region command flies the map** | "Go to region: Asia" command runs, palette closes, map canvas remains healthy (no crash on `flyTo`) | ✅ pass |
 | **graph workspace: add, search around, switch layout, export, clear** | select event → `+ Add to graph` → `✓ IN GRAPH`; GRAPH tab shows 1 SVG node; `SEARCH AROUND` expands it; `RADIAL`/`GRID` layout switches render without error; `EXPORT JSON` triggers a `terra-watch-graph-*.json` download; `CLEAR` empties the graph | ✅ pass |
 | **command palette can switch to graph view** | "Switch to Graph view" command opens `.graph-wrap` | ✅ pass |
+| **timeline playback shows PLAYBACK label and returns to live** | ▶ switches the amber `PLAYBACK · hh:mmZ` label on; `GO LIVE` restores the green `LIVE FEED` label | ✅ pass |
+| **snapshots: save, compare shows labeled delta, delete** | `⊕ SAVE SNAPSHOT` adds a row; `Δ` shows the "+N new · −M no longer present" baseline comparison; `✕` deletes and restores the empty-state copy | ✅ pass |
 
-**10 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**12 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -53,11 +55,18 @@ Run against `vite preview` on :4173.
   radial/grid) computed client-side with no new dependency (`src/lib/graphLayout.ts`).
   Export writes the graph to a downloadable JSON file. Graph state persists to
   localStorage like Monitors (deliberate user curation, not a live-data cache).
+- **Timeline playback**: scrubber + play/pause over the rolling 24h window. Scrubbed
+  views filter both the timeline and the map to events at-or-before the cursor and are
+  labeled **PLAYBACK · hh:mmZ** (amber) — never presented as live. `GO LIVE` returns to
+  the live feed.
+- **Snapshots**: local IndexedDB baselines (7-day retention, pruned on load; never sent
+  anywhere). Comparing shows a transparent added/removed event-id count vs the baseline,
+  labeled as a delta over public data.
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)
-E2E for timeline filters/playback, route & scenario simulations, dossier export, and
-full accessibility/mobile-bottom-sheet land with their respective slices (5–10), per
+E2E for route & scenario simulations, dossier export, and full accessibility/
+mobile-bottom-sheet land with their respective slices (6–10), per
 `docs/GAP_MATRIX.md`. Linting (ESLint) config is planned for Slice 10.
 
 ## How to reproduce

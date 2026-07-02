@@ -93,15 +93,10 @@ test('graph workspace: add, search around, switch layout, export, clear', async 
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await page.waitForTimeout(3000); // let live events load
 
-  // click the first earthquake marker on the map to select it
-  await page.locator('.maplibregl-canvas').click({ position: { x: 480, y: 300 } });
-
-  const addBtn = page.getByRole('button', { name: '+ Add to graph' });
-  // fall back to clicking a timeline row if the map click missed a feature
-  if (!(await addBtn.isVisible().catch(() => false))) {
-    await page.locator('.timeline-head').click();
-    await page.locator('.tl-item').first().click();
-  }
+  // select an event via the timeline (deterministic vs clicking map pixels);
+  // click the head label text, not the head center (which now holds playback controls)
+  await page.getByText('EVENT TIMELINE').click();
+  await page.locator('.tl-item').first().click();
   await expect(page.getByRole('button', { name: '+ Add to graph' })).toBeVisible();
   await page.getByRole('button', { name: '+ Add to graph' }).click();
   await expect(page.getByText('✓ IN GRAPH')).toBeVisible();
@@ -132,6 +127,37 @@ test('graph workspace: add, search around, switch layout, export, clear', async 
   // clear empties the graph
   await toolbar.getByRole('button', { name: 'CLEAR' }).click();
   await expect(page.getByText('Graph is empty.')).toBeVisible();
+});
+
+test('timeline playback shows PLAYBACK label and returns to live', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(2500); // let events load
+
+  await expect(page.getByText('LIVE FEED')).toBeVisible();
+  await page.getByRole('button', { name: 'Play timeline', exact: true }).click();
+  await expect(page.getByText(/PLAYBACK · \d{2}:\d{2}Z/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'GO LIVE', exact: true }).click();
+  await expect(page.getByText('LIVE FEED')).toBeVisible();
+});
+
+test('snapshots: save, compare shows labeled delta, delete', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let events load so a snapshot has content
+
+  await page.getByRole('button', { name: '⊕ SAVE SNAPSHOT' }).click();
+  const row = page.locator('.monitor-row', { hasText: 'events' }).first();
+  await expect(row).toBeVisible();
+
+  await row.getByRole('button', { name: /Compare with snapshot/ }).click();
+  const deltaPanel = page.locator('.snapshot-delta');
+  await expect(deltaPanel).toBeVisible();
+  await expect(deltaPanel).toContainText('baseline');
+
+  await row.getByRole('button', { name: /Delete snapshot/ }).click();
+  await expect(page.getByText('Save a baseline of the current events')).toBeVisible();
 });
 
 test('command palette can switch to graph view', async ({ page }) => {

@@ -5,6 +5,7 @@ import MapCanvas from './components/MapCanvas';
 import LayerManager from './components/LayerManager';
 import SourceManager from './components/SourceManager';
 import Monitors from './components/Monitors';
+import SnapshotPanel from './components/SnapshotPanel';
 import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
@@ -18,9 +19,10 @@ export default function App() {
   const setMobileRail = useStore((s) => s.setMobileRail);
   const view = useStore((s) => s.view);
 
-  // initial + periodic data pull
+  // initial + periodic data pull; snapshot metadata loads once from IndexedDB
   useEffect(() => {
     refreshAll();
+    void useStore.getState().loadSnapshots();
     const t = setInterval(refreshAll, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [refreshAll]);
@@ -46,6 +48,7 @@ export default function App() {
           <LayerManager />
           <SourceManager />
           <Monitors />
+          <SnapshotPanel />
           <div className="disclaimer">
             Data is fetched client-side from public providers. Nothing you do here
             is sent to a Terra Watch server. See <b>Privacy</b> in the docs.

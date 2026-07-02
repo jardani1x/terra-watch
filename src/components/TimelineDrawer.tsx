@@ -1,23 +1,77 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
 import { matchMonitor } from '../lib/monitors';
 
-/** Slice 1 timeline: a live, sorted rolling feed of the events on the map,
- *  click-to-inspect. Playback + correlation markers land in Slice 5. */
+const DAY_MS = 24 * 3600_000;
+const TICK_MS = 400;
+const STEP_MS = 20 * 60_000; // playback advances 20min of history per tick
+
+/** Rolling 24h feed with playback: scrub or play through history. Scrubbed
+ *  views are labeled PLAYBACK — never presented as live. */
 export default function TimelineDrawer() {
   const [collapsed, setCollapsed] = useState(true);
   const events = useStore((s) => s.events);
   const monitors = useStore((s) => s.monitors);
   const select = useStore((s) => s.select);
+  const timeWindow = useStore((s) => s.timeWindow);
+  const setTimeCursor = useStore((s) => s.setTimeCursor);
+  const setPlaying = useStore((s) => s.setPlaying);
 
-  const sorted = [...events].sort((a, b) => b.time - a.time).slice(0, 200);
+  const { cursor, playing } = timeWindow;
+
+  // playback ticker: advance the cursor through history until it reaches now
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => {
+      const tw = useStore.getState().timeWindow;
+      const next = (tw.cursor ?? Date.now() - DAY_MS) + STEP_MS;
+      setTimeCursor(next >= Date.now() ? null : next);
+    }, TICK_MS);
+    return () => clearInterval(t);
+  }, [playing, setTimeCursor]);
+
+  const windowed = cursor === null ? events : events.filter((e) => e.time <= cursor);
+  const sorted = [...windowed].sort((a, b) => b.time - a.time).slice(0, 200);
+
+  // slider maps [now-24h, now] → [0, 100]
+  const pct = cursor === null ? 100 : Math.max(0, Math.min(100, ((cursor - (Date.now() - DAY_MS)) / DAY_MS) * 100));
 
   return (
     <div className={`timeline ${collapsed ? 'collapsed' : ''}`}>
       <div className="timeline-head" onClick={() => setCollapsed((c) => !c)} role="button" aria-expanded={!collapsed}>
         <span>{collapsed ? '▲' : '▼'} EVENT TIMELINE</span>
         <span className="tl-count">{sorted.length} events</span>
+
+        <span onClick={(e) => e.stopPropagation()} className="tl-controls">
+          <button
+            className="kbd"
+            aria-label={playing ? 'Pause timeline playback' : 'Play timeline'}
+            onClick={() => setPlaying(!playing)}
+          >
+            {playing ? '⏸' : '▶'}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={pct}
+            aria-label="Timeline scrubber (last 24h)"
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setTimeCursor(v >= 100 ? null : Date.now() - DAY_MS + (v / 100) * DAY_MS);
+            }}
+          />
+          {cursor === null ? (
+            <span className="tl-live">LIVE FEED</span>
+          ) : (
+            <>
+              <span className="tl-playback">PLAYBACK · {hhmm(cursor)}</span>
+              <button className="kbd" onClick={() => setTimeCursor(null)}>GO LIVE</button>
+            </>
+          )}
+        </span>
+
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', fontWeight: 400 }}>
           rolling 24h · newest first
         </span>

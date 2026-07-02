@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 4).
+the live v1 site). Last updated: 2026-07-02 (Slice 5).
 
 ## Progress
 
@@ -45,8 +45,30 @@ the live v1 site). Last updated: 2026-07-02 (Slice 4).
     CommandPalette gets view-switch + clear-graph commands.
   - 2 new Playwright tests (full add→search-around→layout→export→clear flow,
     palette view-switch); 10/10 pass. `tsc --noEmit` + `vite build` clean.
+- **Slice 5 — DONE, committed, tested**: timeline playback + snapshots, no new
+  npm deps:
+  - `src/lib/snapshots.ts` — raw-IndexedDB snapshot store (`terra-watch` db,
+    `snapshots` object store), 7-day retention pruned on load, `diffSnapshot`
+    (added/removed event-id counts vs baseline).
+  - Store: `timeWindow` (`cursor: number|null` — null = live, `playing`),
+    `setTimeCursor`/`setPlaying`/`windowedEvents`; `snapshots` meta list +
+    `snapshotDelta` with `loadSnapshots`/`takeSnapshot`/`removeSnapshot`/
+    `compareSnapshot`. Nothing persisted to localStorage (snapshots live in
+    IndexedDB; playback is transient).
+  - `TimelineDrawer` — ▶/⏸ + 24h range scrubber in the head (stopPropagation so
+    controls don't toggle collapse); scrubbed state shows amber
+    `PLAYBACK · hh:mmZ` + `GO LIVE`, live shows green `LIVE FEED`. Map filters
+    to events at-or-before the cursor too (`MapCanvas` subscribes to
+    `timeWindow.cursor`).
+  - `SnapshotPanel` (left rail) — save/compare(Δ)/delete; delta rendered as a
+    labeled "+N new · −M no longer present" panel.
+  - 2 new Playwright tests (playback label round-trip; snapshot save→Δ→delete);
+    12/12 pass. Gotcha: buttons inside `.timeline-head` leak their aria-labels
+    into the head's accessible name — palette/head button locators need
+    `{ exact: true }`, and the graph test now selects events via the timeline
+    label click instead of the head center (which is the scrubber now).
 
-## Then Slices 5–10
+## Then Slices 6–10
 graph workspace · timeline playback/snapshots · intelligence panels + signal
 engine · country risk + route/scenario lite · dossier + export · optional AI
 analyst · QA/mobile/a11y/deploy. See `docs/GAP_MATRIX.md`.

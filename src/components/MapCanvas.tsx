@@ -68,6 +68,7 @@ export default function MapCanvas() {
   const monitors = useStore((s) => s.monitors);
   const select = useStore((s) => s.select);
   const mapCmd = useStore((s) => s.mapCmd);
+  const timeCursor = useStore((s) => s.timeWindow.cursor);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -111,12 +112,13 @@ export default function MapCanvas() {
     return () => { map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [select]);
 
-  // push data whenever events, layer visibility/colors, or monitors change
+  // push data whenever events, layer visibility/colors, monitors, or playback cursor change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(events, layers, monitors));
-  }, [events, layers, monitors]);
+    const windowed = timeCursor === null ? events : events.filter((e) => e.time <= timeCursor);
+    (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(windowed, layers, monitors));
+  }, [events, layers, monitors, timeCursor]);
 
   // command-palette / region-driven map navigation
   useEffect(() => {
