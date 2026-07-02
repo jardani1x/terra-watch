@@ -227,6 +227,23 @@ test('country risk panel is labeled INFERENCE and renders honestly', async ({ pa
   }
 });
 
+test('route explorer lists chokepoints with ADVISORY label and honest counts', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let feeds load
+
+  const panel = page.getByLabel('Route explorer');
+  await expect(panel.getByText('ROUTE EXPLORER')).toBeVisible();
+  await expect(panel.getByText('ADVISORY')).toBeVisible();
+  await expect(panel.getByText('Not a routing service')).toBeVisible();
+
+  // static catalog always renders; counts are transparent ("N nearby" or "clear feed")
+  await expect(panel.locator('.route-row')).toHaveCount(9);
+  await expect(panel.getByText('Suez Canal')).toBeVisible();
+  await panel.getByText('Suez Canal').click(); // flies the map, must not crash
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+});
+
 test('market panel shows attributed quotes with a real mode label', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();

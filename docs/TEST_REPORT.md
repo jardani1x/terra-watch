@@ -39,8 +39,9 @@ Run against `vite preview` on :4173.
 | **market panel shows attributed quotes with a real mode label** | MARKETS panel renders a LIVE or honest SAMPLE tag (derived from the fetch), a USD/EUR row, and the Frankfurter + CoinGecko attribution line | ✅ pass |
 | **markets source toggle disables the panel honestly** | unchecking the Markets source shows "Source disabled" in the panel and `OFF` in the health chip; re-checking restores live quotes | ✅ pass |
 | **country risk panel is labeled INFERENCE and renders honestly** | COUNTRY RISK section carries the INFERENCE tag + "not a forecast" copy; shows either itemized country rows (click flies the map) or the honest empty state | ✅ pass |
+| **route explorer lists chokepoints with ADVISORY label and honest counts** | ROUTE EXPLORER carries the ADVISORY tag + "Not a routing service" copy; all 9 static chokepoints render with transparent "N nearby"/"clear feed" counts; clicking Suez flies the map | ✅ pass |
 
-**19 passed / 0 failed.** Screenshots written to `docs/screenshots/`.
+**20 passed / 0 failed** (one transient console-errors failure from a live-provider 503 passed on isolated re-run — known external flake). Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events

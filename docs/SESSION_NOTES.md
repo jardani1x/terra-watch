@@ -129,6 +129,18 @@ the live v1 site). Last updated: 2026-07-02 (Slice 6b part 1 — GDACS).
   - 1 new Playwright test (INFERENCE label + rows-or-honest-empty); 19/19
     pass. Build + typecheck clean.
 
+- **Slice 7 part 2 — DONE, committed, tested**: Route Explorer Lite:
+  - `src/lib/chokepoints.ts` — static 9-chokepoint catalog (Suez, Panama,
+    Hormuz, Malacca, Bab-el-Mandeb, Gibraltar, Bosphorus, Dover, Taiwan
+    Strait) with region + commonly-used alternate route; `nearbyEvents`
+    (haversine, 500 km) counts current feed events per chokepoint.
+  - `RouteExplorerPanel` (left rail) — labeled ADVISORY, "not a routing
+    service"; rows sorted by nearby count ("N nearby" / honest "clear feed"),
+    click flies the map. Static geography + transparent count only — no
+    disruption prediction. No store changes, no new deps.
+  - 1 new Playwright test; 20/20 pass (one known transient console-errors
+    flake from a live-provider 503, passed on isolated re-run).
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
