@@ -1,18 +1,20 @@
 # Test Report
 
 Environment: Node 24.15, npm 11.12, Playwright (Chromium headless), Raspberry Pi
-(aarch64). Run date: 2026-07-02.
+(aarch64). Run date: 2026-07-03.
 
-## Build & typecheck
+## Build, typecheck & lint
 
 | Check | Command | Result |
 |---|---|---|
 | Typecheck (strict) | `tsc --noEmit` | ✅ pass (0 errors) |
+| Lint | `npm run lint` (ESLint flat config: js + typescript-eslint + react-hooks + react-refresh) | ✅ pass (0 errors, 0 warnings) |
 | Production build | `vite build` | ✅ pass — `dist/` emitted |
 
-Build output: `index.html` 0.93 kB, CSS 74.4 kB (11.3 kB gz), JS 1,026.6 kB
-(291.3 kB gz). The JS chunk-size warning (MapLibre) is tracked for code-splitting
-in Slice 10.
+Build output: `index.html` 0.93 kB; app shell 216.6 kB JS (70.4 kB gz) +
+9.95 kB CSS; MapLibre code-split into its own lazy chunk — 806.1 kB JS
+(219.3 kB gz) + 65.5 kB CSS — loaded async so the shell paints first. The
+former single-bundle chunk-size warning is resolved (Slice 10).
 
 ## End-to-end (Playwright, `tests/smoke.spec.ts`)
 
@@ -48,8 +50,11 @@ Run against `vite preview` on :4173.
 | **AI analyst: generate brief works with zero config** | AI ANALYST carries the `LOCAL RULES` tag with no key set; `GENERATE BRIEF` produces one assistant message tagged `LOCAL RULES` — deterministic, no network call | ✅ pass |
 | **AI analyst: disallowed question is refused locally** | asking a pattern-of-life-style question is refused with the civilian-use policy message, without needing a key or hitting the network | ✅ pass |
 | **privacy: clear local data wipes settings after two-step confirm** | adding a monitor, then `CLEAR LOCAL DATA` → `CONFIRM CLEAR?` reloads the page and the monitor is gone | ✅ pass |
+| **mobile: rails open as bottom sheets from the status-bar toggles** | at 390×844 the ☰/◨ toggles open the panels/inspector rails as bottom sheets (`.rail.open`); close buttons dismiss them | ✅ pass |
+| **keyboard: timeline drawer and panel rows are keyboard-operable** | focused timeline head toggles with Enter/Space (`aria-expanded` round-trip); a chokepoint row activates with Enter and the map stays healthy | ✅ pass |
+| **reduced motion: region navigation jumps without animation** | with `prefers-reduced-motion: reduce` emulated, a palette region command uses the instant `jumpTo` path and the map stays healthy | ✅ pass |
 
-**27 passed / 0 failed**. Screenshots written to `docs/screenshots/`.
+**30 passed / 0 failed**. Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -97,12 +102,20 @@ Run against `vite preview` on :4173.
   error shown, never hidden.
 - **Privacy**: "Clear local data" (two-step in-UI confirm) wipes the
   persisted settings blob and the IndexedDB snapshot store, then reloads.
+- **Mobile (Slice 10)**: at ≤860px both rails are bottom sheets with a grab
+  handle, close button, Escape, and overlay-tap dismissal, opened from
+  status-bar toggles; selecting a map object auto-opens the inspector sheet.
+- **Accessibility (Slice 10)**: every clickable row is a focusable
+  Enter/Space-operable button (`src/lib/a11y.ts` `pressable`), global
+  `:focus-visible` outlines, palette combobox/listbox semantics,
+  `prefers-reduced-motion` disables CSS animation and switches the map to
+  `jumpTo`. Contrast spot-checked at AA (muted-on-dark ≈ 5.3:1).
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)
-E2E for route & scenario simulations, dossier export, and full accessibility/
-mobile-bottom-sheet land with their respective slices (6–10), per
-`docs/GAP_MATRIX.md`. Linting (ESLint) config is planned for Slice 10.
+All 10 slices are covered. Live BYO-key LLM calls (AI analyst) are exercised
+manually, not in CI — kept out of the suite deliberately so it stays
+deterministic and key-free.
 
 ## How to reproduce
 ```bash

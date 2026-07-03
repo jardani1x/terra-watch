@@ -5,6 +5,7 @@ import { useStore, type Monitor } from '../state/store';
 import type { GeoEvent } from '../lib/providers/types';
 import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
 import { matchMonitor } from '../lib/monitors';
+import { prefersReducedMotion } from '../lib/a11y';
 
 // Keyless dark basemap: CARTO dark raster tiles (free, attribution required).
 const STYLE: StyleSpecification = {
@@ -129,7 +130,8 @@ export default function MapCanvas() {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapCmd) return;
-    map.flyTo({ center: mapCmd.center, zoom: mapCmd.zoom, essential: true });
+    if (prefersReducedMotion()) map.jumpTo({ center: mapCmd.center, zoom: mapCmd.zoom });
+    else map.flyTo({ center: mapCmd.center, zoom: mapCmd.zoom, essential: true });
   }, [mapCmd]);
 
   return <div ref={ref} style={{ position: 'absolute', inset: 0 }} aria-label="Interactive world map" />;

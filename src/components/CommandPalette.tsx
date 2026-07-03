@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore, REGIONS } from '../state/store';
 
 interface Command {
@@ -8,10 +8,10 @@ interface Command {
   run: () => void;
 }
 
-export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+// Mounted only while open (see App) so query/active state resets naturally.
+export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
   const layers = useStore((s) => s.layers);
   const providers = useStore((s) => s.providers);
   const sources = useStore((s) => s.sources);
@@ -55,16 +55,6 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()));
 
-  useEffect(() => {
-    if (open) {
-      setQuery('');
-      setActive(0);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [open]);
-
-  if (!open) return null;
-
   const runActive = () => {
     const cmd = filtered[active];
     if (cmd) { cmd.run(); onClose(); }
@@ -82,7 +72,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
         style={{ width: 'min(560px, 92vw)', height: 'fit-content', maxHeight: '70vh', background: 'var(--panel-2)', border: '1px solid var(--line-2)', borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       >
         <input
-          ref={inputRef}
+          autoFocus
           value={query}
           onChange={(e) => { setQuery(e.target.value); setActive(0); }}
           onKeyDown={(e) => {
@@ -93,13 +83,20 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           }}
           placeholder="Type a command…  (regions, layers, refresh)"
           aria-label="Command input"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="palette-list"
+          aria-activedescendant={filtered.length > 0 ? `palette-opt-${active}` : undefined}
           style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line)', color: 'var(--text)', padding: '14px 16px', fontSize: 15, outline: 'none', fontFamily: 'var(--mono)' }}
         />
-        <div style={{ overflowY: 'auto' }}>
+        <div style={{ overflowY: 'auto' }} role="listbox" id="palette-list" aria-label="Commands">
           {filtered.length === 0 && <div style={{ padding: 16, color: 'var(--muted)' }}>No matching commands.</div>}
           {filtered.map((c, i) => (
             <div
               key={c.id}
+              id={`palette-opt-${i}`}
+              role="option"
+              aria-selected={i === active}
               onMouseEnter={() => setActive(i)}
               onClick={runActive}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: i === active ? 'rgba(69,224,176,0.12)' : 'transparent', cursor: 'pointer', fontSize: 13 }}

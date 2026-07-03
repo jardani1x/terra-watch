@@ -433,3 +433,55 @@ test('privacy: clear local data wipes settings after two-step confirm', async ({
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await expect(page.getByText('test-monitor-xyz')).not.toBeVisible();
 });
+
+test('mobile: rails open as bottom sheets from the status-bar toggles', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+
+  // left rail (panels) opens as a bottom sheet and closes again
+  await page.getByRole('button', { name: 'Open panels' }).click();
+  await expect(page.locator('.rail.left.open')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Close panels' }).click();
+  await expect(page.locator('.rail.left.open')).toHaveCount(0);
+
+  // inspector opens as a bottom sheet and closes again
+  await page.getByRole('button', { name: 'Open inspector' }).click();
+  await expect(page.locator('.rail.right.open')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Close inspector' }).click();
+  await expect(page.locator('.rail.right.open')).toHaveCount(0);
+});
+
+test('keyboard: timeline drawer and panel rows are keyboard-operable', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+
+  // Enter / Space toggle the timeline drawer via the focused head
+  const head = page.locator('.timeline-head');
+  await head.focus();
+  await expect(head).toHaveAttribute('aria-expanded', 'false');
+  await page.keyboard.press('Enter');
+  await expect(head).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Space');
+  await expect(head).toHaveAttribute('aria-expanded', 'false');
+
+  // chokepoint rows are real keyboard buttons: focus + Enter flies the map
+  const suez = page.getByRole('button', { name: /Chokepoint Suez Canal/ });
+  await suez.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+});
+
+test('reduced motion: region navigation jumps without animation', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+
+  await page.keyboard.press('Control+k');
+  const input = page.getByPlaceholder(/Type a command/i);
+  await input.fill('Go to region: Asia');
+  await input.press('Enter');
+  await expect(page.getByRole('dialog', { name: /command palette/i })).not.toBeVisible();
+  // jumpTo path (no flyTo animation) must leave the map healthy
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+});

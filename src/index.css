@@ -230,11 +230,48 @@ a { color: var(--accent); }
   border: 1px solid var(--line); border-radius: 3px; padding: 8px; margin-top: auto;
 }
 
-/* ---- Mobile ---- */
+/* ---- Accessibility ---- */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- Map lazy-load placeholder ---- */
+.map-loading {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--muted);
+}
+
+/* ---- Mobile: rails become bottom sheets ---- */
+.mobile-only { display: none; }
+.sheet-close { display: none; }
 @media (max-width: 860px) {
   .shell-body { grid-template-columns: 1fr; }
-  .rail { position: absolute; top: 0; bottom: 0; width: 82%; max-width: 320px; z-index: 20; }
-  .rail.left { left: 0; transform: translateX(-100%); }
-  .rail.right { right: 0; transform: translateX(100%); }
-  .rail.open { transform: translateX(0); }
+  .mobile-only { display: inline-block; }
+  .statusbar { gap: 10px; }
+  .sb-search, .brand-sub { display: none; }
+  .rail {
+    position: absolute; left: 0; right: 0; bottom: 0; top: auto;
+    width: 100%; max-width: none; max-height: 72%;
+    z-index: 20; border: 1px solid var(--line-2); border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    padding-top: 22px;
+    transform: translateY(102%);
+    transition: transform 0.25s ease;
+  }
+  .rail::before { /* grab handle */
+    content: ''; position: absolute; top: 8px; left: 50%;
+    width: 44px; height: 4px; border-radius: 2px;
+    background: var(--line-2); transform: translateX(-50%);
+  }
+  .rail.open { transform: translateY(0); }
+  .sheet-close {
+    display: block; position: absolute; top: 2px; right: 6px;
+    background: none; border: none; color: var(--muted);
+    font-family: var(--mono); font-size: 15px; padding: 4px 10px; line-height: 1;
+  }
 }

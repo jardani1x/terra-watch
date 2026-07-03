@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 9 complete — AI analyst + privacy clear-data).
+the live v1 site). Last updated: 2026-07-03 (Slice 10 complete — mobile sheets, a11y, lint, code-split; deploy deliberately deferred).
 
 ## Progress
 
@@ -224,14 +224,50 @@ the live v1 site). Last updated: 2026-07-02 (Slice 9 complete — AI analyst + p
     refusal of a disallowed question with no network call, clear-local-data
     two-step confirm); build + typecheck clean.
 
+- **Slice 10 — DONE, committed, tested**: QA / mobile / a11y / lint /
+  code-split — **Slice 10 complete** (deploy deliberately deferred by user):
+  - **Mobile bottom sheets**: at ≤860px both rails are bottom sheets (grab
+    handle, `.sheet-close` button, Escape, overlay tap to close) opened from
+    new status-bar toggles ("Open panels" ☰ / "Open inspector" ◨). The old
+    side-drawer CSS was replaced — its toggle button was permanently
+    `display:none`, so the rails were unreachable on phones. Selecting a map
+    object at mobile width auto-opens the inspector sheet (App effect on
+    `selected` + `matchMedia`).
+  - **Accessibility**: new `src/lib/a11y.ts` — `pressable(onActivate)` spread
+    makes every clickable row (timeline head + items, country-risk, signals,
+    route, scenario, dossier, graph nodes) a focusable Enter/Space-operable
+    button; global `:focus-visible` outline; command palette got real
+    combobox/listbox/option semantics with `aria-activedescendant`;
+    `prefers-reduced-motion` kills CSS animations/transitions and switches
+    map navigation from `flyTo` to `jumpTo` (`prefersReducedMotion()`).
+    Contrast checked: muted `#6f8a82` on the dark bg ≈ 5.3:1 (AA pass).
+  - **ESLint**: flat config (`eslint.config.js` — js + typescript-eslint
+    recommended + react-hooks recommended + react-refresh), `npm run lint`
+    scoped to `src tests *.config.ts` (the repo also contains a Python
+    `.venv` with Playwright's vendored bundle — not ours to lint). Two real
+    findings fixed: CommandPalette's reset-state-in-effect replaced by
+    mount-on-open (`{paletteOpen && <CommandPalette/>}` + `autoFocus`), and
+    the timeline scrubber's now-relative `Date.now()` got a justified inline
+    disable (`react-hooks/purity`).
+  - **Code-split**: `MapCanvas` is `React.lazy` — maplibre-gl (806 kB min /
+    219 kB gz) is its own async chunk; the app-shell chunk dropped to 217 kB
+    (70 kB gz). `chunkSizeWarningLimit: 900` documented in `vite.config.ts`
+    (single vendor lib).
+  - 3 new Playwright tests (mobile sheets round-trip, keyboard operability,
+    reduced-motion region jump); **30/30 pass**. Build + typecheck + lint
+    clean. NOTE: `gh-pages` is still the Slice 7 build — redeploy is the
+    only remaining step and was deliberately deferred.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),
 infrastructure (open registries), FIRMS wildfire detail (BYO key).
 
-## Then Slice 10
-QA/mobile/a11y/lint/deploy. See `docs/GAP_MATRIX.md`.
+## Then: deploy
+All 10 slices are done. The only remaining step is publishing `dist/` to the
+`gh-pages` branch (currently still serving the Slice 7 build) — deliberately
+deferred at the user's request on 2026-07-03.
 
 ## Run / verify
 ```bash

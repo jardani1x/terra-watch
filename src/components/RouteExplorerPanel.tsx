@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { CHOKEPOINTS, NEARBY_RADIUS_KM, nearbyEvents } from '../lib/chokepoints';
+import { pressable } from '../lib/a11y';
 
 /** Route Explorer Lite — static chokepoint reference + a transparent count of
  *  current public events near each. Labeled ADVISORY; not a routing service
@@ -29,8 +30,7 @@ export default function RouteExplorerPanel() {
         <div
           className="monitor-row route-row"
           key={cp.id}
-          onClick={() => { setView('map'); flyTo([cp.lon, cp.lat], 5); }}
-          role="button"
+          {...pressable(() => { setView('map'); flyTo([cp.lon, cp.lat], 5); })}
           aria-label={`Chokepoint ${cp.name}: ${near} events within ${NEARBY_RADIUS_KM} km`}
         >
           <span className="mon-term">

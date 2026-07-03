@@ -2,6 +2,7 @@ import { useStore } from '../state/store';
 import { dossierMarkdown, dossierJson } from '../lib/dossier';
 import { downloadText } from '../lib/exports';
 import { ago } from '../lib/format';
+import { pressable } from '../lib/a11y';
 
 /** Dossier / report workspace — a pin board of public events with their
  *  citations frozen at pin time. Notes are user-authored and labeled as such
@@ -46,13 +47,12 @@ export default function DossierPanel() {
               <div className="monitor-row" style={{ padding: '4px 7px 2px' }}>
                 <span
                   className="mon-term"
-                  role="button"
                   style={{ cursor: 'pointer' }}
-                  onClick={() => {
+                  {...pressable(() => {
                     select(it.event);
                     setView('map');
                     flyTo([it.event.lon, it.event.lat], 5);
-                  }}
+                  })}
                   aria-label={`Pinned: ${it.event.title}`}
                 >
                   {it.event.title}

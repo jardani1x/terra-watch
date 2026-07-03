@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
 import { SCENARIOS } from '../lib/scenarios';
 import { CHOKEPOINTS, NEARBY_RADIUS_KM, nearbyEvents } from '../lib/chokepoints';
+import { pressable } from '../lib/a11y';
 
 /** Scenario Engine Lite — static what-if walkthroughs, labeled SIMULATION.
  *  The only live element is the transparent nearby-event count. */
@@ -34,8 +35,7 @@ export default function ScenarioPanel() {
         <div key={s.id}>
           <div
             className="monitor-row scenario-row"
-            onClick={() => setOpenId(openId === s.id ? null : s.id)}
-            role="button"
+            {...pressable(() => setOpenId(openId === s.id ? null : s.id))}
             aria-expanded={openId === s.id}
             aria-label={`Scenario: ${s.title}`}
           >
@@ -52,13 +52,12 @@ export default function ScenarioPanel() {
               </ul>
               <div
                 className="lr-meta"
-                role="button"
                 style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => {
+                {...pressable(() => {
                   if (openCps.length === 0) return;
                   setView('map');
                   flyTo([openCps[0].lon, openCps[0].lat], 5);
-                }}
+                })}
               >
                 Live context: {nearNow} public events within {NEARBY_RADIUS_KM} km of the
                 affected chokepoint{openCps.length > 1 ? 's' : ''} · view on map

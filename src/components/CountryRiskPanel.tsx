@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { computeCountryRisk } from '../lib/risk';
+import { pressable } from '../lib/a11y';
 
 const MAX_ROWS = 8;
 
@@ -30,8 +31,7 @@ export default function CountryRiskPanel() {
         <div
           className="monitor-row risk-row"
           key={r.country}
-          onClick={() => { setView('map'); flyTo([r.lon, r.lat], 4); }}
-          role="button"
+          {...pressable(() => { setView('map'); flyTo([r.lon, r.lat], 4); })}
           aria-label={`Country risk ${r.country}: weight ${r.score} from ${r.components.length} alerts`}
         >
           <span className="mon-term">

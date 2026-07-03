@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { computeSignals } from '../lib/signals';
+import { pressable } from '../lib/a11y';
 
 const MAX_ROWS = 8;
 
@@ -34,8 +35,7 @@ export default function SignalsPanel() {
         <div
           className="monitor-row signal-row"
           key={sig.id}
-          onClick={() => { setView('map'); flyTo([sig.lon, sig.lat], 5); }}
-          role="button"
+          {...pressable(() => { setView('map'); flyTo([sig.lon, sig.lat], 5); })}
           aria-label={`Signal at ${fmtCell(sig.lat, 'N', 'S')} ${fmtCell(sig.lon, 'E', 'W')}: ${sig.types.length} event types`}
         >
           <span className="mon-term">

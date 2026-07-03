@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
 import { matchMonitor } from '../lib/monitors';
 import { downloadText, eventsToCsv, eventsToJson } from '../lib/exports';
+import { pressable } from '../lib/a11y';
 
 const DAY_MS = 24 * 3600_000;
 const TICK_MS = 400;
@@ -36,11 +37,12 @@ export default function TimelineDrawer() {
   const sorted = [...windowed].sort((a, b) => b.time - a.time).slice(0, 200);
 
   // slider maps [now-24h, now] → [0, 100]
+  // eslint-disable-next-line react-hooks/purity -- the scrubber maps a moving 24h window; its position is now-relative by design and re-derives on every cursor/event change
   const pct = cursor === null ? 100 : Math.max(0, Math.min(100, ((cursor - (Date.now() - DAY_MS)) / DAY_MS) * 100));
 
   return (
     <div className={`timeline ${collapsed ? 'collapsed' : ''}`}>
-      <div className="timeline-head" onClick={() => setCollapsed((c) => !c)} role="button" aria-expanded={!collapsed}>
+      <div className="timeline-head" {...pressable(() => setCollapsed((c) => !c))} aria-expanded={!collapsed}>
         <span>{collapsed ? '▲' : '▼'} EVENT TIMELINE</span>
         <span className="tl-count">{sorted.length} events</span>
 
@@ -103,7 +105,7 @@ export default function TimelineDrawer() {
             <div
               className="tl-item"
               key={e.id}
-              onClick={() => select(e)}
+              {...pressable(() => select(e))}
               style={match ? { borderLeft: `3px solid ${match.color}`, paddingLeft: 6 } : undefined}
             >
               <span className="tl-time">{hhmm(e.time)}</span>

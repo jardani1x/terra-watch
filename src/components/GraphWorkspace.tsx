@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useStore, type GraphLayout } from '../state/store';
 import { layerIdForEvent } from '../lib/layers';
 import { layoutForce, layoutGrid, layoutRadial } from '../lib/graphLayout';
+import { pressable } from '../lib/a11y';
 
 const LAYOUTS: GraphLayout[] = ['force', 'radial', 'grid'];
 
@@ -111,8 +112,7 @@ export default function GraphWorkspace() {
                 key={n.id}
                 transform={`translate(${p.x},${p.y})`}
                 className="graph-node"
-                onClick={() => select(n.event)}
-                role="button"
+                {...pressable(() => select(n.event))}
                 aria-label={n.event.title}
               >
                 <circle

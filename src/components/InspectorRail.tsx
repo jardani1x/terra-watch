@@ -10,6 +10,8 @@ const LABELS: Record<string, string> = {
 
 export default function InspectorRail() {
   const selected = useStore((s) => s.selected);
+  const mobileRail = useStore((s) => s.mobileRail);
+  const setMobileRail = useStore((s) => s.setMobileRail);
   const providers = useStore((s) => s.providers);
   const graph = useStore((s) => s.graph);
   const addToGraph = useStore((s) => s.addToGraph);
@@ -22,7 +24,8 @@ export default function InspectorRail() {
   const inDossier = selected != null && dossier.items.some((i) => i.id === selected.id);
 
   return (
-    <aside className="rail right" aria-label="Object inspector">
+    <aside className={`rail right ${mobileRail === 'right' ? 'open' : ''}`} aria-label="Object inspector">
+      <button className="sheet-close" aria-label="Close inspector" onClick={() => setMobileRail(null)}>✕</button>
       <div className="rail-sec-title">
         INSPECTOR <span className="tag">{selected ? 'OBJECT' : 'IDLE'}</span>
       </div>

@@ -26,7 +26,7 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
 
   return (
     <header className="statusbar">
-      <button className="kbd" aria-label="Toggle layers" onClick={() => setMobileRail('left')} style={{ display: 'none' }} />
+      <button className="kbd mobile-only" aria-label="Open panels" onClick={() => setMobileRail('left')}>☰</button>
       <div className="brand">
         <span className="brand-glyph">◈</span>
         <div>
@@ -68,6 +68,7 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
         readOnly
       />
       <button className="kbd" onClick={onOpenPalette} aria-label="Open command palette">⌘K</button>
+      <button className="kbd mobile-only" aria-label="Open inspector" onClick={() => setMobileRail('right')}>◨</button>
 
       <div className="sb-clock" aria-label="UTC clock">
         {clock.time}
