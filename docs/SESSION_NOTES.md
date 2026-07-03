@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-03 (Slice 10 complete — mobile sheets, a11y, lint, code-split; deploy deliberately deferred).
+the live v1 site). Last updated: 2026-07-03 (Slice 10 complete and deployed — the v2 rebuild is live on GitHub Pages).
 
 ## Progress
 
@@ -264,10 +264,12 @@ News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),
 infrastructure (open registries), FIRMS wildfire detail (BYO key).
 
-## Then: deploy
-All 10 slices are done. The only remaining step is publishing `dist/` to the
-`gh-pages` branch (currently still serving the Slice 7 build) — deliberately
-deferred at the user's request on 2026-07-03.
+## Deployed
+All 10 slices are done and **deployed**: `dist/` (Slice 10 build) was pushed
+to `gh-pages` on 2026-07-03 (`2164534`) and verified live at
+https://jardani1x.github.io/terra-watch/ (index + all four asset chunks
+return 200 and match the committed build). Deploys remain manual — there is
+no CI workflow; publish by committing `dist/` contents to `gh-pages`.
 
 ## Run / verify
 ```bash
