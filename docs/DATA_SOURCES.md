@@ -16,6 +16,7 @@ offline fallback), or `offline`.
 | **Frankfurter (ECB FX)** | daily ECB reference rates USD→EUR/JPY/GBP/CNY (MARKETS panel, not the map) | none | ECB reference rates via Frankfurter | Live; on failure → labeled `mock` sample | 6b |
 | **CoinGecko** | BTC/ETH spot + 24h change (MARKETS panel, not the map) | none (rate-limited free tier) | price data by CoinGecko (attribution shown in panel) | Live; on failure → labeled `mock` sample | 6b |
 | **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source | 1 |
+| **AI analyst (Anthropic / OpenAI-compatible)** | cited, inference-labeled Q&A over the current public feed | none required (BYO key optional) | user's own provider account | Always-on local-rules brief with zero key; optional key calls the provider **directly from the browser** (no Terra Watch backend); LLM failures fall back to the local brief with the real error shown, never hidden | 9 |
 
 - USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
 - EONET feed: `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200`

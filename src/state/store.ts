@@ -14,6 +14,11 @@ import {
   type SnapshotMeta, type SnapshotDelta,
 } from '../lib/snapshots';
 import { hhmm } from '../lib/format';
+import { computeCountryRisk } from '../lib/risk';
+import {
+  askAnalyst as runAskAnalyst, buildContext,
+  type AnalystProvider, type AnalystMessage,
+} from '../lib/analyst';
 
 export type { LayerDef } from '../lib/layers';
 
@@ -84,6 +89,8 @@ interface AppState {
   market: { quotes: MarketQuote[]; mode: DataMode; error: string | null };
   /** user-curated report workspace; citations frozen at pin time */
   dossier: Dossier;
+  /** optional BYO-key AI analyst; local-rules fallback is always available */
+  analyst: { provider: AnalystProvider | null; apiKey: string | null; baseUrl: string | null; messages: AnalystMessage[] };
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -113,6 +120,12 @@ interface AppState {
   setDossierNote: (id: string, note: string) => void;
   setDossierTitle: (title: string) => void;
   clearDossier: () => void;
+  setAnalystProvider: (p: AnalystProvider | null) => void;
+  setAnalystKey: (key: string | null) => void;
+  setAnalystBaseUrl: (url: string | null) => void;
+  clearAnalystKey: () => void;
+  askAnalyst: (question: string) => Promise<void>;
+  clearAnalystMessages: () => void;
 }
 
 function providerStub(meta: { id: string; name: string; license: string; homepage: string }): ProviderHealth {
@@ -154,6 +167,7 @@ export const useStore = create<AppState>()(
       snapshotDelta: null,
       market: { quotes: [], mode: 'loading', error: null },
       dossier: { title: 'Terra Watch dossier', items: [] },
+      analyst: { provider: null, apiKey: null, baseUrl: null, messages: [] },
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -286,6 +300,20 @@ export const useStore = create<AppState>()(
 
       clearDossier: () => set((s) => ({ dossier: { ...s.dossier, items: [] } })),
 
+      setAnalystProvider: (p) => set((s) => ({ analyst: { ...s.analyst, provider: p } })),
+      setAnalystKey: (key) => set((s) => ({ analyst: { ...s.analyst, apiKey: key } })),
+      setAnalystBaseUrl: (url) => set((s) => ({ analyst: { ...s.analyst, baseUrl: url } })),
+      clearAnalystKey: () => set((s) => ({ analyst: { ...s.analyst, provider: null, apiKey: null, baseUrl: null } })),
+      clearAnalystMessages: () => set((s) => ({ analyst: { ...s.analyst, messages: [] } })),
+
+      askAnalyst: async (question) => {
+        const { events, dossier, monitors, analyst } = get();
+        const ctx = buildContext(events, dossier, computeCountryRisk(events));
+        set((s) => ({ analyst: { ...s.analyst, messages: [...s.analyst.messages, { role: 'user', text: question, citations: [], mode: 'local-rules' as const }] } }));
+        const reply = await runAskAnalyst(question, { provider: analyst.provider, apiKey: analyst.apiKey, baseUrl: analyst.baseUrl }, ctx, monitors);
+        set((s) => ({ analyst: { ...s.analyst, messages: [...s.analyst.messages, reply] } }));
+      },
+
       refreshAll: async () => {
         const { sources } = get();
         const active = Object.keys(FETCHERS).filter((id) => sources[id] ?? true);
@@ -352,6 +380,9 @@ export const useStore = create<AppState>()(
         // way — never raw fetch results.
         graph: s.graph,
         dossier: s.dossier,
+        // only the BYO-key settings persist — chat messages are transient,
+        // like fetched data
+        analystSettings: { provider: s.analyst.provider, apiKey: s.analyst.apiKey, baseUrl: s.analyst.baseUrl },
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as {
@@ -360,6 +391,7 @@ export const useStore = create<AppState>()(
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
+          analystSettings?: { provider: AnalystProvider | null; apiKey: string | null; baseUrl: string | null };
         };
         return {
           ...current,
@@ -368,6 +400,7 @@ export const useStore = create<AppState>()(
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,
+          analyst: p.analystSettings ? { ...current.analyst, ...p.analystSettings } : current.analyst,
         };
       },
     },

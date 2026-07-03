@@ -388,3 +388,48 @@ test('command palette region command flies the map', async ({ page }) => {
   // no assertion on exact camera position (async flyTo animation); just confirm no crash and map still present
   await expect(page.locator('.maplibregl-canvas')).toBeVisible();
 });
+
+test('AI analyst: generate brief works with zero config (local rules)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await page.waitForTimeout(3000); // let live events load so the brief has something to summarize
+
+  const panel = page.getByLabel('AI analyst');
+  await expect(panel.getByText('AI ANALYST')).toBeVisible();
+  await expect(panel.getByText('LOCAL RULES', { exact: true })).toBeVisible();
+
+  await panel.getByRole('button', { name: 'GENERATE BRIEF' }).click();
+  await expect(panel.locator('.analyst-msg-assistant')).toHaveCount(1);
+  await expect(panel.locator('.analyst-msg-assistant').getByText('LOCAL RULES', { exact: true })).toBeVisible();
+});
+
+test('AI analyst: disallowed question is refused locally, no key needed', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+
+  const panel = page.getByLabel('AI analyst');
+  await panel.getByLabel('Ask the AI analyst').fill("track this person's pattern of life");
+  await panel.getByRole('button', { name: 'ASK', exact: true }).click();
+
+  await expect(panel.getByText(/cannot help with targeting/i)).toBeVisible();
+});
+
+test('privacy: clear local data wipes settings after two-step confirm', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+
+  // create some local state to prove it gets wiped
+  await page.getByLabel('Add monitor keyword').fill('test-monitor-xyz');
+  await page.getByLabel('Add monitor keyword').press('Enter');
+  await expect(page.getByText('test-monitor-xyz')).toBeVisible();
+
+  const panel = page.getByLabel('Privacy');
+  await panel.getByRole('button', { name: 'CLEAR LOCAL DATA' }).click();
+  await Promise.all([
+    page.waitForEvent('load'),
+    panel.getByRole('button', { name: 'CONFIRM CLEAR?' }).click(),
+  ]);
+
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.getByText('test-monitor-xyz')).not.toBeVisible();
+});

@@ -30,14 +30,26 @@ confidence, Advisory).
   providers (currently CARTO for basemap tiles and USGS for earthquakes). Those
   providers see standard request metadata (your IP, tile/data URLs). This is
   inherent to fetching public data client-side and is disclosed here.
-- **Local-only settings.** User preferences (and, later, any API keys you choose
-  to add) are stored in your browser's `localStorage` only. Keys are never
-  transmitted to us.
+- **Local-only settings.** User preferences and any API key you choose to add
+  for the optional AI analyst are stored in your browser's `localStorage`
+  only. Keys are never transmitted to us — there is no Terra Watch server to
+  send them to.
+- **AI analyst keys (optional, BYO).** If you add an Anthropic or
+  OpenAI-compatible API key, it is sent **directly from your browser to that
+  provider only** (Anthropic via its documented direct-browser-access path;
+  OpenAI-compatible via whatever base URL you supply). Every reply is
+  labeled **inference**, cited to the public events it drew on, and the
+  local rule-based brief remains available with zero key and zero network
+  calls. Requests matching the excluded categories below are refused
+  locally, before any network call is made.
 - **Location.** Terra Watch does **not** request your device location in this
   build. If a future feature uses it, it will ask for explicit permission and
   process it on-device, clearly labeled.
-- **Clear local data.** A "Clear local data" control is planned for Slice 9; until
-  then you can clear site data via your browser settings.
+- **Clear local data.** The **Privacy** panel's "Clear local data" control
+  wipes everything Terra Watch has stored in this browser — settings,
+  monitors, the link graph, the dossier, any saved analyst API key, and
+  snapshots — and reloads. You can also clear site data via your browser
+  settings at any time.
 
 ## Attribution & licenses
 
@@ -51,4 +63,5 @@ confidence, Advisory).
    never hardcoded.
 2. Sample/offline/cached data is **labeled as such** everywhere it appears.
 3. Every object shows its **source, timestamp, and freshness**; model-generated
-   analysis (later slices) will be labeled **inference**, not fact, with citations.
+   analysis (the optional AI analyst) is labeled **inference**, not fact, and
+   cited to the public events it drew on.

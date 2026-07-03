@@ -10,8 +10,8 @@ Environment: Node 24.15, npm 11.12, Playwright (Chromium headless), Raspberry Pi
 | Typecheck (strict) | `tsc --noEmit` | ✅ pass (0 errors) |
 | Production build | `vite build` | ✅ pass — `dist/` emitted |
 
-Build output: `index.html` 0.93 kB, CSS 73.9 kB (11.2 kB gz), JS 998 kB
-(282 kB gz). The JS chunk-size warning (MapLibre) is tracked for code-splitting
+Build output: `index.html` 0.93 kB, CSS 74.4 kB (11.3 kB gz), JS 1,026.6 kB
+(291.3 kB gz). The JS chunk-size warning (MapLibre) is tracked for code-splitting
 in Slice 10.
 
 ## End-to-end (Playwright, `tests/smoke.spec.ts`)
@@ -45,8 +45,11 @@ Run against `vite preview` on :4173.
 | **dossier: pin from inspector, add note, export MD, unpin** | honest empty state; `+ Pin to dossier` → `✓ IN DOSSIER` + panel row with frozen citation + "pinned just now"; note input labeled user-authored; `EXPORT MD`/`EXPORT JSON` trigger `terra-watch-dossier-*.md/.json` downloads; unpin restores empty state in panel and inspector | ✅ pass |
 | **timeline exports current events as CSV and JSON** | head export buttons enabled once events load; downloads named `terra-watch-events-*.csv/.json` (locators need `exact: true` — head accessible-name gotcha) | ✅ pass |
 | **market panel exports quotes as CSV** | `⤓ CSV` next to the attribution line downloads `terra-watch-markets-*.csv` | ✅ pass |
+| **AI analyst: generate brief works with zero config** | AI ANALYST carries the `LOCAL RULES` tag with no key set; `GENERATE BRIEF` produces one assistant message tagged `LOCAL RULES` — deterministic, no network call | ✅ pass |
+| **AI analyst: disallowed question is refused locally** | asking a pattern-of-life-style question is refused with the civilian-use policy message, without needing a key or hitting the network | ✅ pass |
+| **privacy: clear local data wipes settings after two-step confirm** | adding a monitor, then `CLEAR LOCAL DATA` → `CONFIRM CLEAR?` reloads the page and the monitor is gone | ✅ pass |
 
-**24 passed / 0 failed** (one earlier transient console-errors failure from a live-provider 503 passed on isolated re-run — known external flake). Screenshots written to `docs/screenshots/`.
+**27 passed / 0 failed**. Screenshots written to `docs/screenshots/`.
 
 ### Verified behavior (from the passing run + captured snapshot)
 - USGS **live**: ~38 earthquakes; NASA EONET **live**: 200 natural events
@@ -85,6 +88,15 @@ Run against `vite preview` on :4173.
 - **Signals (inference)**: 1°×1° cell co-location of ≥2 public event types, computed
   client-side over the current feed. Panel is labeled INFERENCE with "not a prediction"
   copy; every signal cites its contributing count and flies the map to the cell.
+- **AI analyst**: always-on local-rules brief (zero key, zero network) that
+  matches the numbers shown elsewhere in the UI (country risk, chokepoint
+  proximity, monitor hits); optional Anthropic/OpenAI-compatible key calls
+  the provider directly from the browser and is labeled `AI · INFERENCE`;
+  a local keyword check refuses excluded-category questions before any
+  network call; LLM failures fall back to the local brief with the real
+  error shown, never hidden.
+- **Privacy**: "Clear local data" (two-step in-UI confirm) wipes the
+  persisted settings blob and the IndexedDB snapshot store, then reloads.
 - No "reserved"/placeholder panels present.
 
 ## Coverage gaps (planned)

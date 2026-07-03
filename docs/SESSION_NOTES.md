@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-02 (Slice 8 complete — dossier + export).
+the live v1 site). Last updated: 2026-07-02 (Slice 9 complete — AI analyst + privacy clear-data).
 
 ## Progress
 
@@ -190,15 +190,48 @@ the live v1 site). Last updated: 2026-07-02 (Slice 8 complete — dossier + expo
     than retried).
   - 2 new Playwright tests; 24/24 pass. Build + typecheck clean.
 
+- **Slice 9 — DONE, committed, tested**: Optional AI analyst (BYO key) +
+  privacy clear-data — **Slice 9 complete**:
+  - `src/lib/analyst.ts` — `buildContext` (compact, cited digest of the
+    current windowed events + dossier + `computeCountryRisk`, capped to 40
+    most recent), `buildLocalBrief` (deterministic, zero-network summary
+    reusing `computeCountryRisk`/`nearbyEvents`/`matchMonitor` — this is the
+    always-on fallback, so the feature stays keyless-first even when
+    enabled), `isDisallowedQuery` (keyword refusal for the permanently
+    excluded categories, checked locally **before** any network call),
+    `askAnthropic`/`askOpenAiCompatible` (direct browser calls — Anthropic
+    via `anthropic-dangerous-direct-browser-access`, no proxy needed;
+    OpenAI-compatible via user-supplied base URL), `askAnalyst` orchestrator
+    (refusal → local brief with no key → LLM with a key → local brief with
+    the real error attached on any failure; mode shown is never faked).
+  - Store: `analyst { provider, apiKey, baseUrl, messages }` +
+    `setAnalystProvider`/`setAnalystKey`/`setAnalystBaseUrl`/
+    `clearAnalystKey`/`askAnalyst`/`clearAnalystMessages`. Only the
+    provider/key/baseUrl persist (like `sources`/`monitors`); chat messages
+    stay in-memory, same treatment as fetched data.
+  - `AnalystPanel.tsx` (left rail) — provider/key/base-URL settings,
+    `LOCAL RULES` / `BYO KEY · INFERENCE` mode tag, message log with
+    per-reply mode tag + citation chips, question input, one-click
+    "GENERATE BRIEF".
+  - `src/lib/privacy.ts` (`clearAllLocalData`) + `PrivacyPanel.tsx` — wipes
+    the `terra-watch:v2` localStorage key and the `terra-watch` IndexedDB
+    database, then reloads. Two-step in-UI confirm (not a native
+    `confirm()`) so it stays reliably testable.
+  - `docs/PRIVACY_AND_CIVILIAN_USE.md` updated: clear-data control is
+    shipped, not planned; noted AI keys go straight from the browser to the
+    chosen provider, never to a Terra Watch server.
+  - 3 new Playwright tests (local-rules brief with zero config, local
+    refusal of a disallowed question with no network call, clear-local-data
+    two-step confirm); build + typecheck clean.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),
 infrastructure (open registries), FIRMS wildfire detail (BYO key).
 
-## Then Slices 9–10
-optional AI analyst (BYO key) + privacy clear-data UI (Slice 9) ·
-QA/mobile/a11y/lint/deploy (Slice 10). See `docs/GAP_MATRIX.md`.
+## Then Slice 10
+QA/mobile/a11y/lint/deploy. See `docs/GAP_MATRIX.md`.
 
 ## Run / verify
 ```bash

@@ -35,8 +35,8 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Scenario Engine Lite | **Done** | 7 | — | ✓ | 5 prebuilt what-if walkthroughs (static effects w/ historical analogues), labeled SIMULATION; only live element is the transparent nearby-event count |
 | Dossier / report workspace | **Done** | 8 | ✓ | — | pin events from the inspector; provider citation frozen at pin time; user notes labeled "user-authored" in exports; export MD/JSON; persisted like monitors/graph |
 | Export state (JSON/CSV) | **Done** | 8 | ✓ | ✓ | per-panel: timeline events (CSV+JSON, respects playback window), markets (CSV), dossier (MD+JSON), graph (JSON since Slice 4); all client-side, timestamped filenames |
-| Optional AI analyst (BYO key) | **Deferred** | 9 | — | ✓ | cite sources; refuse unsafe; local rules fallback |
-| Privacy controls / clear-data | **Partial** | 1→9 | — | ✓ | privacy doc + no-backend; UI clear-data in Slice 9 |
+| Optional AI analyst (BYO key) | **Done** | 9 | — | ✓ | always-on local-rules brief (zero config); optional Anthropic or OpenAI-compatible key, direct-from-browser call; every reply cites events by title, labeled LOCAL RULES / AI · INFERENCE; local keyword refusal for excluded categories runs before any network call; LLM failures fall back to the local brief with the real error shown |
+| Privacy controls / clear-data | **Done** | 1→9 | — | ✓ | privacy doc + no-backend; "Clear local data" (two-step confirm) wipes the persisted settings blob + IndexedDB snapshots and reloads |
 | Mobile bottom-sheet layout | **Partial** | 1→10 | — | ✓ | responsive rails done; bottom-sheet polish in Slice 10 |
 | Accessibility (kbd, ARIA, contrast, reduced-motion) | **Partial** | 1→10 | — | — | ARIA labels + focusable controls in; full audit Slice 10 |
 | No production placeholder panels | **Done** | 1 | — | — | every shipped panel is functional; unbuilt features are absent, not "reserved" |

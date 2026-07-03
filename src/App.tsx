@@ -12,6 +12,8 @@ import CountryRiskPanel from './components/CountryRiskPanel';
 import RouteExplorerPanel from './components/RouteExplorerPanel';
 import ScenarioPanel from './components/ScenarioPanel';
 import DossierPanel from './components/DossierPanel';
+import AnalystPanel from './components/AnalystPanel';
+import PrivacyPanel from './components/PrivacyPanel';
 import ProviderHealthBar from './components/ProviderHealthBar';
 import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
@@ -61,6 +63,8 @@ export default function App() {
           <DossierPanel />
           <MarketPanel />
           <SnapshotPanel />
+          <AnalystPanel />
+          <PrivacyPanel />
           <div className="disclaimer">
             Data is fetched client-side from public providers. Nothing you do here
             is sent to a Terra Watch server. See <b>Privacy</b> in the docs.
