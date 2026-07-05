@@ -111,6 +111,17 @@ export function countryAsEvent(c: CountryFeature): GeoEvent {
   };
 }
 
+/** Match a free-text country name (as carried by e.g. GDACS `props.country`)
+ *  to its vendored Natural Earth feature, case-insensitively against both the
+ *  short and long name. Returns null if nothing matches (e.g. a name that
+ *  doesn't correspond 1:1 to a country, or a multi-country GDACS listing). */
+export function findCountryByName(countries: CountryFeature[], name: string): CountryFeature | null {
+  const needle = name.toLowerCase();
+  return countries.find(
+    (c) => c.properties.NAME.toLowerCase() === needle || c.properties.NAME_LONG.toLowerCase() === needle,
+  ) ?? null;
+}
+
 /** Rough zoom that frames a country from its geometry bbox. */
 export function countryZoom(c: CountryFeature): number {
   let minX = 180, maxX = -180, minY = 90, maxY = -90;

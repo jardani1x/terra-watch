@@ -1,8 +1,8 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-05 (Slices 11-13 complete and
-deployed — see Deployed section).
+the live v1 site). Last updated: 2026-07-05 (Slice 14 complete; Slices 11-13
+are deployed, Slice 14 not yet — see Deployed section).
 
 ## Progress
 
@@ -383,6 +383,27 @@ deployed — see Deployed section).
     gotchas above.
   - 1 new Playwright test (next upcoming meeting shown, attributed, health
     chip present); all tests pass in isolation. Build + typecheck clean.
+
+- **Slice 14 — DONE, committed, tested**: Country risk panel structural
+  indicators — **Slice 14 complete**:
+  - `src/lib/countries.ts` `findCountryByName()` — matches a free-text
+    country name (as GDACS's `props.country` carries it) to its vendored
+    Natural Earth feature, case-insensitive against both the short and long
+    name.
+  - `CountryRiskPanel.tsx` now shows population/GDP/income group per country
+    row, reusing the Natural Earth dataset already loaded in Slice 11 (no
+    new fetch, no World Bank integration needed). Deliberately kept as a
+    separate, clearly-labeled line rather than folded into the alert-weight
+    score — blending a live alert count with static demographic/economic
+    figures into one number would fabricate a methodology this app doesn't
+    have; the score stays exactly what it was (itemized GDACS weights).
+  - Closes the one specific gap GAP_MATRIX had called out for this panel
+    ("structural indicators (World Bank) later") — promoted Partial → Done.
+  - 1 new Playwright test assertion (structural-context disclaimer text);
+    passes in isolation. Build + typecheck clean. (Live verification of the
+    per-row population/GDP line itself is best-effort — GDACS had zero
+    active alerts at test time, same honest empty-state condition the
+    existing test already tolerates.)
 
 ## Slice 6b remaining (blocked/optional)
 

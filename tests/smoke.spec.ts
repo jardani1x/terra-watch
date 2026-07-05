@@ -241,6 +241,9 @@ test('country risk panel is labeled INFERENCE and renders honestly', async ({ pa
   await expect(panel.getByText('COUNTRY RISK')).toBeVisible();
   await expect(panel.getByText('INFERENCE')).toBeVisible();
   await expect(panel.getByText('not a forecast')).toBeVisible();
+  // structural indicators (population/GDP/income group) are context only,
+  // never blended into the alert-weight score
+  await expect(panel.getByText(/never blended into the score/)).toBeVisible();
 
   // either itemized country rows (click flies the map) or the honest empty state
   const rows = await panel.locator('.risk-row').count();
