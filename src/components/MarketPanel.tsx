@@ -1,13 +1,25 @@
 import { useStore } from '../state/store';
 import { downloadText, quotesToCsv } from '../lib/exports';
+import { upcomingMeetings } from '../lib/econcalendar';
+
+function formatRange(start: string, end: string): string {
+  const s = new Date(`${start}T00:00:00Z`);
+  const e = new Date(`${end}T00:00:00Z`);
+  const month = s.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+  const day1 = s.getUTCDate();
+  const day2 = e.getUTCDate();
+  return `${month} ${day1}–${day2}, ${s.getUTCFullYear()}`;
+}
 
 /** Market snapshot panel — non-geo data, so it lives in the rail, not on the
  *  map. Mode label is derived from the real fetch result, never hardcoded. */
 export default function MarketPanel() {
   const market = useStore((s) => s.market);
   const enabled = useStore((s) => s.sources['markets'] ?? true);
+  const fomcMeetings = useStore((s) => s.fomcMeetings);
 
   const live = market.mode === 'live';
+  const upcoming = fomcMeetings ? upcomingMeetings(fomcMeetings) : [];
   return (
     <section aria-label="Markets">
       <div className="rail-sec-title">
@@ -53,6 +65,22 @@ export default function MarketPanel() {
             >
               ⤓ CSV
             </button>
+          </div>
+        </>
+      )}
+      {upcoming.length > 0 && (
+        <>
+          <div className="rail-sec-title" style={{ marginTop: 10 }}>FOMC CALENDAR</div>
+          {upcoming.map((m) => (
+            <div className="monitor-row market-row" key={m.start}>
+              <span className="mon-term">
+                {formatRange(m.start, m.end)}
+                {m.sep && <span className="sep-badge" style={{ marginLeft: 6 }}>SEP</span>}
+              </span>
+            </div>
+          ))}
+          <div className="lr-meta" style={{ padding: '4px 7px' }}>
+            Federal Reserve — vendored static meeting schedule
           </div>
         </>
       )}

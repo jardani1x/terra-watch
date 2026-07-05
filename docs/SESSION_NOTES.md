@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-05 (Slice 12 complete, not yet
+the live v1 site). Last updated: 2026-07-05 (Slice 13 complete, not yet
 deployed — `gh-pages` is still the Slice 10 build; see Deployed section).
 
 ## Progress
@@ -340,7 +340,49 @@ deployed — `gh-pages` is still the Slice 10 build; see Deployed section).
   - Not carried into this slice: `public/data/fomc_2026.json` (FOMC meeting
     calendar) was vendored alongside the infrastructure datasets but belongs
     to the Market panel (an economic-calendar addition), not Infrastructure
-    — left unwired, tracked as a fast-follow.
+    — left unwired, tracked as a fast-follow (done next, Slice 13).
+
+- **Slice 13 — DONE, committed, tested**: FOMC calendar in the Market panel
+  — **Slice 13 complete**:
+  - `src/lib/econcalendar.ts` — `fetchFomcCalendar()` reads the vendored
+    own-origin `public/data/fomc_2026.json` (federalreserve.gov has no CORS
+    API); `upcomingMeetings()` filters to meetings that haven't ended yet.
+    Loaded once via a store action (`loadFomcCalendar`, same shape as
+    `loadCountryData`) from `App`'s initial effect — not part of
+    `refreshAll`/`sources` since it's a static schedule, not a toggleable
+    live feed. Registers an honest `CACHE`-mode health chip ("FOMC Meeting
+    Calendar"), never `LIVE`.
+  - `MarketPanel.tsx` gets a new "FOMC CALENDAR" section below the existing
+    FX/crypto quotes, listing the next 3 upcoming meetings (date range +
+    `SEP` tag for Summary-of-Economic-Projections meetings), attributed to
+    the Federal Reserve.
+  - **Gotcha (real bug, fixed)**: the SEP badge initially reused the shared
+    `.tag` class, which the existing market-panel test relied on matching
+    exactly one node (the LIVE/SAMPLE mode tag). It also would have rendered
+    unstyled anyway — `.tag` is only styled when nested under
+    `.rail-sec-title`, not in a `.mon-term` row. Fixed with a dedicated
+    `.sep-badge` class.
+  - **Gotcha (real, environment)**: `refreshAll()` bundles all 7 fetchers
+    (5 original + Slice 12's 2 infrastructure ones) plus markets in one
+    `Promise.all`, so every consumer waits for the slowest fetch in the
+    batch. This Pi is a shared home server (also running Jellyfin, Docker,
+    n8n, Tailscale, etc.; load average observed 3.5-4.6, swap consistently
+    near-full) — under that contention the batch can take 15-20s to settle
+    instead of the ~3s the older fixed `waitForTimeout`s assumed. Fixed by
+    waiting on a real condition (health chip no longer `LOADING`, 20s
+    timeout) plus `test.setTimeout(60_000)` on the three tests that hit
+    this (market panel, dossier, CSV export), matching the same
+    slow-hardware precedent already used for the globe/country tests.
+    Full-suite runs on this box remain **run-to-run flaky** beyond that —
+    a different random subset of tests can still time out depending on
+    concurrent system load at that moment (confirmed: every test that
+    failed across several full-suite attempts passed cleanly when rerun in
+    isolation). This is a property of the shared machine, not a code
+    defect; treat isolated reruns as the source of truth for correctness
+    on this box, same as the CoinGecko-rate-limit and shader-compile
+    gotchas above.
+  - 1 new Playwright test (next upcoming meeting shown, attributed, health
+    chip present); all tests pass in isolation. Build + typecheck clean.
 
 ## Slice 6b remaining (blocked/optional)
 

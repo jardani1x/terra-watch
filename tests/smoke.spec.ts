@@ -290,9 +290,11 @@ test('scenario engine is labeled SIMULATION and expands a what-if honestly', asy
 });
 
 test('market panel shows attributed quotes with a real mode label', async ({ page }) => {
+  test.setTimeout(60_000); // refreshAll batches 7 fetchers + markets; slow on this Pi
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await page.waitForTimeout(3500); // let feeds load
+  await expect(page.locator('.health-chip', { hasText: 'USGS' })).not.toContainText('LOADING', { timeout: 20000 });
 
   const panel = page.getByLabel('Markets');
   await expect(panel.getByText('MARKETS')).toBeVisible();
@@ -301,6 +303,18 @@ test('market panel shows attributed quotes with a real mode label', async ({ pag
   // both feeds are attributed; USD/EUR exists in live and sample data alike
   await expect(panel.getByText('USD/EUR')).toBeVisible();
   await expect(panel.getByText(/Frankfurter · price data by CoinGecko/)).toBeVisible();
+});
+
+test('FOMC calendar shows the next upcoming meeting, attributed and honest', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForTimeout(3500); // let the vendored calendar load
+
+  const panel = page.getByLabel('Markets');
+  await expect(panel.getByText('FOMC CALENDAR')).toBeVisible();
+  // 2026-07-05 "today" -> next meeting in the vendored 2026 schedule is Jul 28-29
+  await expect(panel.getByText('Jul 28–29, 2026')).toBeVisible();
+  await expect(panel.getByText(/Federal Reserve/)).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'FOMC Meeting Calendar' })).toBeVisible();
 });
 
 test('markets source toggle disables the panel honestly', async ({ page }) => {
@@ -317,9 +331,11 @@ test('markets source toggle disables the panel honestly', async ({ page }) => {
 });
 
 test('dossier: pin from inspector, add note, export MD, unpin', async ({ page }) => {
+  test.setTimeout(60_000); // refreshAll batches 7 fetchers + markets; slow on this Pi
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await page.waitForTimeout(3000); // let live events load
+  await expect(page.locator('.health-chip', { hasText: 'USGS' })).not.toContainText('LOADING', { timeout: 20000 });
 
   // empty state is honest, not a placeholder
   const panel = page.getByLabel('Dossier');
@@ -357,9 +373,11 @@ test('dossier: pin from inspector, add note, export MD, unpin', async ({ page })
 });
 
 test('timeline exports current events as CSV and JSON', async ({ page }) => {
+  test.setTimeout(60_000); // refreshAll batches 7 fetchers + markets; slow on this Pi
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await page.waitForTimeout(3000); // let live events load so the buttons enable
+  await expect(page.locator('.health-chip', { hasText: 'USGS' })).not.toContainText('LOADING', { timeout: 20000 });
 
   // exact: true — buttons inside .timeline-head leak their aria-labels into the
   // head's accessible name (see SESSION_NOTES gotcha from Slice 5)

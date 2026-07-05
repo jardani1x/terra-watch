@@ -7,6 +7,7 @@ import { fetchNws, NWS_META } from '../lib/providers/nws';
 import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
 import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
+import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
 import type { Dossier } from '../lib/dossier';
@@ -95,6 +96,8 @@ interface AppState {
   showTerminator: boolean;
   /** vendored Natural Earth boundaries; loaded once, never persisted */
   countries: CountryFeature[] | null;
+  /** vendored FOMC schedule; loaded once, never persisted */
+  fomcMeetings: FomcMeeting[] | null;
   capitals: Record<string, string> | null;
   selectedCountry: CountryFeature | null;
   /** when true, the timeline drawer filters to events inside selectedCountry */
@@ -121,6 +124,7 @@ interface AppState {
   setProjection: (p: MapProjection) => void;
   setShowTerminator: (on: boolean) => void;
   loadCountryData: () => Promise<void>;
+  loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
   setCountryTimeline: (on: boolean) => void;
   refreshAll: () => Promise<void>;
@@ -195,6 +199,7 @@ export const useStore = create<AppState>()(
       projection: '2d',
       showTerminator: false,
       countries: null,
+      fomcMeetings: null,
       capitals: null,
       selectedCountry: null,
       countryTimeline: false,
@@ -254,6 +259,36 @@ export const useStore = create<AppState>()(
                 lastSuccessAt: null, latencyMs: null, itemCount: 0,
                 error: err instanceof Error ? err.message : String(err),
                 license: COUNTRIES_META.license, homepage: COUNTRIES_META.homepage,
+              },
+            },
+          }));
+        }
+      },
+
+      loadFomcCalendar: async () => {
+        try {
+          const meetings = await fetchFomcCalendar();
+          set((s) => ({
+            fomcMeetings: meetings,
+            providers: {
+              ...s.providers,
+              // vendored static schedule: honestly labeled 'cache', never 'live'
+              [FOMC_META.id]: {
+                id: FOMC_META.id, name: FOMC_META.name, status: 'cache',
+                lastSuccessAt: Date.now(), latencyMs: null, itemCount: meetings.length,
+                error: null, license: FOMC_META.license, homepage: FOMC_META.homepage,
+              },
+            },
+          }));
+        } catch (err) {
+          set((s) => ({
+            providers: {
+              ...s.providers,
+              [FOMC_META.id]: {
+                id: FOMC_META.id, name: FOMC_META.name, status: 'offline',
+                lastSuccessAt: null, latencyMs: null, itemCount: 0,
+                error: err instanceof Error ? err.message : String(err),
+                license: FOMC_META.license, homepage: FOMC_META.homepage,
               },
             },
           }));
