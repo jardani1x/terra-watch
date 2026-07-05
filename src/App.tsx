@@ -18,6 +18,7 @@ import InspectorRail from './components/InspectorRail';
 import TimelineDrawer from './components/TimelineDrawer';
 import CommandPalette from './components/CommandPalette';
 import GraphWorkspace from './components/GraphWorkspace';
+import MapModeControls from './components/MapModeControls';
 
 // MapLibre (~800 kB) is the heaviest dependency; load it as its own async
 // chunk so the app shell paints without waiting for it.
@@ -30,16 +31,18 @@ export default function App() {
   const setMobileRail = useStore((s) => s.setMobileRail);
   const view = useStore((s) => s.view);
   const selected = useStore((s) => s.selected);
+  const selectedCountry = useStore((s) => s.selectedCountry);
 
-  // on phones the inspector is a bottom sheet — surface it when an object is selected
+  // on phones the inspector is a bottom sheet — surface it when an object or country is selected
   useEffect(() => {
-    if (selected && window.matchMedia('(max-width: 860px)').matches) setMobileRail('right');
-  }, [selected, setMobileRail]);
+    if ((selected || selectedCountry) && window.matchMedia('(max-width: 860px)').matches) setMobileRail('right');
+  }, [selected, selectedCountry, setMobileRail]);
 
   // initial + periodic data pull; snapshot metadata loads once from IndexedDB
   useEffect(() => {
     refreshAll();
     void useStore.getState().loadSnapshots();
+    void useStore.getState().loadCountryData();
     const t = setInterval(refreshAll, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [refreshAll]);
@@ -89,6 +92,7 @@ export default function App() {
               <Suspense fallback={<div className="map-loading">LOADING MAP…</div>}>
                 <MapCanvas />
               </Suspense>
+              <MapModeControls />
               <TimelineDrawer />
             </>
           ) : (

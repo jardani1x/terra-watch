@@ -7,8 +7,8 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   // MapCanvas is lazy-loaded (React.lazy), so maplibre-gl lands in its own
-  // async chunk (~800 kB minified — a single vendor lib, hence the raised
-  // warning limit) and the app shell chunk stays small.
-  build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 900 },
+  // async chunk (~1.06 MB minified since v5 / globe support — a single vendor
+  // lib, hence the raised warning limit) and the app shell chunk stays small.
+  build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 1100 },
   server: { port: 5173 },
 });

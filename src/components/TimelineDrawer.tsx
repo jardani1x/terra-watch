@@ -4,6 +4,7 @@ import { ago, hhmm } from '../lib/format';
 import { matchMonitor } from '../lib/monitors';
 import { downloadText, eventsToCsv, eventsToJson } from '../lib/exports';
 import { pressable } from '../lib/a11y';
+import { pointInCountry } from '../lib/countries';
 
 const DAY_MS = 24 * 3600_000;
 const TICK_MS = 400;
@@ -19,8 +20,12 @@ export default function TimelineDrawer() {
   const timeWindow = useStore((s) => s.timeWindow);
   const setTimeCursor = useStore((s) => s.setTimeCursor);
   const setPlaying = useStore((s) => s.setPlaying);
+  const selectedCountry = useStore((s) => s.selectedCountry);
+  const countryTimeline = useStore((s) => s.countryTimeline);
+  const setCountryTimeline = useStore((s) => s.setCountryTimeline);
 
   const { cursor, playing } = timeWindow;
+  const countryFilter = countryTimeline && selectedCountry ? selectedCountry : null;
 
   // playback ticker: advance the cursor through history until it reaches now
   useEffect(() => {
@@ -33,7 +38,10 @@ export default function TimelineDrawer() {
     return () => clearInterval(t);
   }, [playing, setTimeCursor]);
 
-  const windowed = cursor === null ? events : events.filter((e) => e.time <= cursor);
+  const timeFiltered = cursor === null ? events : events.filter((e) => e.time <= cursor);
+  const windowed = countryFilter
+    ? timeFiltered.filter((e) => pointInCountry(e.lon, e.lat, countryFilter))
+    : timeFiltered;
   const sorted = [...windowed].sort((a, b) => b.time - a.time).slice(0, 200);
 
   // slider maps [now-24h, now] → [0, 100]
@@ -65,6 +73,12 @@ export default function TimelineDrawer() {
               setTimeCursor(v >= 100 ? null : Date.now() - DAY_MS + (v / 100) * DAY_MS);
             }}
           />
+          {countryFilter && (
+            <span className="tl-playback" style={{ color: 'var(--accent)' }}>
+              COUNTRY · {countryFilter.properties.NAME}
+              <button className="kbd" aria-label="Clear country filter" onClick={() => setCountryTimeline(false)} style={{ marginLeft: 4 }}>✕</button>
+            </span>
+          )}
           {cursor === null ? (
             <span className="tl-live">LIVE FEED</span>
           ) : (

@@ -40,6 +40,9 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Mobile bottom-sheet layout | **Done** | 1→10 | — | ✓ | ≤860px both rails are bottom sheets (grab handle, close button, Escape, overlay tap) opened from status-bar toggles; inspector auto-opens on select |
 | Accessibility (kbd, ARIA, contrast, reduced-motion) | **Done** | 1→10 | — | — | audit done: focus-visible outlines, all clickable rows keyboard-operable (shared `pressable` helper), palette combobox/listbox semantics, `prefers-reduced-motion` honored (CSS + map jumpTo), AA contrast verified |
 | No production placeholder panels | **Done** | 1 | — | — | every shipped panel is functional; unbuilt features are absent, not "reserved" |
+| 2D/3D globe view + fullscreen | **Done** | 11 | ✓ | ✓ | style-level `mercator`↔`globe` toggle (maplibre-gl v5), persisted setting; layers/selection/filters/camera untouched by the switch; whole-app fullscreen |
+| Country boundaries + inspector | **Done** | 11 | ✓ | ✓ | vendored Natural Earth 110m (public domain, own-origin, labeled `STATIC DATASET`); click-to-select, region/capital/population/GDP, itemized country-risk summary, in-country events, timeline filter, graph/dossier bridge |
+| Day/night terminator | **Done** | 11 | ✓ | — | pure client-side solar-position astronomy, no network/data source; toggleable overlay, persisted setting, recomputed every 5 min |
 
 ## Excluded by policy (will not build)
 Military targeting, weapon tasking, private-person surveillance/pattern-of-life,

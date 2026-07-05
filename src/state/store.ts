@@ -16,6 +16,10 @@ import {
 import { hhmm } from '../lib/format';
 import { computeCountryRisk } from '../lib/risk';
 import {
+  loadCountries, loadCapitals, COUNTRIES_META,
+  type CountryFeature,
+} from '../lib/countries';
+import {
   askAnalyst as runAskAnalyst, buildContext,
   type AnalystProvider, type AnalystMessage,
 } from '../lib/analyst';
@@ -62,6 +66,11 @@ const MONITOR_COLORS = ['#45e0b0', '#ffb454', '#6db3ff', '#ff7a3c', '#b39ddb', '
 
 interface MapCmd { seq: number; center: [number, number]; zoom: number }
 
+/** Map projection mode: '2d' = mercator, '3d' = globe. A user setting —
+ *  switching must never reset layers, selection, filters, or time window
+ *  (all of that lives in this store, not in the map). */
+export type MapProjection = '2d' | '3d';
+
 /** Timeline playback: cursor === null means live (now); a timestamp means the
  *  user is scrubbing history. Playback state is always shown in the UI —
  *  scrubbed views are labeled PLAYBACK, never presented as live. */
@@ -80,6 +89,15 @@ interface AppState {
   selected: GeoEvent | null;
   mobileRail: 'left' | 'right' | null;
   mapCmd: MapCmd | null;
+  projection: MapProjection;
+  /** day/night terminator overlay: a user setting, persisted like projection */
+  showTerminator: boolean;
+  /** vendored Natural Earth boundaries; loaded once, never persisted */
+  countries: CountryFeature[] | null;
+  capitals: Record<string, string> | null;
+  selectedCountry: CountryFeature | null;
+  /** when true, the timeline drawer filters to events inside selectedCountry */
+  countryTimeline: boolean;
   view: 'map' | 'graph';
   graph: GraphState;
   timeWindow: TimeWindow;
@@ -99,6 +117,11 @@ interface AppState {
   select: (e: GeoEvent | null) => void;
   setMobileRail: (r: 'left' | 'right' | null) => void;
   flyTo: (center: [number, number], zoom: number) => void;
+  setProjection: (p: MapProjection) => void;
+  setShowTerminator: (on: boolean) => void;
+  loadCountryData: () => Promise<void>;
+  selectCountry: (c: CountryFeature | null) => void;
+  setCountryTimeline: (on: boolean) => void;
   refreshAll: () => Promise<void>;
   visibleEvents: () => GeoEvent[];
   overallMode: () => DataMode;
@@ -160,6 +183,12 @@ export const useStore = create<AppState>()(
       selected: null,
       mobileRail: null,
       mapCmd: null,
+      projection: '2d',
+      showTerminator: false,
+      countries: null,
+      capitals: null,
+      selectedCountry: null,
+      countryTimeline: false,
       view: 'map',
       graph: { nodes: [], edges: [], layout: 'force' },
       timeWindow: { cursor: null, playing: false },
@@ -188,9 +217,53 @@ export const useStore = create<AppState>()(
       },
       removeMonitor: (id) => set((s) => ({ monitors: s.monitors.filter((m) => m.id !== id) })),
 
+      // selecting an event shows its card; the country highlight (if any) stays
       select: (e) => set({ selected: e }),
+
+      loadCountryData: async () => {
+        try {
+          const [fc, capitals] = await Promise.all([loadCountries(), loadCapitals()]);
+          set((s) => ({
+            countries: fc.features,
+            capitals,
+            providers: {
+              ...s.providers,
+              // vendored static dataset: honestly labeled 'cache', never 'live'
+              [COUNTRIES_META.id]: {
+                id: COUNTRIES_META.id, name: COUNTRIES_META.name, status: 'cache',
+                lastSuccessAt: Date.now(), latencyMs: null, itemCount: fc.features.length,
+                error: null, license: COUNTRIES_META.license, homepage: COUNTRIES_META.homepage,
+              },
+            },
+          }));
+        } catch (err) {
+          set((s) => ({
+            providers: {
+              ...s.providers,
+              [COUNTRIES_META.id]: {
+                id: COUNTRIES_META.id, name: COUNTRIES_META.name, status: 'offline',
+                lastSuccessAt: null, latencyMs: null, itemCount: 0,
+                error: err instanceof Error ? err.message : String(err),
+                license: COUNTRIES_META.license, homepage: COUNTRIES_META.homepage,
+              },
+            },
+          }));
+        }
+      },
+
+      selectCountry: (c) =>
+        set((s) => ({
+          selectedCountry: c,
+          // a country card replaces any event card; clearing also drops the filter
+          selected: c ? null : s.selected,
+          countryTimeline: c ? s.countryTimeline : false,
+        })),
+
+      setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
       flyTo: (center, zoom) => set((s) => ({ mapCmd: { seq: (s.mapCmd?.seq ?? 0) + 1, center, zoom } })),
+      setProjection: (p) => set({ projection: p }),
+      setShowTerminator: (on) => set({ showTerminator: on }),
 
       setView: (v) => set({ view: v }),
 
@@ -374,6 +447,8 @@ export const useStore = create<AppState>()(
       partialize: (s) => ({
         sources: s.sources,
         monitors: s.monitors,
+        projection: s.projection,
+        showTerminator: s.showTerminator,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
         // (like monitors), not live-data caches, so they're persisted the same
@@ -388,6 +463,8 @@ export const useStore = create<AppState>()(
         const p = (persisted ?? {}) as {
           sources?: Record<string, boolean>;
           monitors?: Monitor[];
+          projection?: MapProjection;
+          showTerminator?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
@@ -397,6 +474,8 @@ export const useStore = create<AppState>()(
           ...current,
           sources: { ...current.sources, ...(p.sources ?? {}) },
           monitors: p.monitors ?? current.monitors,
+          projection: p.projection ?? current.projection,
+          showTerminator: p.showTerminator ?? current.showTerminator,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,

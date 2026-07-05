@@ -240,6 +240,21 @@ a { color: var(--accent); }
   }
 }
 
+/* ---- Map mode controls (2D/3D + fullscreen), top of the map ---- */
+.map-mode-controls {
+  position: absolute; top: 10px; right: 12px; z-index: 5;
+  display: flex; gap: 1px; border: 1px solid var(--line-2); border-radius: 4px;
+  overflow: hidden; background: var(--panel-2);
+}
+.mmc-btn {
+  background: transparent; border: none; color: var(--muted);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  padding: 6px 10px; line-height: 1;
+}
+.mmc-btn + .mmc-btn { border-left: 1px solid var(--line); }
+.mmc-btn:hover { color: var(--text); }
+.mmc-btn.active { color: var(--accent); background: rgba(69, 224, 176, 0.08); }
+
 /* ---- Map lazy-load placeholder ---- */
 .map-loading {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
