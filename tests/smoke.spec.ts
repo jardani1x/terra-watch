@@ -204,6 +204,21 @@ test('GDACS disaster alerts source and layer are present', async ({ page }) => {
   await expect(page.locator('.health-chip', { hasText: 'GDACS Disasters' })).toBeVisible();
 });
 
+test('infrastructure: nuclear power plants and launch sites sources and layers are present', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('checkbox', { name: 'Nuclear power plants', exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Toggle source: Nuclear Power Plants (WRI)' })).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'Nuclear Power Plants (WRI)' })).toBeVisible();
+
+  await expect(page.getByRole('checkbox', { name: 'Space launch sites', exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Toggle source: Space Launch Sites (GCAT)' })).toBeVisible();
+  await expect(page.locator('.health-chip', { hasText: 'Space Launch Sites (GCAT)' })).toBeVisible();
+
+  // vendored static registry: honestly labeled cache, not live
+  const plantsChip = page.locator('.health-chip', { hasText: 'Nuclear Power Plants (WRI)' });
+  await expect(plantsChip).toContainText(/cache/i);
+});
+
 test('GDACS source toggle shows OFF in health bar and layer manager', async ({ page }) => {
   await page.goto('/');
   const sourceCheckbox = page.getByRole('checkbox', { name: 'Toggle source: GDACS Disasters' });

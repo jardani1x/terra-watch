@@ -6,6 +6,7 @@ import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { fetchNws, NWS_META } from '../lib/providers/nws';
 import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
+import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import { findRelated } from '../lib/graph';
 import type { Dossier } from '../lib/dossier';
@@ -163,6 +164,8 @@ const DEFAULT_LAYERS: LayerDef[] = [
   { id: 'other-natural', name: 'Other natural events', group: 'Natural events', enabled: false, providerId: 'eonet', eventTypes: [], catchAll: true, color: '#b39ddb' },
   { id: 'weather-alerts', name: 'Weather alerts (US · NWS)', group: 'Advisories', enabled: true, providerId: 'nws', eventTypes: ['weather-alert'], color: '#ffe066' },
   { id: 'disaster-alerts', name: 'Disaster alerts (GDACS)', group: 'Advisories', enabled: true, providerId: 'gdacs', eventTypes: ['disaster-alert'], color: '#f06e9c' },
+  { id: 'nuclear-plants', name: 'Nuclear power plants', group: 'Infrastructure', enabled: true, providerId: 'power-plants', eventTypes: ['nuclear-plant'], color: '#ffb703' },
+  { id: 'launch-sites', name: 'Space launch sites', group: 'Infrastructure', enabled: true, providerId: 'launch-sites', eventTypes: ['launch-site'], color: '#00d4ff' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
@@ -170,14 +173,20 @@ const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetch
   eonet: fetchEonet,
   nws: fetchNws,
   gdacs: fetchGdacs,
+  'power-plants': fetchPowerPlants,
+  'launch-sites': fetchLaunchSites,
 };
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       layers: DEFAULT_LAYERS,
-      providers: { usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META), gdacs: providerStub(GDACS_META), markets: providerStub(MARKETS_META) },
-      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true },
+      providers: {
+        usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META),
+        gdacs: providerStub(GDACS_META), markets: providerStub(MARKETS_META),
+        'power-plants': providerStub(POWER_PLANTS_META), 'launch-sites': providerStub(LAUNCH_SITES_META),
+      },
+      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true, 'power-plants': true, 'launch-sites': true },
       monitors: [],
       events: [],
       selected: null,

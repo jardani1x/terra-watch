@@ -1,7 +1,7 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-05 (Slice 11 complete, not yet
+the live v1 site). Last updated: 2026-07-05 (Slice 12 complete, not yet
 deployed — `gh-pages` is still the Slice 10 build; see Deployed section).
 
 ## Progress
@@ -315,11 +315,38 @@ deployed — `gh-pages` is still the Slice 10 build; see Deployed section).
     enter/exit, country click/inspect/timeline-filter/survives-2D-3D/clear);
     **34/34 pass**. Build + typecheck clean.
 
+- **Slice 12 — DONE, committed, tested**: Infrastructure panel — **Slice 12
+  complete**:
+  - `src/lib/providers/infrastructure.ts` — two providers reading vendored
+    own-origin static JSON (no third-party network dependency, matching the
+    "open registries" gap): `fetchPowerPlants` (WRI Global Power Plant
+    Database v1.3.0, CC BY 4.0, 2021 vintage — filtered to nuclear plants,
+    `public/data/nuclear_plants.json`) and `fetchLaunchSites` (GCAT by J.
+    McDowell, CC-BY, `public/data/gcat_launch_sites.json`). Both slot into
+    the existing `FETCHERS`/`sources`/`refreshAll` pipeline exactly like
+    USGS/EONET/NWS/GDACS — per-source toggle, health-bar chip, honestly
+    labeled `CACHE` (a static bundled snapshot, never claimed `LIVE`).
+    `time` is set to fetch time each refresh (reference data, not
+    time-stamped by either source) rather than faking a historical
+    timestamp.
+  - Two new `LayerDef`s under a new `Infrastructure` group: "Nuclear power
+    plants" and "Space launch sites" — plotted, filtered, counted, and
+    inspectable via the same generic layer/event machinery as every other
+    layer; no new map or inspector code needed beyond friendly `LABELS`
+    entries (`megawatts`, `code`, `country`) for the inspector's generic
+    extra-props fallback.
+  - 1 new Playwright test (both sources' checkboxes + health chips present,
+    CACHE mode asserted); **35/35 pass**. Build + typecheck clean.
+  - Not carried into this slice: `public/data/fomc_2026.json` (FOMC meeting
+    calendar) was vendored alongside the infrastructure datasets but belongs
+    to the Market panel (an economic-calendar addition), not Infrastructure
+    — left unwired, tracked as a fast-follow.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet),
-infrastructure (open registries), FIRMS wildfire detail (BYO key).
+FIRMS wildfire detail (BYO key).
 
 ## Deployed
 All 10 slices are done and **deployed**: `dist/` (Slice 10 build) was pushed

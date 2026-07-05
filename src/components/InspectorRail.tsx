@@ -9,6 +9,9 @@ const HANDLED = new Set(['magnitude', 'depthKm', 'place', 'category', 'note']);
 const LABELS: Record<string, string> = {
   magnitudeUnit: 'Magnitude unit',
   observations: 'Observations',
+  megawatts: 'Capacity (MW)',
+  code: 'GCAT code',
+  country: 'Country',
 };
 
 export default function InspectorRail() {

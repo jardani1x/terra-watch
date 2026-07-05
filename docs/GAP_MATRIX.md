@@ -27,7 +27,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | News intelligence panel | **Deferred** | 6b+ | — | ✓ | GDELT dropped (GEO API 404/retired); ReliefWeb dropped as keyless default (needs approved appname); most RSS lacks CORS — needs a browser-usable keyless source or BYO tier |
 | Market panel | **Done** | 6b | — | ✓ | keyless FX (ECB via Frankfurter) + BTC/ETH (CoinGecko) in a rail panel; LIVE/SAMPLE label derived from real fetch, per-quote attribution, source toggle |
 | Natural events panel | **Partial** | 1,2,6,6b | — | ✓ | quakes (USGS) + wildfires/volcanoes/storms (EONET) + US weather alerts (NWS) + global GDACS disaster alerts (Green/Orange/Red, size-scaled) live; FIRMS next |
-| Infrastructure panel | **Deferred** | 6 | ✓ | ✓ | open registries only |
+| Infrastructure panel | **Done** | 6→12 | ✓ | ✓ | vendored open registries as normal layers: nuclear power plants (WRI Global Power Plant DB) + space launch sites (GCAT), per-source toggle, honestly labeled CACHE (static, not live) |
 | Transport panel | **Deferred** | 6b+ | — | ✓ | blocked for keyless browser use (2026-07-02): OpenSky CORS is locked to opensky-network.org; adsb.lol sends no CORS header — needs a browser-usable source |
 | Signal/correlation engine | **Done** | 6 | ✓ | ✓ | 1°×1° cell co-location of ≥2 event types; panel labeled INFERENCE, contributing events counted, click-to-view; transparent count, no prediction |
 | Country risk panel | **Partial** | 7 | — | ✓ | explainable v1: itemized sum of live GDACS alert weights (Red 3/Orange 2/Green 1) per country, labeled INFERENCE, click-to-view; structural indicators (World Bank) later |
