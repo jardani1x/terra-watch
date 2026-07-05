@@ -1,8 +1,8 @@
 # Session Notes — Terra Watch v2 rebuild
 
 Working branch: **`rebuild/terra-watch-v2`** (branched off `main`; `main` stays
-the live v1 site). Last updated: 2026-07-05 (Slice 14 complete; Slices 11-13
-are deployed, Slice 14 not yet — see Deployed section).
+the live v1 site). Last updated: 2026-07-05 (Slices 11-14 complete and
+deployed — see Deployed section).
 
 ## Progress
 
@@ -412,13 +412,15 @@ transport (blocked: no CORS-usable keyless ADS-B source found yet),
 FIRMS wildfire detail (BYO key).
 
 ## Deployed
-Slices 1-13 are done and **deployed**: `dist/` (Slice 13 build, HEAD `9a26618`)
-was pushed to `gh-pages` on 2026-07-05 (`87a431e`) and verified live at
-https://jardani1x.github.io/terra-watch/ (index + asset chunks return 200 and
-the served JS hash matches the committed build). Deploys remain manual —
-there is no CI workflow; publish by building fresh (`npm run build`) and
-committing `dist/` contents + the repo-root `.nojekyll` to `gh-pages` (a git
-worktree keeps this off the working branch, e.g. `git worktree add /tmp/gh-pages-deploy gh-pages`).
+Slices 1-14 are done and **deployed**: `dist/` (Slice 14 build, HEAD `f6de13a`)
+was pushed to `gh-pages` on 2026-07-05 (`bbf26af`) and verified live at
+https://jardani1x.github.io/terra-watch/ (confirmed via
+`raw.githubusercontent.com/.../gh-pages/index.html` matching the committed
+asset hash; the Pages CDN itself can lag a minute or two behind a push).
+Deploys remain manual — there is no CI workflow; publish by building fresh
+(`npm run build`) and committing `dist/` contents + the repo-root
+`.nojekyll` to `gh-pages` (a git worktree keeps this off the working
+branch, e.g. `git worktree add /tmp/gh-pages-deploy gh-pages`).
 
 ## Run / verify
 ```bash
