@@ -421,6 +421,19 @@ deployed — see Deployed section).
     view-scoped label, click selects + closes); all 4 palette tests pass.
     Build + typecheck clean. GAP_MATRIX "Search this view" Partial → Done.
 
+- **Slice 16 — DONE, committed, tested**: In-timeline correlation markers —
+  **Slice 16 complete**:
+  - `TimelineDrawer` reuses `computeSignals()` (identical transparent
+    computation as the SIGNALS panel) over the same time window the list
+    shows (live or playback cursor); every contributing event gets an amber
+    `◆ SIGNAL` marker with an INFERENCE tooltip pointing at the panel.
+  - No new engine, no prediction — the marker is just the panel's existing
+    co-location membership surfaced inline.
+  - 1 new Playwright test, honest both ways: panel empty → zero markers;
+    signals present → marker attached with INFERENCE title. All 5
+    timeline-related tests pass. Build + typecheck clean. GAP_MATRIX
+    "Timeline" Partial → Done.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),

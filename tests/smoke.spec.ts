@@ -658,3 +658,26 @@ test('command palette searches events scoped to the current view', async ({ page
   await expect(page.getByRole('dialog', { name: /command palette/i })).not.toBeVisible();
   await expect(page.getByLabel('Object inspector').locator('.insp-title')).not.toBeEmpty();
 });
+
+test('timeline marks events contributing to co-location signals', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.locator('.tl-item').first()).toBeAttached({ timeout: 20000 });
+
+  const panelEmpty = await page
+    .getByText('No multi-type co-locations in the current feed.')
+    .isVisible()
+    .catch(() => false);
+
+  const markers = page.locator('.tl-item .tl-signal');
+  if (panelEmpty) {
+    // honest empty state: no signals computed, so no timeline markers either
+    await expect(markers).toHaveCount(0);
+  } else {
+    // signals exist: their contributing events carry an INFERENCE-labeled
+    // marker in the feed (top-200 rows shown, so at least one should surface)
+    await expect(markers.first()).toBeAttached();
+    await expect(markers.first()).toHaveAttribute('title', /INFERENCE/);
+    await expect(markers.first()).toHaveText(/SIGNAL/);
+  }
+});

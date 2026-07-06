@@ -16,7 +16,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Data mode never faked | **Done** | 1 | — | ✓ | LIVE/DEMO/DEGRADED derived from fetch |
 | Object inspector + source card | **Done** | 1 | ✓ | ✓ | detail + license + authoritative link |
 | Command palette (Cmd/Ctrl-K) | **Done** | 1→3 | ✓ | ✓ | refresh + layer toggles + region fly-to (`REGIONS`) + per-source enable/disable |
-| Timeline (rolling feed) | **Partial** | 1→8 | ✓ | ✓ | Live feed + click-inspect + monitor highlight + 24h scrub/playback (labeled PLAYBACK, filters map too); correlation surfaced via SIGNALS panel, in-timeline markers deferred |
+| Timeline (rolling feed) | **Done** | 1→16 | ✓ | ✓ | Live feed + click-inspect + monitor highlight + 24h scrub/playback (labeled PLAYBACK, filters map too); events contributing to a SIGNALS co-location cell carry an in-feed `◆ SIGNAL` marker (INFERENCE-labeled, same computation and time window as the panel) |
 | Normalized ontology | **Partial** | 1→3 | ✓ | ✓ | GeoEvent (typed, categorized) + Provider across 2 providers; entities/relations in later slices |
 | Civilian-use disclaimers | **Done** | 1 | — | — | Inspector + privacy language, no militarized copy |
 | Search "this view" | **Done** | 1→15 | ✓ | ✓ | palette searches loaded events on visible layers inside the current map viewport (labeled `event · in view`); result click flies to + selects the event |

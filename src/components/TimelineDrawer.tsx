@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
 import { matchMonitor } from '../lib/monitors';
+import { computeSignals } from '../lib/signals';
 import { downloadText, eventsToCsv, eventsToJson } from '../lib/exports';
 import { pressable } from '../lib/a11y';
 import { pointInCountry } from '../lib/countries';
@@ -39,6 +40,14 @@ export default function TimelineDrawer() {
   }, [playing, setTimeCursor]);
 
   const timeFiltered = cursor === null ? events : events.filter((e) => e.time <= cursor);
+
+  // events contributing to a co-location signal (same transparent computation
+  // as the SIGNALS panel, over the same time window this list shows) get an
+  // in-timeline marker — an INFERENCE label, never a prediction
+  const signalIds = useMemo(() => {
+    const src = cursor === null ? events : events.filter((e) => e.time <= cursor);
+    return new Set(computeSignals(src).flatMap((sig) => sig.events.map((ev) => ev.id)));
+  }, [events, cursor]);
   const windowed = countryFilter
     ? timeFiltered.filter((e) => pointInCountry(e.lon, e.lat, countryFilter))
     : timeFiltered;
@@ -124,7 +133,17 @@ export default function TimelineDrawer() {
             >
               <span className="tl-time">{hhmm(e.time)}</span>
               <span className={`dot ${e.magnitude && e.magnitude >= 6 ? 'offline' : e.magnitude && e.magnitude >= 5 ? 'cache' : 'live'}`} />
-              <span>{e.title}</span>
+              <span>
+                {e.title}
+                {signalIds.has(e.id) && (
+                  <span
+                    className="tl-signal"
+                    title="Part of a multi-type co-location cell — see SIGNALS panel · INFERENCE"
+                  >
+                    ◆ SIGNAL
+                  </span>
+                )}
+              </span>
               <span className="tl-mag">{e.magnitude != null ? `M${e.magnitude.toFixed(1)}` : ''} <span style={{ color: 'var(--muted)' }}>{ago(e.time)}</span></span>
             </div>
           );

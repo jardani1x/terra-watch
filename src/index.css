@@ -202,6 +202,7 @@ a { color: var(--accent); }
 .tl-item:hover { background: rgba(255,255,255,0.02); }
 .tl-time { font-family: var(--mono); font-size: 10px; color: var(--muted); }
 .tl-mag { font-family: var(--mono); font-size: 11px; color: var(--amber); }
+.tl-signal { font-family: var(--mono); font-size: 9px; color: var(--amber); margin-left: 6px; letter-spacing: 1px; }
 .tl-controls { display: flex; align-items: center; gap: 8px; font-weight: 400; }
 .tl-controls input[type='range'] { width: 140px; accent-color: var(--accent); }
 .tl-live { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--accent); }
