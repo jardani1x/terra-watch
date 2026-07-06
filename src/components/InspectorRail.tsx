@@ -134,7 +134,7 @@ export default function InspectorRail() {
             </div>
             {inCountry.length === 0 && (
               <p className="inspector-empty">
-                No current-feed events inside {cp.NAME}'s borders (110m boundary
+                No current-feed events inside {cp.NAME}'s borders (50m boundary
                 resolution; offshore events don't attribute).
               </p>
             )}

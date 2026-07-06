@@ -75,6 +75,20 @@ interface MapCmd { seq: number; center: [number, number]; zoom: number }
  *  (all of that lives in this store, not in the map). */
 export type MapProjection = '2d' | '3d';
 
+/** Basemap look: 'vivid' = CARTO voyager (colorful), 'dark' = CARTO dark. A
+ *  persisted user setting like projection. */
+export type Basemap = 'vivid' | 'dark';
+
+/** Own-device GPS position (opt-in "locate me"). Transient by design: never
+ *  persisted, never sent anywhere — it exists only in this browser session.
+ *  This tracks the user's own device only; tracking other people is
+ *  permanently excluded (see PRIVACY_AND_CIVILIAN_USE). */
+export interface GeoSelf {
+  watching: boolean;
+  pos: { lat: number; lon: number; accuracy: number } | null;
+  error: string | null;
+}
+
 /** Timeline playback: cursor === null means live (now); a timestamp means the
  *  user is scrubbing history. Playback state is always shown in the UI —
  *  scrubbed views are labeled PLAYBACK, never presented as live. */
@@ -98,6 +112,8 @@ interface AppState {
   projection: MapProjection;
   /** day/night terminator overlay: a user setting, persisted like projection */
   showTerminator: boolean;
+  basemap: Basemap;
+  geo: GeoSelf;
   /** vendored Natural Earth boundaries; loaded once, never persisted */
   countries: CountryFeature[] | null;
   /** vendored FOMC schedule; loaded once, never persisted */
@@ -131,6 +147,9 @@ interface AppState {
   setViewBounds: (b: ViewBounds | null) => void;
   setProjection: (p: MapProjection) => void;
   setShowTerminator: (on: boolean) => void;
+  setBasemap: (b: Basemap) => void;
+  setGeoWatching: (on: boolean) => void;
+  setGeoPos: (pos: GeoSelf['pos'], error: string | null) => void;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -209,6 +228,8 @@ export const useStore = create<AppState>()(
       viewBounds: null,
       projection: '2d',
       showTerminator: false,
+      basemap: 'vivid',
+      geo: { watching: false, pos: null, error: null },
       countries: null,
       fomcMeetings: null,
       capitals: null,
@@ -321,6 +342,11 @@ export const useStore = create<AppState>()(
       setViewBounds: (b) => set({ viewBounds: b }),
       setProjection: (p) => set({ projection: p }),
       setShowTerminator: (on) => set({ showTerminator: on }),
+      setBasemap: (b) => set({ basemap: b }),
+      // turning the watch off also drops the fix — no stale pin, nothing kept
+      setGeoWatching: (on) =>
+        set((s) => ({ geo: on ? { ...s.geo, watching: true, error: null } : { watching: false, pos: null, error: null } })),
+      setGeoPos: (pos, error) => set((s) => ({ geo: { ...s.geo, pos, error } })),
 
       setView: (v) => set({ view: v }),
 
@@ -550,6 +576,7 @@ export const useStore = create<AppState>()(
         monitors: s.monitors,
         projection: s.projection,
         showTerminator: s.showTerminator,
+        basemap: s.basemap,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
         // (like monitors), not live-data caches, so they're persisted the same
@@ -567,6 +594,7 @@ export const useStore = create<AppState>()(
           monitors?: Monitor[];
           projection?: MapProjection;
           showTerminator?: boolean;
+          basemap?: Basemap;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
@@ -579,6 +607,7 @@ export const useStore = create<AppState>()(
           monitors: p.monitors ?? current.monitors,
           projection: p.projection ?? current.projection,
           showTerminator: p.showTerminator ?? current.showTerminator,
+          basemap: p.basemap ?? current.basemap,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,

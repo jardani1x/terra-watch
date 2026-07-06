@@ -463,6 +463,38 @@ deployed — see Deployed section).
     `test.setTimeout` (siblings use 90–120s) and timed out at 30s under
     load — bumped to 90s, passes at ~45s.
 
+- **Slices 18+19 — DONE, committed, tested** (2026-07-06): map fixes + GPS —
+  - **Slice 18a (Singapore bug)**: root cause was the vendored Natural Earth
+    **110m** dataset — it omits microstates entirely (177 features; no
+    Singapore, no Monaco), so clicking them selected the neighbor. Replaced
+    with NE **50m** (242 features), props stripped to the same 16 keys,
+    coords rounded to 4 decimals, then mapshaper `-simplify 20% keep-shapes`
+    → ~500 KB (from 3 MB raw). Singapore click-selects (asserted live at
+    zoom 9 in the GPS test).
+  - **Slice 18b (hover)**: white border + brightened fill on the hovered
+    country (`countries-hover-fill`/`-line`, filter-swapped on mousemove).
+  - **Slice 18c (basemap)**: two keyless CARTO looks in one style — 'vivid'
+    (voyager, new default; answers "map too dark") and 'dark' (old look,
+    opacity raised to 1). Persisted `basemap` setting; 🎨 button in map
+    controls flips layer visibility only, no source rebuilds.
+  - **Slice 19 (GPS)**: opt-in own-device locate-me (🚀 button) — browser
+    geolocation watch, rocket pin (DOM marker, rotation on an inner span
+    because maplibre owns the outer element's transform), first fix flies
+    to ≥z9. Position transient, never persisted/sent; toggling off drops
+    the fix. Own device only — tracking others stays permanently excluded.
+  - **Robustness**: added `alive(map)` guard to every map-touching effect —
+    a SwiftShader shader-compile death was intermittently nulling
+    `map.style`, and the next `getSource()` call then crashed the whole
+    React tree (seen as "country click stopped working"). Dead map now
+    degrades to a blank canvas, shell survives. The DOM-marker effect
+    deliberately uses plain map presence + a `ready` dep instead (markers
+    don't touch the style; a GPS fix can arrive before map load).
+  - 3 new Playwright tests (50m dataset contents; basemap default/toggle/
+    persist with a real voyager tile request; GPS opt-in → pin → Singapore
+    click-select → off). Country-click test got a 60s toPass window (50m
+    polygons are slower to become hit-testable on software GL). Build +
+    typecheck clean; targeted suite green 3×.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),

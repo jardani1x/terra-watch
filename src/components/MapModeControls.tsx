@@ -10,6 +10,10 @@ export default function MapModeControls() {
   const setProjection = useStore((s) => s.setProjection);
   const showTerminator = useStore((s) => s.showTerminator);
   const setShowTerminator = useStore((s) => s.setShowTerminator);
+  const basemap = useStore((s) => s.basemap);
+  const setBasemap = useStore((s) => s.setBasemap);
+  const geo = useStore((s) => s.geo);
+  const setGeoWatching = useStore((s) => s.setGeoWatching);
   const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
@@ -50,6 +54,24 @@ export default function MapModeControls() {
         onClick={() => setShowTerminator(!showTerminator)}
       >
         ◐
+      </button>
+      <button
+        className={`mmc-btn ${basemap === 'vivid' ? 'active' : ''}`}
+        aria-pressed={basemap === 'vivid'}
+        aria-label={basemap === 'vivid' ? 'Switch to dark basemap' : 'Switch to vivid basemap'}
+        title={basemap === 'vivid' ? 'Vivid basemap (click for dark)' : 'Dark basemap (click for vivid)'}
+        onClick={() => setBasemap(basemap === 'vivid' ? 'dark' : 'vivid')}
+      >
+        🎨
+      </button>
+      <button
+        className={`mmc-btn ${geo.watching ? 'active' : ''}`}
+        aria-pressed={geo.watching}
+        aria-label={geo.watching ? 'Stop showing my device location' : 'Show my device location (GPS)'}
+        title={geo.error ?? 'Your GPS position stays in this browser — never sent anywhere'}
+        onClick={() => setGeoWatching(!geo.watching)}
+      >
+        🚀
       </button>
       <button
         className={`mmc-btn ${fullscreen ? 'active' : ''}`}

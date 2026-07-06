@@ -41,7 +41,9 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Accessibility (kbd, ARIA, contrast, reduced-motion) | **Done** | 1→10 | — | — | audit done: focus-visible outlines, all clickable rows keyboard-operable (shared `pressable` helper), palette combobox/listbox semantics, `prefers-reduced-motion` honored (CSS + map jumpTo), AA contrast verified |
 | No production placeholder panels | **Done** | 1 | — | — | every shipped panel is functional; unbuilt features are absent, not "reserved" |
 | 2D/3D globe view + fullscreen | **Done** | 11 | ✓ | ✓ | style-level `mercator`↔`globe` toggle (maplibre-gl v5), persisted setting; layers/selection/filters/camera untouched by the switch; whole-app fullscreen |
-| Country boundaries + inspector | **Done** | 11 | ✓ | ✓ | vendored Natural Earth 110m (public domain, own-origin, labeled `STATIC DATASET`); click-to-select, region/capital/population/GDP, itemized country-risk summary, in-country events, timeline filter, graph/dossier bridge |
+| Country boundaries + inspector | **Done** | 11→18 | ✓ | ✓ | vendored Natural Earth **50m** (public domain, own-origin, labeled `STATIC DATASET`; 110m omitted microstates — Singapore/Monaco weren't selectable at all), simplified to ~500 KB; click-to-select with white hover highlight, region/capital/population/GDP, itemized country-risk summary, in-country events, timeline filter, graph/dossier bridge |
+| Basemap looks (vivid/dark) | **Done** | 18 | — | — | CARTO voyager (colorful, default) ↔ CARTO dark, persisted setting, keyless both |
+| Own-device GPS pin (opt-in) | **Done** | 19 | — | — | browser geolocation, rocket pin; position transient, never persisted, never sent anywhere; own device only per privacy policy |
 | Day/night terminator | **Done** | 11 | ✓ | — | pure client-side solar-position astronomy, no network/data source; toggleable overlay, persisted setting, recomputed every 5 min |
 
 ## Excluded by policy (will not build)

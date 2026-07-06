@@ -10,24 +10,21 @@ import { prefersReducedMotion } from '../lib/a11y';
 import { nightPolygon } from '../lib/terminator';
 import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
 
-// Keyless dark basemap: CARTO dark raster tiles (free, attribution required).
+// Keyless CARTO raster basemaps (free, attribution required). Two looks ship:
+// 'vivid' (voyager, colorful — the default) and 'dark'; both live in the style
+// and the store's persisted `basemap` setting flips layer visibility, so
+// switching never rebuilds sources or disturbs overlays.
+const cartoTiles = (path: string) => ['a', 'b', 'c'].map((s) => `https://${s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}.png`);
 const STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    carto: {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors © CARTO',
-    },
+    carto: { type: 'raster', tiles: cartoTiles('dark_all'), tileSize: 256, attribution: '© OpenStreetMap contributors © CARTO' },
+    'carto-vivid': { type: 'raster', tiles: cartoTiles('rastertiles/voyager'), tileSize: 256, attribution: '© OpenStreetMap contributors © CARTO' },
   },
   layers: [
     { id: 'bg', type: 'background', paint: { 'background-color': '#05080b' } },
-    { id: 'carto', type: 'raster', source: 'carto', paint: { 'raster-opacity': 0.82 } },
+    { id: 'carto', type: 'raster', source: 'carto', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1 } },
+    { id: 'carto-vivid', type: 'raster', source: 'carto-vivid', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1 } },
   ],
 };
 
@@ -67,6 +64,16 @@ function toFeatureCollection(events: GeoEvent[], layers: LayerDef[], monitors: M
   };
 }
 
+/** True while the map instance still has a live style. After map.remove() —
+ *  or if maplibre dies internally (seen with SwiftShader shader-compile
+ *  failures on headless/software-GL) — `style` is null at runtime and any
+ *  getSource/getLayer/setFilter call throws, which would crash the whole
+ *  React tree. Every effect that touches the map goes through this guard so
+ *  a dead map degrades to a blank canvas instead of a dead app. */
+function alive(m: maplibregl.Map | null): m is maplibregl.Map {
+  return !!m && !!(m as unknown as { style: unknown }).style;
+}
+
 export default function MapCanvas() {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -85,6 +92,9 @@ export default function MapCanvas() {
   const showTerminator = useStore((s) => s.showTerminator);
   const firmsKey = useStore((s) => s.firmsKey);
   const firmsOn = useStore((s) => s.sources[FIRMS_META.id] ?? true);
+  const basemap = useStore((s) => s.basemap);
+  const geo = useStore((s) => s.geo);
+  const setGeoPos = useStore((s) => s.setGeoPos);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -123,6 +133,7 @@ export default function MapCanvas() {
       readyRef.current = true;
       setReady(true);
       const st = useStore.getState();
+      map.setLayoutProperty(st.basemap === 'dark' ? 'carto' : 'carto-vivid', 'visibility', 'visible');
       (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers, st.monitors));
       // apply the persisted projection once the style is ready (mercator is
       // already the default, so only call out when the user chose globe);
@@ -153,7 +164,7 @@ export default function MapCanvas() {
   // push data whenever events, layer visibility/colors, monitors, or playback cursor change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !readyRef.current) return;
+    if (!alive(map) || !readyRef.current) return;
     const windowed = timeCursor === null ? events : events.filter((e) => e.time <= timeCursor);
     (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(windowed, layers, monitors));
   }, [events, layers, monitors, timeCursor]);
@@ -162,7 +173,7 @@ export default function MapCanvas() {
   // below the event markers so marker clicks always win
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready || !countries || map.getSource('countries')) return;
+    if (!alive(map) || !ready || !countries || map.getSource('countries')) return;
     map.addSource('countries', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: countries } as FeatureCollection,
@@ -170,6 +181,16 @@ export default function MapCanvas() {
     // invisible but hit-testable fill for click-to-select
     map.addLayer({ id: 'countries-fill', type: 'fill', source: 'countries', paint: { 'fill-opacity': 0 } }, 'events-layer');
     const none = ['==', ['get', 'ADM0_ISO'], '___none___'] as maplibregl.FilterSpecification;
+    // hover highlight: brighter fill + white border so the country under the
+    // cursor is unmistakable (esp. small ones like Singapore)
+    map.addLayer({
+      id: 'countries-hover-fill', type: 'fill', source: 'countries', filter: none,
+      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.14 },
+    }, 'events-layer');
+    map.addLayer({
+      id: 'countries-hover-line', type: 'line', source: 'countries', filter: none,
+      paint: { 'line-color': '#ffffff', 'line-width': 1.6, 'line-opacity': 0.95 },
+    }, 'events-layer');
     map.addLayer({
       id: 'countries-selected-fill', type: 'fill', source: 'countries', filter: none,
       paint: { 'fill-color': '#45e0b0', 'fill-opacity': 0.12 },
@@ -187,12 +208,25 @@ export default function MapCanvas() {
       const full = st.countries?.find((f) => f.properties.ADM0_ISO === iso) ?? null;
       st.selectCountry(full);
     });
+
+    let hovered: string | null = null;
+    const setHover = (iso: string | null) => {
+      if (iso === hovered || !map.getLayer('countries-hover-line')) return;
+      hovered = iso;
+      const f = ['==', ['get', 'ADM0_ISO'], iso ?? '___none___'] as maplibregl.FilterSpecification;
+      map.setFilter('countries-hover-fill', f);
+      map.setFilter('countries-hover-line', f);
+    };
+    map.on('mousemove', 'countries-fill', (ev) => {
+      setHover((ev.features?.[0]?.properties?.ADM0_ISO as string | undefined) ?? null);
+    });
+    map.on('mouseleave', 'countries-fill', () => setHover(null));
   }, [countries, ready]);
 
   // selected-country highlight (fill + outline) follows the store
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready || !map.getLayer('countries-selected-line')) return;
+    if (!alive(map) || !ready || !map.getLayer('countries-selected-line')) return;
     const iso = selectedCountry?.properties.ADM0_ISO ?? '___none___';
     const filter = ['==', ['get', 'ADM0_ISO'], iso] as maplibregl.FilterSpecification;
     map.setFilter('countries-selected-fill', filter);
@@ -204,7 +238,7 @@ export default function MapCanvas() {
   // embeds the key, so a key change means remove + re-add.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
+    if (!alive(map) || !ready) return;
     if (map.getLayer('firms-wms')) map.removeLayer('firms-wms');
     if (map.getSource('firms-wms')) map.removeSource('firms-wms');
     if (!firmsKey || !firmsOn) return;
@@ -220,18 +254,79 @@ export default function MapCanvas() {
     );
   }, [firmsKey, firmsOn, ready]);
 
+  // basemap look: flip visibility between the two raster layers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !ready) return;
+    map.setLayoutProperty('carto', 'visibility', basemap === 'dark' ? 'visible' : 'none');
+    map.setLayoutProperty('carto-vivid', 'visibility', basemap === 'vivid' ? 'visible' : 'none');
+  }, [basemap, ready]);
+
+  // own-device GPS (opt-in): watch while enabled; position lives only in the
+  // store (transient) and is never sent anywhere. Own device only — tracking
+  // others is permanently excluded.
+  useEffect(() => {
+    if (!geo.watching) return;
+    if (!('geolocation' in navigator)) {
+      setGeoPos(null, 'Geolocation is not available in this browser');
+      return;
+    }
+    const id = navigator.geolocation.watchPosition(
+      (p) => setGeoPos({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy }, null),
+      (err) => setGeoPos(null, err.message),
+      { enableHighAccuracy: true, maximumAge: 5000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [geo.watching, setGeoPos]);
+
+  // the Starship pin: a DOM marker so it needs no sprite/image pipeline
+  const gpsMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const flownToFixRef = useRef(false);
+  useEffect(() => {
+    const map = mapRef.current;
+    // a DOM Marker never touches the style, so plain map presence suffices;
+    // `ready` in the deps retries once the map exists (a fix can arrive first)
+    if (!map) return;
+    if (!geo.pos) {
+      gpsMarkerRef.current?.remove();
+      gpsMarkerRef.current = null;
+      flownToFixRef.current = false;
+      return;
+    }
+    if (!gpsMarkerRef.current) {
+      // maplibre owns the outer element's inline transform (positioning), so
+      // the rotated emoji lives on an inner span
+      const el = document.createElement('div');
+      const inner = document.createElement('span');
+      inner.className = 'gps-pin';
+      inner.textContent = '🚀';
+      el.appendChild(inner);
+      el.title = 'Your device location (GPS · stays in this browser, never sent anywhere)';
+      el.setAttribute('aria-label', 'Your device location');
+      gpsMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([geo.pos.lon, geo.pos.lat]).addTo(map);
+    } else {
+      gpsMarkerRef.current.setLngLat([geo.pos.lon, geo.pos.lat]);
+    }
+    if (!flownToFixRef.current) {
+      flownToFixRef.current = true;
+      const cam = { center: [geo.pos.lon, geo.pos.lat] as [number, number], zoom: Math.max(map.getZoom(), 9) };
+      if (prefersReducedMotion()) map.jumpTo(cam);
+      else map.flyTo({ ...cam, essential: true });
+    }
+  }, [geo.pos, ready]);
+
   // 2D↔3D switch: projection is style-level in maplibre v5 — the events
   // source/layer, camera, and all store state survive the switch untouched
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !readyRef.current) return;
+    if (!alive(map) || !readyRef.current) return;
     map.setProjection({ type: projection === '3d' ? 'globe' : 'mercator' });
   }, [projection]);
 
   // terminator: toggle visibility from the store
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready || !map.getLayer('terminator-layer')) return;
+    if (!alive(map) || !ready || !map.getLayer('terminator-layer')) return;
     map.setLayoutProperty('terminator-layer', 'visibility', showTerminator ? 'visible' : 'none');
   }, [showTerminator, ready]);
 
@@ -242,7 +337,8 @@ export default function MapCanvas() {
     if (!ready) return;
     const t = setInterval(() => {
       const map = mapRef.current;
-      (map?.getSource('terminator') as maplibregl.GeoJSONSource | undefined)?.setData(nightPolygon());
+      if (!alive(map)) return;
+      (map.getSource('terminator') as maplibregl.GeoJSONSource | undefined)?.setData(nightPolygon());
     }, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [ready]);
@@ -250,7 +346,7 @@ export default function MapCanvas() {
   // command-palette / region-driven map navigation
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapCmd) return;
+    if (!alive(map) || !mapCmd) return;
     if (prefersReducedMotion()) map.jumpTo({ center: mapCmd.center, zoom: mapCmd.zoom });
     else map.flyTo({ center: mapCmd.center, zoom: mapCmd.zoom, essential: true });
   }, [mapCmd]);

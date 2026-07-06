@@ -608,7 +608,7 @@ test('country click selects, inspects, filters timeline, survives 2D/3D, clears'
   await expect(async () => {
     await page.locator('.maplibregl-canvas').click();
     await expect(inspector.getByText('COUNTRY', { exact: true })).toBeVisible({ timeout: 2000 });
-  }).toPass({ timeout: 30000 });
+  }).toPass({ timeout: 60000 }); // 50m polygons take longer to become hit-testable on software GL
   await expect(inspector.locator('.insp-title')).not.toBeEmpty();
   const countryName = (await inspector.locator('.insp-title').textContent()) ?? '';
   await expect(inspector.getByText('Region', { exact: true })).toBeVisible();
@@ -709,4 +709,65 @@ test('FIRMS hotspots: BYO-key panel is honest, key adds a health row, clear remo
   // clearing the key removes the provider row again — no dead OFF row
   await panel.getByRole('button', { name: 'CLEAR KEY' }).click();
   await expect(healthbar.getByText('Fire hotspots (NASA FIRMS)')).not.toBeVisible();
+});
+
+test('small countries are selectable: Singapore exists in the vendored 50m dataset', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  const names = await page.evaluate(async () => {
+    const res = await fetch('data/ne_countries_50m.json');
+    const fc = await res.json();
+    return fc.features.map((f: { properties: { NAME: string } }) => f.properties.NAME);
+  });
+  // the whole Singapore-selects-Malaysia bug: 110m simply omitted microstates
+  for (const c of ['Singapore', 'Monaco', 'Malaysia', 'Liechtenstein']) expect(names).toContain(c);
+  expect(names.length).toBeGreaterThan(200); // 50m has 242 admin-0 features vs 177 in 110m
+});
+
+test('basemap toggle: vivid default, switch to dark, persists across reload', async ({ page }) => {
+  const voyagerTile = page.waitForRequest((r) => r.url().includes('rastertiles/voyager'), { timeout: 30000 });
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  await voyagerTile; // vivid (voyager) is the default basemap and really loads
+
+  const toggle = page.getByRole('button', { name: /Switch to dark basemap/ });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true'); // pressed = vivid on
+  await toggle.click();
+  await expect(page.getByRole('button', { name: /Switch to vivid basemap/ })).toHaveAttribute('aria-pressed', 'false');
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Switch to vivid basemap/ })).toBeVisible({ timeout: 15000 }); // dark persisted
+});
+
+test('GPS locate-me: opt-in pin appears at the device position and clears on toggle off', async ({ page, context }) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 1.29, longitude: 103.85 }); // Singapore
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+
+  const gpsBtn = page.getByRole('button', { name: /Show my device location/ });
+  await expect(gpsBtn).toHaveAttribute('aria-pressed', 'false'); // strictly opt-in
+  await expect(page.locator('.gps-pin')).not.toBeVisible();
+
+  await gpsBtn.click();
+  await expect(page.locator('.gps-pin')).toBeVisible({ timeout: 15000 });
+
+  // the fix also flew the camera to Singapore (zoom ≥9) — clicking beside the
+  // pin must now select Singapore itself, not Malaysia (the original bug:
+  // 110m data omitted microstates entirely)
+  test.setTimeout(90_000); // country layer + flyTo settle slowly on software GL
+  const canvas = page.locator('.maplibregl-canvas');
+  const inspector = page.getByLabel('Object inspector');
+  await expect(async () => {
+    // clear of the pin (which sits at the exact fix) and of the simplified
+    // polygon's clipped SE corner: 30px north ≈ 9 km, mid-island
+    await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 - 30 } });
+    await expect(inspector.getByText('COUNTRY', { exact: true })).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 45000 });
+  await expect(inspector.locator('.insp-title')).toHaveText('Singapore');
+  await inspector.getByRole('button', { name: 'Clear selection' }).click();
+
+  // off = pin gone, no stale fix kept
+  await page.getByRole('button', { name: /Stop showing my device location/ }).click();
+  await expect(page.locator('.gps-pin')).not.toBeVisible();
 });

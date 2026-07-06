@@ -1,7 +1,11 @@
 import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from 'geojson';
 import type { GeoEvent } from './providers/types';
 
-/** Properties kept from Natural Earth 110m admin-0 (vendored, public domain).
+/** Properties kept from Natural Earth 50m admin-0 (vendored, public domain).
+ *  50m (not 110m) because 110m omits microstates entirely — Singapore and
+ *  Monaco simply weren't in the dataset, so clicking them selected the
+ *  neighbor. Coordinates are rounded to 4 decimals (~11 m) to keep the
+ *  vendored file small.
  *  POP/GDP carry their own vintage years — always shown with the value. */
 export interface CountryProps {
   NAME: string;
@@ -27,7 +31,7 @@ export type CountryFeature = Feature<Polygon | MultiPolygon, CountryProps>;
 export const COUNTRIES_META = {
   id: 'naturalearth',
   name: 'Natural Earth',
-  license: 'Public domain (Natural Earth 110m, vendored)',
+  license: 'Public domain (Natural Earth 50m, vendored)',
   homepage: 'https://www.naturalearthdata.com/',
 };
 
@@ -38,7 +42,7 @@ let capitalsCache: Record<string, string> | null = null;
  *  no third-party network dependency, works offline once the app is cached). */
 export async function loadCountries(): Promise<FeatureCollection<Polygon | MultiPolygon, CountryProps>> {
   if (countriesCache) return countriesCache;
-  const res = await fetch(`${import.meta.env.BASE_URL}data/ne_countries_110m.json`);
+  const res = await fetch(`${import.meta.env.BASE_URL}data/ne_countries_50m.json`);
   if (!res.ok) throw new Error(`countries dataset: HTTP ${res.status}`);
   countriesCache = (await res.json()) as FeatureCollection<Polygon | MultiPolygon, CountryProps>;
   return countriesCache;
@@ -71,7 +75,7 @@ function inPolygon(lon: number, lat: number, poly: Position[][]): boolean {
   return true;
 }
 
-/** True if the point falls inside the country's (110m-resolution) borders.
+/** True if the point falls inside the country's (50m-resolution) borders.
  *  Offshore events (e.g. sea quakes) won't attribute — by design, not a bug. */
 export function pointInCountry(lon: number, lat: number, c: CountryFeature): boolean {
   const g = c.geometry;
