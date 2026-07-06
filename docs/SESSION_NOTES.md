@@ -434,11 +434,39 @@ deployed — see Deployed section).
     timeline-related tests pass. Build + typecheck clean. GAP_MATRIX
     "Timeline" Partial → Done.
 
+- **Slice 17 — DONE, committed, tested**: FIRMS fire hotspots (BYO MAP_KEY)
+  — **Slice 17 complete**:
+  - Shipped as a **WMS raster overlay**, not CSV point events: the FIRMS
+    mapserver sends `access-control-allow-origin: *` on 200s (verified
+    live 2026-07-06, including an in-browser Playwright network assert),
+    while the `/api/area` CSV endpoint returned no CORS header on its
+    error responses — so WMS is the only path confirmed browser-usable.
+  - `src/lib/providers/firms.ts`: tile-URL builder (`{bbox-epsg-3857}`
+    template, VIIRS S-NPP 24h layer) + `checkFirms()` reachability probe.
+    **Gotcha: the WMS serves tiles for ANY key string** — health is
+    labeled "reachability, not key validity" in the panel, and the app
+    still requires the user's own key (NASA terms; no key is bundled).
+  - Store: persisted `firmsKey`; provider health row exists only while a
+    key is set (no dead OFF row for an un-opted feature); clearing the key
+    deletes the row. `ProviderHealth.itemCount` is now `number | null` —
+    null (used by FIRMS) omits the count instead of showing a misleading
+    "0 items" for a rendered overlay.
+  - `FirmsPanel` (left rail, under SOURCES): key input (password field,
+    stored only locally, sent only to NASA), MAP_KEY signup link, honest
+    copy ("an overlay, not itemized events — detections don't appear in
+    the timeline"). `MapCanvas` adds/removes the raster source under
+    `events-layer` on key/source change.
+  - 1 new Playwright test: zero-config state, key → health row +
+    live-verified in-browser GetCapabilities (CORS) + real GetMap tile
+    request, clear → row gone. Also fixed a latent test-infra gap: the
+    2D/3D toggle test was the only globe test without a slow-hardware
+    `test.setTimeout` (siblings use 90–120s) and timed out at 30s under
+    load — bumped to 90s, passes at ~45s.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
-transport (blocked: no CORS-usable keyless ADS-B source found yet),
-FIRMS wildfire detail (BYO key).
+transport (blocked: no CORS-usable keyless ADS-B source found yet).
 
 ## Deployed
 Slices 1-14 are done and **deployed**: `dist/` (Slice 14 build, HEAD `f6de13a`)

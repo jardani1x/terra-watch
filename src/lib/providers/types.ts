@@ -33,7 +33,10 @@ export interface ProviderHealth {
   /** epoch ms of last successful fetch, or null */
   lastSuccessAt: number | null;
   latencyMs: number | null;
-  itemCount: number;
+  /** null for providers with no countable items (e.g. a rendered raster
+   *  overlay) — the health bar then omits the count instead of showing a
+   *  misleading "0 items" */
+  itemCount: number | null;
   error: string | null;
   /** attribution shown in the inspector source card */
   license: string;

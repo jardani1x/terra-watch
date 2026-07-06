@@ -4,6 +4,7 @@ import StatusBar from './components/StatusBar';
 import LayerManager from './components/LayerManager';
 import SourceManager from './components/SourceManager';
 import Monitors from './components/Monitors';
+import FirmsPanel from './components/FirmsPanel';
 import SnapshotPanel from './components/SnapshotPanel';
 import SignalsPanel from './components/SignalsPanel';
 import MarketPanel from './components/MarketPanel';
@@ -71,6 +72,7 @@ export default function App() {
           <button className="sheet-close" aria-label="Close panels" onClick={() => setMobileRail(null)}>✕</button>
           <LayerManager />
           <SourceManager />
+          <FirmsPanel />
           <Monitors />
           <SignalsPanel />
           <CountryRiskPanel />

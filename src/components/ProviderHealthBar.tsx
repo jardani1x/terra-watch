@@ -25,7 +25,7 @@ export default function ProviderHealthBar() {
             <span className={`dot ${on ? DOT[p.status] : 'offline'}`} />
             <b>{p.name}</b>
             <span>{on ? p.status.toUpperCase() : 'OFF'}</span>
-            {on && <span className="lat">{p.itemCount} items</span>}
+            {on && p.itemCount != null && <span className="lat">{p.itemCount} items</span>}
             {on && p.latencyMs != null && <span className="lat">{p.latencyMs}ms</span>}
             {on && <span className="lat">{p.lastSuccessAt ? ago(p.lastSuccessAt) : '—'}</span>}
           </span>

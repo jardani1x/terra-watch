@@ -8,6 +8,7 @@ import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
 import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
+import { checkFirms, FIRMS_META } from '../lib/providers/firms';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import type { ViewBounds } from '../lib/viewport';
 import { findRelated } from '../lib/graph';
@@ -116,6 +117,9 @@ interface AppState {
   dossier: Dossier;
   /** optional BYO-key AI analyst; local-rules fallback is always available */
   analyst: { provider: AnalystProvider | null; apiKey: string | null; baseUrl: string | null; messages: AnalystMessage[] };
+  /** optional NASA FIRMS MAP_KEY (BYO, stored locally); enables the WMS
+   *  hotspot overlay — a rendered raster, never itemized events */
+  firmsKey: string | null;
 
   toggleLayer: (id: string) => void;
   toggleSource: (id: string) => void;
@@ -158,6 +162,8 @@ interface AppState {
   clearAnalystKey: () => void;
   askAnalyst: (question: string) => Promise<void>;
   clearAnalystMessages: () => void;
+  setFirmsKey: (key: string | null) => void;
+  checkFirmsHealth: () => Promise<void>;
 }
 
 function providerStub(meta: { id: string; name: string; license: string; homepage: string }): ProviderHealth {
@@ -216,6 +222,7 @@ export const useStore = create<AppState>()(
       market: { quotes: [], mode: 'loading', error: null },
       dossier: { title: 'Terra Watch dossier', items: [] },
       analyst: { provider: null, apiKey: null, baseUrl: null, messages: [] },
+      firmsKey: null,
 
       toggleLayer: (id) =>
         set((s) => ({ layers: s.layers.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l)) })),
@@ -429,6 +436,49 @@ export const useStore = create<AppState>()(
       clearAnalystKey: () => set((s) => ({ analyst: { ...s.analyst, provider: null, apiKey: null, baseUrl: null } })),
       clearAnalystMessages: () => set((s) => ({ analyst: { ...s.analyst, messages: [] } })),
 
+      setFirmsKey: (key) => {
+        set((s) => {
+          if (key) return { firmsKey: key };
+          // key removed: drop the provider health row too — a keyless FIRMS
+          // entry would be a permanent OFF/offline row for a feature the
+          // user hasn't opted into
+          const providers = { ...s.providers };
+          delete providers[FIRMS_META.id];
+          return { firmsKey: null, providers };
+        });
+        if (key) void get().checkFirmsHealth();
+      },
+
+      checkFirmsHealth: async () => {
+        const { firmsKey, sources } = get();
+        if (!firmsKey || !(sources[FIRMS_META.id] ?? true)) return;
+        set((s) => ({
+          providers: {
+            ...s.providers,
+            [FIRMS_META.id]: {
+              ...(s.providers[FIRMS_META.id] ?? providerStub(FIRMS_META)),
+              status: 'loading' as const,
+            },
+          },
+        }));
+        const r = await checkFirms(firmsKey);
+        set((s) => ({
+          providers: {
+            ...s.providers,
+            [FIRMS_META.id]: {
+              id: FIRMS_META.id, name: FIRMS_META.name,
+              // reachability, not key validity — the WMS serves tiles for any
+              // key, so 'live' means "NASA's WMS is up and answering"
+              status: r.ok ? 'live' as const : 'offline' as const,
+              lastSuccessAt: r.ok ? Date.now() : s.providers[FIRMS_META.id]?.lastSuccessAt ?? null,
+              // a rendered overlay has no countable items — null omits the count
+              latencyMs: r.latencyMs, itemCount: null, error: r.error,
+              license: FIRMS_META.license, homepage: FIRMS_META.homepage,
+            },
+          },
+        }));
+      },
+
       askAnalyst: async (question) => {
         const { events, dossier, monitors, analyst } = get();
         const ctx = buildContext(events, dossier, computeCountryRisk(events));
@@ -471,6 +521,7 @@ export const useStore = create<AppState>()(
           }
           return { events: merged, providers };
         });
+        void get().checkFirmsHealth();
       },
 
       visibleEvents: () => {
@@ -508,6 +559,7 @@ export const useStore = create<AppState>()(
         // only the BYO-key settings persist — chat messages are transient,
         // like fetched data
         analystSettings: { provider: s.analyst.provider, apiKey: s.analyst.apiKey, baseUrl: s.analyst.baseUrl },
+        firmsKey: s.firmsKey,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as {
@@ -519,6 +571,7 @@ export const useStore = create<AppState>()(
           graph?: GraphState;
           dossier?: Dossier;
           analystSettings?: { provider: AnalystProvider | null; apiKey: string | null; baseUrl: string | null };
+          firmsKey?: string | null;
         };
         return {
           ...current,
@@ -530,6 +583,7 @@ export const useStore = create<AppState>()(
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,
           analyst: p.analystSettings ? { ...current.analyst, ...p.analystSettings } : current.analyst,
+          firmsKey: p.firmsKey ?? current.firmsKey,
         };
       },
     },

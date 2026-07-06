@@ -529,6 +529,7 @@ test('reduced motion: region navigation jumps without animation', async ({ page 
 });
 
 test('2D/3D toggle preserves layer state and persists across reload', async ({ page }) => {
+  test.setTimeout(90_000); // globe shader compile + transition is slow on low-power hardware
   await page.goto('/');
   await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
 
@@ -680,4 +681,32 @@ test('timeline marks events contributing to co-location signals', async ({ page 
     await expect(markers.first()).toHaveAttribute('title', /INFERENCE/);
     await expect(markers.first()).toHaveText(/SIGNAL/);
   }
+});
+
+test('FIRMS hotspots: BYO-key panel is honest, key adds a health row, clear removes it', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+
+  // zero-config state: panel present, labeled BYO KEY, no FIRMS source row
+  const panel = page.getByLabel('FIRMS hotspots');
+  await expect(panel.getByText('FIRMS HOTSPOTS')).toBeVisible();
+  await expect(panel.getByText('BYO KEY')).toBeVisible();
+  await expect(panel.getByText(/overlay, not\s+itemized events/)).toBeVisible(); // honest labeling
+  const healthbar = page.getByLabel('Provider health and data freshness');
+  await expect(healthbar.getByText('Fire hotspots (NASA FIRMS)')).not.toBeVisible();
+
+  // entering a key registers the provider (reachability check, not key validity)
+  const capsRes = page.waitForResponse((r) => r.url().includes('firms.modaps.eosdis.nasa.gov') && r.url().includes('GetCapabilities'), { timeout: 30000 });
+  const tileReq = page.waitForRequest((r) => r.url().includes('firms.modaps.eosdis.nasa.gov') && r.url().includes('GetMap'), { timeout: 30000 });
+  await panel.getByLabel('NASA FIRMS MAP_KEY').fill('0'.repeat(32));
+  await expect(healthbar.getByText('Fire hotspots (NASA FIRMS)')).toBeVisible({ timeout: 20000 });
+  // browser-side CORS actually works (the whole reason WMS was chosen over the CSV API)
+  expect((await capsRes).ok()).toBe(true);
+  // and the map really requests overlay tiles from NASA's WMS
+  await tileReq;
+  await expect(panel.getByText(/reachability, not key validity|WMS unreachable|Checking NASA WMS/)).toBeVisible({ timeout: 20000 });
+
+  // clearing the key removes the provider row again — no dead OFF row
+  await panel.getByRole('button', { name: 'CLEAR KEY' }).click();
+  await expect(healthbar.getByText('Fire hotspots (NASA FIRMS)')).not.toBeVisible();
 });

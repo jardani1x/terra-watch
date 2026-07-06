@@ -8,6 +8,7 @@ import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
 import { matchMonitor } from '../lib/monitors';
 import { prefersReducedMotion } from '../lib/a11y';
 import { nightPolygon } from '../lib/terminator';
+import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
 
 // Keyless dark basemap: CARTO dark raster tiles (free, attribution required).
 const STYLE: StyleSpecification = {
@@ -82,6 +83,8 @@ export default function MapCanvas() {
   const countries = useStore((s) => s.countries);
   const selectedCountry = useStore((s) => s.selectedCountry);
   const showTerminator = useStore((s) => s.showTerminator);
+  const firmsKey = useStore((s) => s.firmsKey);
+  const firmsOn = useStore((s) => s.sources[FIRMS_META.id] ?? true);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -195,6 +198,27 @@ export default function MapCanvas() {
     map.setFilter('countries-selected-fill', filter);
     map.setFilter('countries-selected-line', filter);
   }, [selectedCountry, ready, countries]);
+
+  // FIRMS hotspot overlay (BYO key): raster tiles rendered by NASA's WMS —
+  // never itemized events, so it sits under the event markers. The source URL
+  // embeds the key, so a key change means remove + re-add.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    if (map.getLayer('firms-wms')) map.removeLayer('firms-wms');
+    if (map.getSource('firms-wms')) map.removeSource('firms-wms');
+    if (!firmsKey || !firmsOn) return;
+    map.addSource('firms-wms', {
+      type: 'raster',
+      tiles: [firmsWmsTileUrl(firmsKey)],
+      tileSize: 256,
+      attribution: 'NASA LANCE FIRMS',
+    });
+    map.addLayer(
+      { id: 'firms-wms', type: 'raster', source: 'firms-wms', paint: { 'raster-opacity': 0.85 } },
+      'events-layer',
+    );
+  }, [firmsKey, firmsOn, ready]);
 
   // 2D↔3D switch: projection is style-level in maplibre v5 — the events
   // source/layer, camera, and all store state survive the switch untouched
