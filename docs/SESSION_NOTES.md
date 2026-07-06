@@ -469,11 +469,11 @@ News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),
 transport (blocked: no CORS-usable keyless ADS-B source found yet).
 
 ## Deployed
-Slices 1-14 are done and **deployed**: `dist/` (Slice 14 build, HEAD `f6de13a`)
-was pushed to `gh-pages` on 2026-07-05 (`bbf26af`) and verified live at
-https://jardani1x.github.io/terra-watch/ (confirmed via
+Slices 1-17 are done and **deployed**: `dist/` (Slice 17 build, HEAD `986398f`)
+was pushed to `gh-pages` on 2026-07-06 (`3aec958`) and verified via
 `raw.githubusercontent.com/.../gh-pages/index.html` matching the committed
-asset hash; the Pages CDN itself can lag a minute or two behind a push).
+asset hash (`index-pvz2UJll.js`); the Pages CDN itself can lag a minute or
+two behind a push. Site: https://jardani1x.github.io/terra-watch/.
 Deploys remain manual — there is no CI workflow; publish by building fresh
 (`npm run build`) and committing `dist/` contents + the repo-root
 `.nojekyll` to `gh-pages` (a git worktree keeps this off the working
