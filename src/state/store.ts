@@ -9,6 +9,7 @@ import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/m
 import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { isEventVisible, type LayerDef } from '../lib/layers';
+import type { ViewBounds } from '../lib/viewport';
 import { findRelated } from '../lib/graph';
 import type { Dossier } from '../lib/dossier';
 import {
@@ -91,6 +92,8 @@ interface AppState {
   selected: GeoEvent | null;
   mobileRail: 'left' | 'right' | null;
   mapCmd: MapCmd | null;
+  /** current map viewport [west, south, east, north]; transient, never persisted */
+  viewBounds: ViewBounds | null;
   projection: MapProjection;
   /** day/night terminator overlay: a user setting, persisted like projection */
   showTerminator: boolean;
@@ -121,6 +124,7 @@ interface AppState {
   select: (e: GeoEvent | null) => void;
   setMobileRail: (r: 'left' | 'right' | null) => void;
   flyTo: (center: [number, number], zoom: number) => void;
+  setViewBounds: (b: ViewBounds | null) => void;
   setProjection: (p: MapProjection) => void;
   setShowTerminator: (on: boolean) => void;
   loadCountryData: () => Promise<void>;
@@ -196,6 +200,7 @@ export const useStore = create<AppState>()(
       selected: null,
       mobileRail: null,
       mapCmd: null,
+      viewBounds: null,
       projection: '2d',
       showTerminator: false,
       countries: null,
@@ -306,6 +311,7 @@ export const useStore = create<AppState>()(
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
       flyTo: (center, zoom) => set((s) => ({ mapCmd: { seq: (s.mapCmd?.seq ?? 0) + 1, center, zoom } })),
+      setViewBounds: (b) => set({ viewBounds: b }),
       setProjection: (p) => set({ projection: p }),
       setShowTerminator: (on) => set({ showTerminator: on }),
 

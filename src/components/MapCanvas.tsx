@@ -133,6 +133,15 @@ export default function MapCanvas() {
       });
       map.on('mouseenter', 'events-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'events-layer', () => { map.getCanvas().style.cursor = ''; });
+
+      // keep the store's viewport bounds current so view-scoped search (palette)
+      // always reflects what the user is actually looking at
+      const pushBounds = () => {
+        const b = map.getBounds();
+        useStore.getState().setViewBounds([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+      };
+      map.on('moveend', pushBounds);
+      pushBounds();
     });
 
     return () => { map.remove(); mapRef.current = null; readyRef.current = false; };

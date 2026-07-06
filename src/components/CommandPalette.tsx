@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore, REGIONS } from '../state/store';
+import { isEventVisible } from '../lib/layers';
+import { inViewBounds } from '../lib/viewport';
 
 interface Command {
   id: string;
@@ -22,6 +24,9 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
   const setView = useStore((s) => s.setView);
   const clearGraph = useStore((s) => s.clearGraph);
   const graphNodeCount = useStore((s) => s.graph.nodes.length);
+  const events = useStore((s) => s.events);
+  const viewBounds = useStore((s) => s.viewBounds);
+  const select = useStore((s) => s.select);
 
   const commands = useMemo<Command[]>(() => {
     const base: Command[] = [
@@ -53,7 +58,28 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
     return [...base, ...regionCmds, ...sourceCmds, ...layerCmds];
   }, [layers, providers, sources, toggleLayer, toggleSource, refreshAll, flyTo, setView, clearGraph, graphNodeCount]);
 
-  const filtered = commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()));
+  // view-scoped event search: loaded events on visible layers, inside the
+  // current map viewport, matched by title — never a global search pretending
+  // to be "this view"
+  const q = query.trim().toLowerCase();
+  const eventCmds: Command[] =
+    q.length >= 2 && viewBounds
+      ? events
+          .filter((e) => isEventVisible(e, layers) && inViewBounds(e.lon, e.lat, viewBounds) && e.title.toLowerCase().includes(q))
+          .sort((a, b) => b.time - a.time)
+          .slice(0, 8)
+          .map((e) => ({
+            id: `event-${e.id}`,
+            label: e.title,
+            hint: 'event · in view',
+            run: () => { flyTo([e.lon, e.lat], 5); select(e); },
+          }))
+      : [];
+
+  const filtered = [
+    ...commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase())),
+    ...eventCmds,
+  ];
 
   const runActive = () => {
     const cmd = filtered[active];
@@ -81,7 +107,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
             else if (e.key === 'Enter') { e.preventDefault(); runActive(); }
             else if (e.key === 'Escape') onClose();
           }}
-          placeholder="Type a command…  (regions, layers, refresh)"
+          placeholder="Type a command or search events in view…"
           aria-label="Command input"
           role="combobox"
           aria-expanded="true"
@@ -90,7 +116,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
           style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line)', color: 'var(--text)', padding: '14px 16px', fontSize: 15, outline: 'none', fontFamily: 'var(--mono)' }}
         />
         <div style={{ overflowY: 'auto' }} role="listbox" id="palette-list" aria-label="Commands">
-          {filtered.length === 0 && <div style={{ padding: 16, color: 'var(--muted)' }}>No matching commands.</div>}
+          {filtered.length === 0 && <div style={{ padding: 16, color: 'var(--muted)' }}>No matching commands or events in this view.</div>}
           {filtered.map((c, i) => (
             <div
               key={c.id}

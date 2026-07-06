@@ -405,6 +405,22 @@ deployed — see Deployed section).
     active alerts at test time, same honest empty-state condition the
     existing test already tolerates.)
 
+- **Slice 15 — DONE, committed, tested**: View-scoped search in the command
+  palette — **Slice 15 complete**:
+  - `src/lib/viewport.ts` `inViewBounds()` — point-in-view test against
+    MapLibre bounds, handling antimeridian-unwrapped longitudes and the
+    whole-world (≥360°) case.
+  - Store gains transient `viewBounds` (never persisted); `MapCanvas` pushes
+    it on map load and every `moveend`.
+  - Palette: a query of ≥2 chars also matches loaded events — only those on
+    visible layers AND inside the current viewport — capped at 8, newest
+    first, labeled `event · in view`. Running a result flies to and selects
+    the event. Honest scope: it searches what the user is actually looking
+    at, never a global search dressed up as "this view".
+  - 1 new Playwright test (searches a real timeline title, asserts the
+    view-scoped label, click selects + closes); all 4 palette tests pass.
+    Build + typecheck clean. GAP_MATRIX "Search this view" Partial → Done.
+
 ## Slice 6b remaining (blocked/optional)
 
 News (blocked keyless: GDELT dead, ReliefWeb needs appname, RSS lacks CORS),

@@ -19,7 +19,7 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 | Timeline (rolling feed) | **Partial** | 1→8 | ✓ | ✓ | Live feed + click-inspect + monitor highlight + 24h scrub/playback (labeled PLAYBACK, filters map too); correlation surfaced via SIGNALS panel, in-timeline markers deferred |
 | Normalized ontology | **Partial** | 1→3 | ✓ | ✓ | GeoEvent (typed, categorized) + Provider across 2 providers; entities/relations in later slices |
 | Civilian-use disclaimers | **Done** | 1 | — | — | Inspector + privacy language, no militarized copy |
-| Search "this view" | **Partial** | 1→3 | ✓ | ✓ | Search box opens palette; view-scoped search still deferred |
+| Search "this view" | **Done** | 1→15 | ✓ | ✓ | palette searches loaded events on visible layers inside the current map viewport (labeled `event · in view`); result click flies to + selects the event |
 | Source manager (per-source toggle) | **Done** | 3 | ✓ | ✓ | fetch-time filtering, OFF shown in health bar + layer rows, persisted to localStorage |
 | Custom keyword monitors | **Done** | 3 | — | ✓ | local-persisted; highlights matches in timeline (left border) and on the map (stroke ring) with live match counts |
 | Link graph workspace | **Partial** | 4 | ✓ | ✓ | add-to-graph, search-around (proximity+time, source-cited), 3 layouts, JSON export; only geo-events so far, no news/market entities (Slice 6) |

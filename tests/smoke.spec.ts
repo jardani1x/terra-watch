@@ -632,3 +632,29 @@ test('country click selects, inspects, filters timeline, survives 2D/3D, clears'
   await inspector.getByRole('button', { name: 'Clear selection' }).click();
   await expect(inspector.getByText('IDLE')).toBeVisible();
 });
+
+test('command palette searches events scoped to the current view', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+
+  // wait for at least one event in the feed, then pick a real title to search
+  await expect(page.locator('.tl-item').first()).toBeAttached({ timeout: 20000 });
+  const title = (await page.locator('.tl-item').first().locator('span').nth(2).textContent()) ?? '';
+  const term = title.split(/\s+/).find((w) => w.length >= 3) ?? title.slice(0, 3);
+  expect(term.length).toBeGreaterThanOrEqual(2);
+
+  await page.keyboard.press('Control+k');
+  const input = page.getByPlaceholder(/Type a command/i);
+  await input.fill(term);
+
+  // at default world view every loaded event is in view, so the searched
+  // title must appear as an event result, explicitly labeled as view-scoped
+  const eventOption = page.getByRole('option').filter({ hasText: 'event · in view' }).first();
+  await expect(eventOption).toBeVisible();
+
+  // running it selects the event (inspector shows it) and closes the palette
+  await eventOption.click();
+  await expect(page.getByRole('dialog', { name: /command palette/i })).not.toBeVisible();
+  await expect(page.getByLabel('Object inspector').locator('.insp-title')).not.toBeEmpty();
+});
