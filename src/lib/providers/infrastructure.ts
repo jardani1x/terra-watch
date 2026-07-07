@@ -2,9 +2,9 @@ import type { FetchResult, GeoEvent } from './types';
 
 // Vendored open civilian registries (own-origin static JSON, no third-party
 // network dependency — matches the "Infrastructure panel: open registries"
-// gap). Reference data, not live events: refetched each refreshAll cycle
-// from the local bundle, so `time` is set to the fetch time rather than
-// faking a historical timestamp neither source actually carries.
+// gap). Reference data, not live events: `time` is the fetch time (neither
+// source carries a real timestamp), so every event is flagged `reference`
+// and time-based views (timeline, playback, signals) skip them.
 
 export const POWER_PLANTS_META = {
   id: 'power-plants',
@@ -42,6 +42,7 @@ export async function fetchPowerPlants(signal?: AbortSignal): Promise<FetchResul
       lat: p.lat,
       title: p.name,
       time: now,
+      reference: true,
       sourceId: POWER_PLANTS_META.id,
       props: { country: p.country, megawatts: p.mw },
     }));
@@ -68,6 +69,7 @@ export async function fetchLaunchSites(signal?: AbortSignal): Promise<FetchResul
       lat: s.lat,
       title: s.name && s.name !== '-' ? s.name : s.code,
       time: now,
+      reference: true,
       sourceId: LAUNCH_SITES_META.id,
       props: { code: s.code, country: s.state },
     }));

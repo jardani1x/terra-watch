@@ -563,8 +563,12 @@ export const useStore = create<AppState>()(
         const activeP = Object.values(providers).filter((p) => enabledProviderIds.has(p.id));
         if (activeP.length === 0) return 'offline';
         if (activeP.some((p) => p.status === 'loading')) return 'loading';
-        if (activeP.every((p) => p.status === 'live')) return 'live';
-        if (activeP.some((p) => p.status === 'offline')) return 'offline';
+        // static reference registries truthfully report 'cache' forever; they
+        // must not drag an otherwise-live board down to DEMO/SAMPLE
+        const liveFeeds = activeP.filter((p) => p.status !== 'cache');
+        if (liveFeeds.length === 0) return 'cache';
+        if (liveFeeds.every((p) => p.status === 'live')) return 'live';
+        if (liveFeeds.some((p) => p.status === 'offline')) return 'offline';
         return 'mock';
       },
     }),

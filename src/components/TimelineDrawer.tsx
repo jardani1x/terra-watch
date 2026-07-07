@@ -39,7 +39,9 @@ export default function TimelineDrawer() {
     return () => clearInterval(t);
   }, [playing, setTimeCursor]);
 
-  const timeFiltered = cursor === null ? events : events.filter((e) => e.time <= cursor);
+  // reference registries carry no real event time — they never belong in the feed
+  const feed = events.filter((e) => !e.reference);
+  const timeFiltered = cursor === null ? feed : feed.filter((e) => e.time <= cursor);
 
   // events contributing to a co-location signal (same transparent computation
   // as the SIGNALS panel, over the same time window this list shows) get an

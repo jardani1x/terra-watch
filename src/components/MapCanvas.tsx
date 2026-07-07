@@ -165,7 +165,8 @@ export default function MapCanvas() {
   useEffect(() => {
     const map = mapRef.current;
     if (!alive(map) || !readyRef.current) return;
-    const windowed = timeCursor === null ? events : events.filter((e) => e.time <= timeCursor);
+    // reference registries have no real event time — always shown, even mid-scrub
+    const windowed = timeCursor === null ? events : events.filter((e) => e.reference || e.time <= timeCursor);
     (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(windowed, layers, monitors));
   }, [events, layers, monitors, timeCursor]);
 
@@ -180,7 +181,9 @@ export default function MapCanvas() {
     });
     // invisible but hit-testable fill for click-to-select
     map.addLayer({ id: 'countries-fill', type: 'fill', source: 'countries', paint: { 'fill-opacity': 0 } }, 'events-layer');
-    const none = ['==', ['get', 'ADM0_ISO'], '___none___'] as maplibregl.FilterSpecification;
+    // keyed by NAME, not ADM0_ISO: ISO codes are not unique in Natural Earth
+    // (Kosovo shares SRB with Serbia; Somaliland/SOM, N. Cyprus/CYP, AUS ×3)
+    const none = ['==', ['get', 'NAME'], '___none___'] as maplibregl.FilterSpecification;
     // hover highlight: brighter fill + white border so the country under the
     // cursor is unmistakable (esp. small ones like Singapore)
     map.addLayer({
@@ -203,22 +206,22 @@ export default function MapCanvas() {
     map.on('click', 'countries-fill', (ev) => {
       // event markers take priority over the country underneath them
       if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer'] }).length > 0) return;
-      const iso = ev.features?.[0]?.properties?.ADM0_ISO as string | undefined;
+      const name = ev.features?.[0]?.properties?.NAME as string | undefined;
       const st = useStore.getState();
-      const full = st.countries?.find((f) => f.properties.ADM0_ISO === iso) ?? null;
+      const full = st.countries?.find((f) => f.properties.NAME === name) ?? null;
       st.selectCountry(full);
     });
 
     let hovered: string | null = null;
-    const setHover = (iso: string | null) => {
-      if (iso === hovered || !map.getLayer('countries-hover-line')) return;
-      hovered = iso;
-      const f = ['==', ['get', 'ADM0_ISO'], iso ?? '___none___'] as maplibregl.FilterSpecification;
+    const setHover = (name: string | null) => {
+      if (name === hovered || !map.getLayer('countries-hover-line')) return;
+      hovered = name;
+      const f = ['==', ['get', 'NAME'], name ?? '___none___'] as maplibregl.FilterSpecification;
       map.setFilter('countries-hover-fill', f);
       map.setFilter('countries-hover-line', f);
     };
     map.on('mousemove', 'countries-fill', (ev) => {
-      setHover((ev.features?.[0]?.properties?.ADM0_ISO as string | undefined) ?? null);
+      setHover((ev.features?.[0]?.properties?.NAME as string | undefined) ?? null);
     });
     map.on('mouseleave', 'countries-fill', () => setHover(null));
   }, [countries, ready]);
@@ -227,8 +230,8 @@ export default function MapCanvas() {
   useEffect(() => {
     const map = mapRef.current;
     if (!alive(map) || !ready || !map.getLayer('countries-selected-line')) return;
-    const iso = selectedCountry?.properties.ADM0_ISO ?? '___none___';
-    const filter = ['==', ['get', 'ADM0_ISO'], iso] as maplibregl.FilterSpecification;
+    const name = selectedCountry?.properties.NAME ?? '___none___';
+    const filter = ['==', ['get', 'NAME'], name] as maplibregl.FilterSpecification;
     map.setFilter('countries-selected-fill', filter);
     map.setFilter('countries-selected-line', filter);
   }, [selectedCountry, ready, countries]);

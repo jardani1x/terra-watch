@@ -17,6 +17,9 @@ export interface Signal {
 export function computeSignals(events: GeoEvent[], minTypes = 2): Signal[] {
   const cells = new Map<string, GeoEvent[]>();
   for (const e of events) {
+    // reference registries (plants, launch sites) are places, not events —
+    // co-locating them with a live event is not a signal
+    if (e.reference) continue;
     if (!Number.isFinite(e.lat) || !Number.isFinite(e.lon)) continue;
     const key = `${Math.floor(e.lat)}:${Math.floor(e.lon)}`;
     (cells.get(key) ?? cells.set(key, []).get(key)!).push(e);

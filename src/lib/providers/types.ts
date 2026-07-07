@@ -16,6 +16,11 @@ export interface GeoEvent {
   title: string;
   /** epoch ms */
   time: number;
+  /** true for static reference registries (vendored infrastructure): plotted
+   *  on the map but excluded from time-based views — timeline, playback
+   *  cutoff, co-location signals — because `time` is the fetch time, not a
+   *  real event time */
+  reference?: boolean;
   magnitude?: number;
   /** provider id this came from */
   sourceId: string;

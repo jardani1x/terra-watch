@@ -94,7 +94,10 @@ export function eventsInCountry(events: GeoEvent[], c: CountryFeature): GeoEvent
 export function countryAsEvent(c: CountryFeature): GeoEvent {
   const p = c.properties;
   return {
-    id: `country:${p.ADM0_ISO}`,
+    // NAME, not ADM0_ISO: ISO codes are not unique in Natural Earth (Kosovo
+    // shares SRB with Serbia) and a shared id would merge distinct countries
+    // in the graph/dossier workspaces
+    id: `country:${p.NAME}`,
     type: 'country',
     category: 'Country (reference)',
     lon: p.LABEL_X,
