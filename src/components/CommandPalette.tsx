@@ -124,7 +124,9 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
               role="option"
               aria-selected={i === active}
               onMouseEnter={() => setActive(i)}
-              onClick={runActive}
+              // run the clicked row, not filtered[active]: `active` only syncs
+              // on mouseenter, which touch taps never fire
+              onClick={() => { c.run(); onClose(); }}
               style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: i === active ? 'rgba(69,224,176,0.12)' : 'transparent', cursor: 'pointer', fontSize: 13 }}
             >
               <span>{c.label}</span>

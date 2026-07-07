@@ -9,6 +9,7 @@ import { matchMonitor } from '../lib/monitors';
 import { prefersReducedMotion } from '../lib/a11y';
 import { nightPolygon } from '../lib/terminator';
 import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
+import { countryAtPoint } from '../lib/countries';
 
 // Keyless CARTO raster basemaps (free, attribution required). Two looks ship:
 // 'vivid' (voyager, colorful — the default) and 'dark'; both live in the style
@@ -107,8 +108,16 @@ export default function MapCanvas() {
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     mapRef.current = map;
+    // e2e hook: lets Playwright drive precise map interactions (project
+    // lng/lat → px) and assert the events layer actually rendered
+    (window as unknown as { __terraMap?: maplibregl.Map }).__terraMap = map;
 
     map.on('load', () => {
+      const st = useStore.getState();
+      // un-hide the chosen basemap before anything below can throw — a
+      // failure later in this handler then degrades to a bare basemap
+      // instead of a permanently black canvas
+      map.setLayoutProperty(st.basemap === 'dark' ? 'carto' : 'carto-vivid', 'visibility', 'visible');
       map.addSource('events', { type: 'geojson', data: toFeatureCollection([], [], []) });
       map.addLayer({
         id: 'events-layer',
@@ -127,13 +136,11 @@ export default function MapCanvas() {
       map.addSource('terminator', { type: 'geojson', data: nightPolygon() });
       map.addLayer({
         id: 'terminator-layer', type: 'fill', source: 'terminator',
-        layout: { visibility: useStore.getState().showTerminator ? 'visible' : 'none' },
+        layout: { visibility: st.showTerminator ? 'visible' : 'none' },
         paint: { 'fill-color': '#03060b', 'fill-opacity': 0.38 },
       }, 'events-layer');
       readyRef.current = true;
       setReady(true);
-      const st = useStore.getState();
-      map.setLayoutProperty(st.basemap === 'dark' ? 'carto' : 'carto-vivid', 'visibility', 'visible');
       (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers, st.monitors));
       // apply the persisted projection once the style is ready (mercator is
       // already the default, so only call out when the user chose globe);
@@ -206,10 +213,13 @@ export default function MapCanvas() {
     map.on('click', 'countries-fill', (ev) => {
       // event markers take priority over the country underneath them
       if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer'] }).length > 0) return;
-      const name = ev.features?.[0]?.properties?.NAME as string | undefined;
       const st = useStore.getState();
-      const full = st.countries?.find((f) => f.properties.NAME === name) ?? null;
-      st.selectCountry(full);
+      // resolve by full-resolution geometry, not the rendered feature: tile
+      // simplification at low zoom can swallow tiny countries, making the
+      // hit-test report the neighbor (click Singapore, get Malaysia)
+      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat) : null;
+      const renderedName = ev.features?.[0]?.properties?.NAME as string | undefined;
+      st.selectCountry(precise ?? st.countries?.find((f) => f.properties.NAME === renderedName) ?? null);
     });
 
     let hovered: string | null = null;
@@ -221,7 +231,11 @@ export default function MapCanvas() {
       map.setFilter('countries-hover-line', f);
     };
     map.on('mousemove', 'countries-fill', (ev) => {
-      setHover((ev.features?.[0]?.properties?.NAME as string | undefined) ?? null);
+      // same precise resolution as click, so the hover highlight matches
+      // what a click would select (bbox precheck keeps per-move cost trivial)
+      const st = useStore.getState();
+      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat) : null;
+      setHover(precise?.properties.NAME ?? (ev.features?.[0]?.properties?.NAME as string | undefined) ?? null);
     });
     map.on('mouseleave', 'countries-fill', () => setHover(null));
   }, [countries, ready]);

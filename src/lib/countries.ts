@@ -129,20 +129,89 @@ export function findCountryByName(countries: CountryFeature[], name: string): Co
   ) ?? null;
 }
 
-/** Rough zoom that frames a country from its geometry bbox. */
-export function countryZoom(c: CountryFeature): number {
+interface CountryBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  /** longitude extent, antimeridian-aware: countries crossing ±180°
+   *  (Russia, Fiji, NZ) measure their true width, not the whole world */
+  lonSpan: number;
+}
+
+const boundsCache = new WeakMap<CountryFeature, CountryBounds>();
+
+function countryBounds(c: CountryFeature): CountryBounds {
+  const cached = boundsCache.get(c);
+  if (cached) return cached;
   let minX = 180, maxX = -180, minY = 90, maxY = -90;
+  // unwrapped copy ([0, 360) longitudes) so antimeridian crossers measure true width
+  let minU = 360, maxU = 0;
   const scan = (ring: Position[]) => {
     for (const [x, y] of ring) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
+      const u = x < 0 ? x + 360 : x;
+      if (u < minU) minU = u;
+      if (u > maxU) maxU = u;
     }
   };
   const g = c.geometry;
   if (g.type === 'Polygon') g.coordinates.forEach(scan);
   else g.coordinates.forEach((poly) => poly.forEach(scan));
-  const span = Math.max(maxX - minX, (maxY - minY) * 1.6, 0.5);
+  const b = { minX, maxX, minY, maxY, lonSpan: Math.min(maxX - minX, maxU - minU) };
+  boundsCache.set(c, b);
+  return b;
+}
+
+/** Smallest country whose full-resolution geometry contains the point.
+ *  Selection must not trust rendered-feature hit-testing: at low zoom, tile
+ *  simplification can swallow a tiny country so a click on Singapore reports
+ *  Malaysia. Smallest bbox area wins so microstates beat any larger
+ *  neighbor whose bbox overlaps them. */
+export function countryAtPoint(countries: CountryFeature[], lon: number, lat: number): CountryFeature | null {
+  // normalize a wrapped-map longitude into the data's [-180, 180] range
+  const x = ((lon + 540) % 360) - 180;
+  let best: CountryFeature | null = null;
+  let bestArea = Infinity;
+  for (const c of countries) {
+    const b = countryBounds(c);
+    if (lat < b.minY || lat > b.maxY) continue;
+    if (x < b.minX || x > b.maxX) continue;
+    if (!pointInCountry(x, lat, c)) continue;
+    const area = b.lonSpan * (b.maxY - b.minY);
+    if (area < bestArea) { best = c; bestArea = area; }
+  }
+  return best;
+}
+
+/** Rough zoom that frames a country from its geometry bbox. */
+export function countryZoom(c: CountryFeature): number {
+  const b = countryBounds(c);
+  const span = Math.max(b.lonSpan, (b.maxY - b.minY) * 1.6, 0.5);
   return Math.max(1.4, Math.min(6, Math.log2(360 / span)));
+}
+
+/** The capitals file is keyed by Natural Earth adm0_a3, which the country
+ *  features don't carry — and neither of their ISO fields is a clean match
+ *  (ADM0_ISO is shared across e.g. Serbia/Kosovo; ISO_A3_EH is -99 for
+ *  disputed territories). Try ADM0_ISO then ISO_A3_EH, with explicit
+ *  overrides where either would resolve to a neighbor's capital. Returns
+ *  undefined when no honest answer exists. */
+const CAPITAL_KEY_OVERRIDES: Record<string, string> = {
+  Kosovo: 'KOS',
+  Somaliland: 'SOL',
+  'W. Sahara': 'SAH',
+  // ADM0_ISO would borrow the parent country's capital — suppress instead
+  'N. Cyprus': '___',
+  'Indian Ocean Ter.': '___',
+  'Ashmore and Cartier Is.': '___',
+};
+
+export function capitalFor(capitals: Record<string, string>, p: CountryProps): string | undefined {
+  const override = CAPITAL_KEY_OVERRIDES[p.NAME];
+  if (override) return capitals[override];
+  return capitals[p.ADM0_ISO] ?? capitals[p.ISO_A3_EH];
 }

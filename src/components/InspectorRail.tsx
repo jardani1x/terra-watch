@@ -1,6 +1,6 @@
 import { useStore } from '../state/store';
 import { ago, hhmm } from '../lib/format';
-import { countryAsEvent, countryZoom, eventsInCountry } from '../lib/countries';
+import { capitalFor, countryAsEvent, countryZoom, eventsInCountry } from '../lib/countries';
 import { computeCountryRisk } from '../lib/risk';
 import { layerIdForEvent } from '../lib/layers';
 
@@ -71,6 +71,7 @@ export default function InspectorRail() {
         )].map((id) => layers.find((l) => l.id === id)).filter((l) => l != null);
         const p = providers[asEvent.sourceId];
         const gdpB = cp.GDP_MD >= 1_000_000 ? `$${(cp.GDP_MD / 1_000_000).toFixed(2)}T` : `$${(cp.GDP_MD / 1_000).toFixed(0)}B`;
+        const capital = capitals ? capitalFor(capitals, cp) : undefined;
         return (
           <div>
             <div className="insp-type">Country (reference)</div>
@@ -111,8 +112,8 @@ export default function InspectorRail() {
 
             <div style={{ marginTop: 10 }}>
               <div className="insp-kv"><span>Region</span><b>{cp.CONTINENT} · {cp.SUBREGION}</b></div>
-              {capitals?.[cp.ADM0_ISO] && (
-                <div className="insp-kv"><span>Capital</span><b>{capitals[cp.ADM0_ISO]}</b></div>
+              {capital && (
+                <div className="insp-kv"><span>Capital</span><b>{capital}</b></div>
               )}
               <div className="insp-kv"><span>Population</span><b>{cp.POP_EST.toLocaleString()} <span style={{ color: 'var(--muted)' }}>({cp.POP_YEAR} est.)</span></b></div>
               <div className="insp-kv"><span>GDP</span><b>{gdpB} <span style={{ color: 'var(--muted)' }}>({cp.GDP_YEAR} est.)</span></b></div>

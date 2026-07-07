@@ -28,8 +28,11 @@ test('loads without console errors and renders the shell', async ({ page }) => {
   // pre-upgrade v4.7.1 build, which never emits it), yet every visual/
   // functional assertion in this suite — including the 2D/3D globe toggle —
   // still passes, so real WebGL2-capable browsers are not expected to hit it.
+  // "status of 5xx" covers a third-party feed being down (seen: 503) — the
+  // failure is already surfaced honestly as DEMO/SAMPLE + provider health,
+  // and the browser's resource-error console line can't be suppressed.
   const appErrors = errors.filter(
-    (e) => !/tile|carto|Failed to fetch|net::ERR|ERR_|favicon|blocked by CORS policy|Could not compile fragment shader/i.test(e),
+    (e) => !/tile|carto|Failed to fetch|net::ERR|ERR_|favicon|blocked by CORS policy|Could not compile fragment shader|Failed to load resource: the server responded with a status of 5\d\d/i.test(e),
   );
   expect(appErrors, appErrors.join('\n')).toHaveLength(0);
 });
@@ -770,4 +773,56 @@ test('GPS locate-me: opt-in pin appears at the device position and clears on tog
   // off = pin gone, no stale fix kept
   await page.getByRole('button', { name: /Stop showing my device location/ }).click();
   await expect(page.locator('.gps-pin')).not.toBeVisible();
+});
+
+test('map actually renders event markers (fails on a dead style / blank canvas)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  // The console-error allowlist deliberately tolerates SwiftShader's
+  // "Could not compile fragment shader" noise, so this asserts the outcome
+  // instead: a loaded style with the events layer actually drawn. A dead map
+  // (style null) or an empty render fails here rather than shipping a blank
+  // map under a green suite.
+  await page.waitForFunction(() => {
+    const map = (window as unknown as { __terraMap?: import('maplibre-gl').Map }).__terraMap;
+    if (!map || !map.loaded()) return false;
+    try {
+      return map.queryRenderedFeatures({ layers: ['events-layer'] }).length > 0;
+    } catch {
+      return false;
+    }
+  }, undefined, { timeout: 45000 });
+});
+
+test('low-zoom country click selects the small country, not its neighbor', async ({ page }) => {
+  // At low zoom, tile simplification can swallow tiny polygons, so MapLibre's
+  // rendered-feature hit-test reports the neighbor (click Singapore, get
+  // Malaysia). Selection resolves against full-resolution geometry instead —
+  // this drives that path at zoom 6, where the bug reproduced.
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  await page.waitForFunction(() => {
+    const map = (window as unknown as { __terraMap?: import('maplibre-gl').Map }).__terraMap;
+    return !!map && map.loaded() && !!map.getSource('countries');
+  }, undefined, { timeout: 45000 });
+
+  await page.evaluate(() => {
+    const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+    map.jumpTo({ center: [103.82, 1.352], zoom: 6 });
+    return new Promise((res) => map.once('idle', res));
+  });
+  const pos = await page.evaluate(() => {
+    const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+    const p = map.project([103.82, 1.352]);
+    const r = map.getCanvas().getBoundingClientRect();
+    return { x: r.left + p.x, y: r.top + p.y };
+  });
+
+  const inspector = page.getByLabel('Object inspector');
+  await expect(async () => {
+    await page.mouse.click(pos.x, pos.y);
+    await expect(inspector.getByText('Country (reference)')).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30000 });
+  await expect(inspector.locator('.insp-title')).toHaveText('Singapore');
 });
