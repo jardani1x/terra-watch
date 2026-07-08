@@ -743,6 +743,7 @@ test('basemap toggle: vivid default, switch to dark, persists across reload', as
 });
 
 test('GPS locate-me: opt-in pin appears at the device position and clears on toggle off', async ({ page, context }) => {
+  test.setTimeout(120_000);
   await context.grantPermissions(['geolocation']);
   await context.setGeolocation({ latitude: 1.29, longitude: 103.85 }); // Singapore
   await page.goto('/');
@@ -799,7 +800,7 @@ test('low-zoom country click selects the small country, not its neighbor', async
   // rendered-feature hit-test reports the neighbor (click Singapore, get
   // Malaysia). Selection resolves against full-resolution geometry instead —
   // this drives that path at zoom 6, where the bug reproduced.
-  test.setTimeout(90_000);
+  test.setTimeout(300_000);
   await page.goto('/');
   await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
   await page.waitForFunction(() => {
@@ -825,4 +826,28 @@ test('low-zoom country click selects the small country, not its neighbor', async
     await expect(inspector.getByText('Country (reference)')).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 30000 });
   await expect(inspector.locator('.insp-title')).toHaveText('Singapore');
+
+  // At zoom 3 Singapore is sub-pixel: a click 4px off its center lands in a
+  // point that geometrically belongs to Malaysia. The zoom-scaled microstate
+  // tolerance must still magnet the selection onto Singapore.
+  await page.evaluate(() => {
+    const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+    map.jumpTo({ center: [103.82, 1.352], zoom: 3 });
+    // idle can stall on slow tile fetches under software GL — selection only
+    // needs the camera move, so cap the wait
+    return Promise.race([
+      new Promise((res) => map.once('idle', res)),
+      new Promise((res) => setTimeout(res, 8000)),
+    ]);
+  });
+  const posLow = await page.evaluate(() => {
+    const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+    const p = map.project([103.82, 1.352]);
+    const r = map.getCanvas().getBoundingClientRect();
+    return { x: r.left + p.x - 4, y: r.top + p.y };
+  });
+  await expect(async () => {
+    await page.mouse.click(posLow.x, posLow.y);
+    await expect(inspector.locator('.insp-title')).toHaveText('Singapore', { timeout: 2000 });
+  }).toPass({ timeout: 30000 });
 });

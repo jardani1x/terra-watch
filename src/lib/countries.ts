@@ -170,17 +170,37 @@ function countryBounds(c: CountryFeature): CountryBounds {
  *  Selection must not trust rendered-feature hit-testing: at low zoom, tile
  *  simplification can swallow a tiny country so a click on Singapore reports
  *  Malaysia. Smallest bbox area wins so microstates beat any larger
- *  neighbor whose bbox overlaps them. */
-export function countryAtPoint(countries: CountryFeature[], lon: number, lat: number): CountryFeature | null {
+ *  neighbor whose bbox overlaps them.
+ *
+ *  `tolerance` (degrees — pass the current zoom's pixel slop) rescues
+ *  microstates that are physically unclickable: a country whose whole bbox is
+ *  smaller than ~2 tolerances cannot be aimed at, so a click landing within
+ *  one tolerance of its bbox selects it even though the point itself falls in
+ *  the big neighbor. At high zoom tolerance shrinks toward 0 and exact
+ *  containment always wins. */
+export function countryAtPoint(
+  countries: CountryFeature[],
+  lon: number,
+  lat: number,
+  tolerance = 0,
+): CountryFeature | null {
   // normalize a wrapped-map longitude into the data's [-180, 180] range
   const x = ((lon + 540) % 360) - 180;
   let best: CountryFeature | null = null;
   let bestArea = Infinity;
   for (const c of countries) {
     const b = countryBounds(c);
-    if (lat < b.minY || lat > b.maxY) continue;
-    if (x < b.minX || x > b.maxX) continue;
-    if (!pointInCountry(x, lat, c)) continue;
+    const contains =
+      lat >= b.minY && lat <= b.maxY &&
+      x >= b.minX && x <= b.maxX &&
+      pointInCountry(x, lat, c);
+    // microstate rescue: too small to hit at this zoom, but the click landed
+    // right next to it — the near-miss beats the neighbor containing the point
+    const tiny = b.lonSpan <= tolerance * 2 && b.maxY - b.minY <= tolerance * 2;
+    const near = !contains && tiny &&
+      lat >= b.minY - tolerance && lat <= b.maxY + tolerance &&
+      x >= b.minX - tolerance && x <= b.maxX + tolerance;
+    if (!contains && !near) continue;
     const area = b.lonSpan * (b.maxY - b.minY);
     if (area < bestArea) { best = c; bestArea = area; }
   }

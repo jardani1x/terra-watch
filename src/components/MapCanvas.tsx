@@ -23,11 +23,30 @@ const STYLE: StyleSpecification = {
     'carto-vivid': { type: 'raster', tiles: cartoTiles('rastertiles/voyager'), tileSize: 256, attribution: '© OpenStreetMap contributors © CARTO' },
   },
   layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#05080b' } },
-    { id: 'carto', type: 'raster', source: 'carto', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1 } },
-    { id: 'carto-vivid', type: 'raster', source: 'carto-vivid', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1 } },
+    { id: 'bg', type: 'background', paint: { 'background-color': '#0a1118' } },
+    // dark look gets its blacks lifted + a touch of saturation so land/sea/
+    // labels separate instead of reading as one murky slab
+    { id: 'carto', type: 'raster', source: 'carto', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1, 'raster-brightness-min': 0.09, 'raster-saturation': 0.15, 'raster-contrast': 0.06 } },
+    { id: 'carto-vivid', type: 'raster', source: 'carto-vivid', layout: { visibility: 'none' }, paint: { 'raster-opacity': 1, 'raster-saturation': 0.25, 'raster-brightness-min': 0.03 } },
   ],
 };
+
+// GPS pin artwork: a SpaceX-Starship-style rocket (civilian craft by policy —
+// no military airframes), inline SVG so no sprite/image pipeline is needed.
+// Steel body, dark heat-shield flaps, engine glow at the base.
+const STARSHIP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="44" viewBox="0 0 26 44" aria-hidden="true">
+  <ellipse cx="13" cy="41" rx="5.5" ry="2.8" fill="#ff9a3d" opacity="0.9"/>
+  <ellipse cx="13" cy="40.6" rx="2.6" ry="1.5" fill="#ffe08a"/>
+  <path d="M8 34 L2.5 41 L2.5 43 L8 39 Z" fill="#343b42"/>
+  <path d="M18 34 L23.5 41 L23.5 43 L18 39 Z" fill="#2a3036"/>
+  <path d="M8 15 L3 20 L3 23.5 L8 20.5 Z" fill="#343b42"/>
+  <path d="M18 15 L23 20 L23 23.5 L18 20.5 Z" fill="#2a3036"/>
+  <path d="M8 13 C8 5.5 10.4 1.4 13 0 C15.6 1.4 18 5.5 18 13 L18 39 L8 39 Z" fill="#ccd4db"/>
+  <path d="M13 0 C10.4 1.4 8 5.5 8 13 L8 39 L13 39 Z" fill="#a7b1ba"/>
+  <path d="M13 0 C11.6 0.8 10.3 2.4 9.4 4.8 L13 4.8 Z" fill="#22262b"/>
+  <rect x="10.2" y="8" width="1.6" height="1.6" rx="0.8" fill="#3a444d"/>
+  <rect x="10.2" y="12" width="1.6" height="1.6" rx="0.8" fill="#3a444d"/>
+</svg>`;
 
 const ALERT_SIZE: Record<string, number> = { Extreme: 11, Severe: 9, Moderate: 7, Minor: 5 };
 const GDACS_LEVEL_SIZE: Record<string, number> = { Red: 11, Orange: 8, Green: 5.5 };
@@ -195,11 +214,11 @@ export default function MapCanvas() {
     // cursor is unmistakable (esp. small ones like Singapore)
     map.addLayer({
       id: 'countries-hover-fill', type: 'fill', source: 'countries', filter: none,
-      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.14 },
+      paint: { 'fill-color': '#ffffff', 'fill-opacity': 0.28 },
     }, 'events-layer');
     map.addLayer({
       id: 'countries-hover-line', type: 'line', source: 'countries', filter: none,
-      paint: { 'line-color': '#ffffff', 'line-width': 1.6, 'line-opacity': 0.95 },
+      paint: { 'line-color': '#ffffff', 'line-width': 2.5, 'line-opacity': 1 },
     }, 'events-layer');
     map.addLayer({
       id: 'countries-selected-fill', type: 'fill', source: 'countries', filter: none,
@@ -210,6 +229,11 @@ export default function MapCanvas() {
       paint: { 'line-color': '#45e0b0', 'line-width': 1.4, 'line-opacity': 0.9 },
     }, 'events-layer');
 
+    // ~8 px of slop converted to degrees at the current zoom (world width in
+    // CSS px is 512·2^zoom): lets countryAtPoint magnet onto microstates that
+    // are sub-pixel at low zoom, and vanishes as the user zooms in
+    const slopDeg = () => (8 * 360) / (512 * Math.pow(2, map.getZoom()));
+
     map.on('click', 'countries-fill', (ev) => {
       // event markers take priority over the country underneath them
       if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer'] }).length > 0) return;
@@ -217,7 +241,7 @@ export default function MapCanvas() {
       // resolve by full-resolution geometry, not the rendered feature: tile
       // simplification at low zoom can swallow tiny countries, making the
       // hit-test report the neighbor (click Singapore, get Malaysia)
-      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat) : null;
+      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat, slopDeg()) : null;
       const renderedName = ev.features?.[0]?.properties?.NAME as string | undefined;
       st.selectCountry(precise ?? st.countries?.find((f) => f.properties.NAME === renderedName) ?? null);
     });
@@ -234,7 +258,7 @@ export default function MapCanvas() {
       // same precise resolution as click, so the hover highlight matches
       // what a click would select (bbox precheck keeps per-move cost trivial)
       const st = useStore.getState();
-      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat) : null;
+      const precise = st.countries ? countryAtPoint(st.countries, ev.lngLat.lng, ev.lngLat.lat, slopDeg()) : null;
       setHover(precise?.properties.NAME ?? (ev.features?.[0]?.properties?.NAME as string | undefined) ?? null);
     });
     map.on('mouseleave', 'countries-fill', () => setHover(null));
@@ -312,11 +336,11 @@ export default function MapCanvas() {
     }
     if (!gpsMarkerRef.current) {
       // maplibre owns the outer element's inline transform (positioning), so
-      // the rotated emoji lives on an inner span
+      // the artwork lives on an inner span
       const el = document.createElement('div');
       const inner = document.createElement('span');
       inner.className = 'gps-pin';
-      inner.textContent = '🚀';
+      inner.innerHTML = STARSHIP_SVG;
       el.appendChild(inner);
       el.title = 'Your device location (GPS · stays in this browser, never sent anywhere)';
       el.setAttribute('aria-label', 'Your device location');
