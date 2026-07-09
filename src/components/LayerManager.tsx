@@ -16,6 +16,8 @@ export default function LayerManager() {
   const toggleLayer = useStore((s) => s.toggleLayer);
   const showAlertLevels = useStore((s) => s.showAlertLevels);
   const setShowAlertLevels = useStore((s) => s.setShowAlertLevels);
+  const groupCollapsed = useStore((s) => s.groupCollapsed);
+  const toggleGroup = useStore((s) => s.toggleGroup);
 
   const counts = eventCounts(events, layers);
   const groups = layers.reduce<Record<string, typeof layers>>((acc, l) => {
@@ -31,8 +33,16 @@ export default function LayerManager() {
 
       {Object.entries(groups).map(([group, ls]) => (
         <div key={group}>
-          <div className="layer-group-label">{group.toUpperCase()}</div>
-          {ls.map((l) => {
+          <button
+            className="layer-group-label group-toggle"
+            aria-expanded={!groupCollapsed[group]}
+            onClick={() => toggleGroup(group)}
+          >
+            <span className="group-caret">{groupCollapsed[group] ? '▸' : '▾'}</span>
+            {group.toUpperCase()}
+            <span className="group-count">{ls.filter((l) => l.enabled).length}/{ls.length}</span>
+          </button>
+          {!groupCollapsed[group] && ls.map((l) => {
             const p = providers[l.providerId];
             const mode = p?.status ?? 'offline';
             const sourceOn = sources[l.providerId] ?? true;

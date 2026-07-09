@@ -907,3 +907,19 @@ test('bottom dock renders news, markets, crypto and youtube panels', async ({ pa
   await dock.getByRole('button', { name: 'Collapse dock' }).click();
   await expect(dock.getByText('WORLD NEWS')).not.toBeVisible();
 });
+
+test('layer groups collapse and remember state', async ({ page }) => {
+  await page.goto('/');
+  const quake = page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' });
+  await expect(quake).toBeVisible();
+  // collapse the Natural events group — its rows disappear
+  await page.getByRole('button', { name: /natural events/i }).click();
+  await expect(quake).not.toBeVisible();
+  // persisted across reload
+  await page.reload();
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).not.toBeVisible();
+  // reopen
+  await page.getByRole('button', { name: /natural events/i }).click();
+  await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).toBeVisible();
+});

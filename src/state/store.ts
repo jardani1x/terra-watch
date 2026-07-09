@@ -117,6 +117,9 @@ interface AppState {
   showTerminator: boolean;
   basemap: Basemap;
   geo: GeoSelf;
+  /** collapsed layer-manager groups (persisted user setting) */
+  groupCollapsed: Record<string, boolean>;
+  toggleGroup: (group: string) => void;
   /** derived country alert-level fill (user toggle, persisted) */
   showAlertLevels: boolean;
   /** static conflict-zone country names; loaded once, never persisted */
@@ -208,15 +211,15 @@ function providerStub(meta: { id: string; name: string; license: string; homepag
 }
 
 const DEFAULT_LAYERS: LayerDef[] = [
-  { id: 'earthquakes', name: 'Earthquakes (M2.5+, 24h)', group: 'Natural events', enabled: true, providerId: 'usgs', eventTypes: ['earthquake'], color: '#45e0b0' },
-  { id: 'wildfires', name: 'Wildfires', group: 'Natural events', enabled: true, providerId: 'eonet', eventTypes: ['wildfires'], color: '#ff7a3c' },
-  { id: 'volcanoes', name: 'Volcanoes', group: 'Natural events', enabled: true, providerId: 'eonet', eventTypes: ['volcanoes'], color: '#ff5a52' },
-  { id: 'severe-storms', name: 'Severe storms', group: 'Natural events', enabled: true, providerId: 'eonet', eventTypes: ['severeStorms'], color: '#6db3ff' },
-  { id: 'other-natural', name: 'Other natural events', group: 'Natural events', enabled: false, providerId: 'eonet', eventTypes: [], catchAll: true, color: '#b39ddb' },
-  { id: 'weather-alerts', name: 'Weather alerts (US · NWS)', group: 'Advisories', enabled: true, providerId: 'nws', eventTypes: ['weather-alert'], color: '#ffe066' },
-  { id: 'disaster-alerts', name: 'Disaster alerts (GDACS)', group: 'Advisories', enabled: true, providerId: 'gdacs', eventTypes: ['disaster-alert'], color: '#f06e9c' },
-  { id: 'nuclear-plants', name: 'Nuclear power plants', group: 'Infrastructure', enabled: true, providerId: 'power-plants', eventTypes: ['nuclear-plant'], color: '#ffb703' },
-  { id: 'launch-sites', name: 'Space launch sites', group: 'Infrastructure', enabled: true, providerId: 'launch-sites', eventTypes: ['launch-site'], color: '#00d4ff' },
+  { id: 'earthquakes', name: 'Earthquakes (M2.5+, 24h)', group: '🌋 Natural events', enabled: true, providerId: 'usgs', eventTypes: ['earthquake'], color: '#45e0b0' },
+  { id: 'wildfires', name: 'Wildfires', group: '🌋 Natural events', enabled: true, providerId: 'eonet', eventTypes: ['wildfires'], color: '#ff7a3c' },
+  { id: 'volcanoes', name: 'Volcanoes', group: '🌋 Natural events', enabled: true, providerId: 'eonet', eventTypes: ['volcanoes'], color: '#ff5a52' },
+  { id: 'severe-storms', name: 'Severe storms', group: '🌋 Natural events', enabled: true, providerId: 'eonet', eventTypes: ['severeStorms'], color: '#6db3ff' },
+  { id: 'other-natural', name: 'Other natural events', group: '🌋 Natural events', enabled: false, providerId: 'eonet', eventTypes: [], catchAll: true, color: '#b39ddb' },
+  { id: 'weather-alerts', name: 'Weather alerts (US · NWS)', group: '⚠ Advisories', enabled: true, providerId: 'nws', eventTypes: ['weather-alert'], color: '#ffe066' },
+  { id: 'disaster-alerts', name: 'Disaster alerts (GDACS)', group: '⚠ Advisories', enabled: true, providerId: 'gdacs', eventTypes: ['disaster-alert'], color: '#f06e9c' },
+  { id: 'nuclear-plants', name: 'Nuclear power plants', group: '🏗 Infrastructure', enabled: true, providerId: 'power-plants', eventTypes: ['nuclear-plant'], color: '#ffb703' },
+  { id: 'launch-sites', name: 'Space launch sites', group: '🏗 Infrastructure', enabled: true, providerId: 'launch-sites', eventTypes: ['launch-site'], color: '#00d4ff' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
@@ -250,6 +253,7 @@ export const useStore = create<AppState>()(
       showTerminator: false,
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
+      groupCollapsed: {},
       showAlertLevels: true,
       conflictZones: null,
       countries: null,
@@ -363,6 +367,8 @@ export const useStore = create<AppState>()(
 
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
+      toggleGroup: (group) =>
+        set((s) => ({ groupCollapsed: { ...s.groupCollapsed, [group]: !s.groupCollapsed[group] } })),
       setShowAlertLevels: (on) => set({ showAlertLevels: on }),
       toggleDock: () => set((s) => ({ dockOpen: !s.dockOpen })),
       setDockRegion: (region) => {
@@ -647,6 +653,7 @@ export const useStore = create<AppState>()(
         basemap: s.basemap,
         railCollapsed: s.railCollapsed,
         showAlertLevels: s.showAlertLevels,
+        groupCollapsed: s.groupCollapsed,
         dockOpen: s.dockOpen,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
@@ -668,6 +675,7 @@ export const useStore = create<AppState>()(
           basemap?: Basemap;
           railCollapsed?: { left: boolean; right: boolean };
           showAlertLevels?: boolean;
+          groupCollapsed?: Record<string, boolean>;
           dockOpen?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
@@ -684,6 +692,7 @@ export const useStore = create<AppState>()(
           basemap: p.basemap ?? current.basemap,
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
           showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,
+          groupCollapsed: p.groupCollapsed ?? current.groupCollapsed,
           dockOpen: p.dockOpen ?? current.dockOpen,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
