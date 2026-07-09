@@ -106,6 +106,8 @@ interface AppState {
   events: GeoEvent[];
   selected: GeoEvent | null;
   mobileRail: 'left' | 'right' | null;
+  /** desktop rail collapse (persisted user setting); mobileRail is separate */
+  railCollapsed: { left: boolean; right: boolean };
   mapCmd: MapCmd | null;
   /** current map viewport [west, south, east, north]; transient, never persisted */
   viewBounds: ViewBounds | null;
@@ -143,6 +145,7 @@ interface AppState {
   removeMonitor: (id: string) => void;
   select: (e: GeoEvent | null) => void;
   setMobileRail: (r: 'left' | 'right' | null) => void;
+  toggleRail: (side: 'left' | 'right') => void;
   flyTo: (center: [number, number], zoom: number) => void;
   setViewBounds: (b: ViewBounds | null) => void;
   setProjection: (p: MapProjection) => void;
@@ -224,6 +227,7 @@ export const useStore = create<AppState>()(
       events: [],
       selected: null,
       mobileRail: null,
+      railCollapsed: { left: false, right: false },
       mapCmd: null,
       viewBounds: null,
       projection: '2d',
@@ -338,6 +342,8 @@ export const useStore = create<AppState>()(
 
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
+      toggleRail: (side) =>
+        set((s) => ({ railCollapsed: { ...s.railCollapsed, [side]: !s.railCollapsed[side] } })),
       flyTo: (center, zoom) => set((s) => ({ mapCmd: { seq: (s.mapCmd?.seq ?? 0) + 1, center, zoom } })),
       setViewBounds: (b) => set({ viewBounds: b }),
       setProjection: (p) => set({ projection: p }),
@@ -581,6 +587,7 @@ export const useStore = create<AppState>()(
         projection: s.projection,
         showTerminator: s.showTerminator,
         basemap: s.basemap,
+        railCollapsed: s.railCollapsed,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
         // (like monitors), not live-data caches, so they're persisted the same
@@ -599,6 +606,7 @@ export const useStore = create<AppState>()(
           projection?: MapProjection;
           showTerminator?: boolean;
           basemap?: Basemap;
+          railCollapsed?: { left: boolean; right: boolean };
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
@@ -612,6 +620,7 @@ export const useStore = create<AppState>()(
           projection: p.projection ?? current.projection,
           showTerminator: p.showTerminator ?? current.showTerminator,
           basemap: p.basemap ?? current.basemap,
+          railCollapsed: p.railCollapsed ?? current.railCollapsed,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,

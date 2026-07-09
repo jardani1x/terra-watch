@@ -33,6 +33,8 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
       { id: 'refresh', label: 'Refresh all sources', hint: 'data', run: () => refreshAll() },
       { id: 'view-map', label: 'Switch to Map view', hint: 'view', run: () => setView('map') },
       { id: 'view-graph', label: 'Switch to Graph view', hint: 'view', run: () => setView('graph') },
+      { id: 'toggle-left-rail', label: 'Toggle left panels', hint: 'view', run: () => useStore.getState().toggleRail('left') },
+      { id: 'toggle-inspector', label: 'Toggle inspector', hint: 'view', run: () => useStore.getState().toggleRail('right') },
       ...(graphNodeCount > 0
         ? [{ id: 'graph-clear', label: 'Clear graph workspace', hint: 'graph', run: () => clearGraph() }]
         : []),

@@ -39,10 +39,20 @@ export default function InspectorRail() {
   const flyTo = useStore((s) => s.flyTo);
   const select = useStore((s) => s.select);
   const setView = useStore((s) => s.setView);
+  const railCollapsed = useStore((s) => s.railCollapsed);
+  const toggleRail = useStore((s) => s.toggleRail);
   const showCountry = selectedCountry != null && selected == null;
 
   return (
-    <aside className={`rail right ${mobileRail === 'right' ? 'open' : ''}`} aria-label="Object inspector">
+    <aside className={`rail right ${mobileRail === 'right' ? 'open' : ''} ${railCollapsed.right ? 'collapsed' : ''}`} aria-label="Object inspector">
+      <button
+        className="rail-toggle"
+        aria-label={railCollapsed.right ? 'Expand inspector' : 'Collapse inspector'}
+        onClick={() => toggleRail('right')}
+      >
+        {railCollapsed.right ? '«' : '»'}
+      </button>
+      {railCollapsed.right ? null : (<>
       <button className="sheet-close" aria-label="Close inspector" onClick={() => setMobileRail(null)}>✕</button>
       <div className="rail-sec-title">
         INSPECTOR <span className="tag">{selected ? 'OBJECT' : showCountry ? 'COUNTRY' : 'IDLE'}</span>
@@ -236,6 +246,7 @@ export default function InspectorRail() {
         source and must not be used for targeting, surveillance of individuals, or
         life-safety decisions. Verify with official sources.
       </div>
+      </>)}
     </aside>
   );
 }

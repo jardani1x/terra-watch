@@ -851,3 +851,15 @@ test('low-zoom country click selects the small country, not its neighbor', async
     await expect(inspector.locator('.insp-title')).toHaveText('Singapore', { timeout: 2000 });
   }).toPass({ timeout: 30000 });
 });
+
+test('side rails collapse and reopen', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  // left rail visible, then collapse it
+  await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).toBeVisible();
+  await page.getByRole('button', { name: 'Collapse left panels' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).not.toBeVisible();
+  // reopen
+  await page.getByRole('button', { name: 'Expand left panels' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).toBeVisible();
+});

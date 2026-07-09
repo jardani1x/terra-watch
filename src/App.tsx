@@ -30,6 +30,8 @@ export default function App() {
   const refreshAll = useStore((s) => s.refreshAll);
   const mobileRail = useStore((s) => s.mobileRail);
   const setMobileRail = useStore((s) => s.setMobileRail);
+  const railCollapsed = useStore((s) => s.railCollapsed);
+  const toggleRail = useStore((s) => s.toggleRail);
   const view = useStore((s) => s.view);
   const selected = useStore((s) => s.selected);
   const selectedCountry = useStore((s) => s.selectedCountry);
@@ -68,7 +70,15 @@ export default function App() {
       <StatusBar onOpenPalette={() => setPaletteOpen(true)} />
 
       <div className="shell-body">
-        <aside className={`rail left ${mobileRail === 'left' ? 'open' : ''}`} aria-label="Layers and controls">
+        <aside className={`rail left ${mobileRail === 'left' ? 'open' : ''} ${railCollapsed.left ? 'collapsed' : ''}`} aria-label="Layers and controls">
+          <button
+            className="rail-toggle"
+            aria-label={railCollapsed.left ? 'Expand left panels' : 'Collapse left panels'}
+            onClick={() => toggleRail('left')}
+          >
+            {railCollapsed.left ? '»' : '«'}
+          </button>
+          {!railCollapsed.left && (<>
           <button className="sheet-close" aria-label="Close panels" onClick={() => setMobileRail(null)}>✕</button>
           <LayerManager />
           <SourceManager />
@@ -87,6 +97,7 @@ export default function App() {
             Data is fetched client-side from public providers. Nothing you do here
             is sent to a Terra Watch server. See <b>Privacy</b> in the docs.
           </div>
+          </>)}
         </aside>
 
         <main className="map-wrap" aria-label="Workspace">

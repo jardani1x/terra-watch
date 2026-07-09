@@ -299,3 +299,19 @@ a { color: var(--accent); }
     font-family: var(--mono); font-size: 15px; padding: 4px 10px; line-height: 1;
   }
 }
+
+/* ---- rail collapse (Phase 1) ---- */
+.rail-toggle {
+  position: sticky; top: 0; z-index: 2; align-self: flex-end;
+  background: var(--panel, #10161c); color: inherit;
+  border: 1px solid var(--line); border-radius: 4px;
+  font-size: 12px; line-height: 1; padding: 4px 6px; cursor: pointer;
+}
+.rail.collapsed { width: 28px; min-width: 28px; padding: 4px 2px; overflow: hidden; }
+.shell-body:has(.rail.left.collapsed) { grid-template-columns: 28px 1fr 320px; }
+.shell-body:has(.rail.right.collapsed) { grid-template-columns: 260px 1fr 28px; }
+.shell-body:has(.rail.left.collapsed):has(.rail.right.collapsed) { grid-template-columns: 28px 1fr 28px; }
+@media (max-width: 860px) {
+  .rail-toggle { display: none; }
+  .rail.collapsed { width: auto; min-width: 0; }
+}
