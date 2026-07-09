@@ -1,9 +1,11 @@
 # Privacy & Civilian Use
 
-## Civilian use only
+## Public-OSINT posture
 
 Terra Watch is a **civilian open-source-intelligence (OSINT) situational-awareness
 and research tool**. It aggregates **public, licensed, or user-supplied** data.
+Displaying public open data *about* conflicts and military topics — news, public
+event datasets, reference registries — is in scope (amended 2026-07-09).
 
 It is **not**:
 - an emergency-authority or life-safety data source,
@@ -14,12 +16,11 @@ It is **not**:
 Always verify with official authorities before acting on anything shown here.
 
 ### Explicitly excluded features (by design, permanently)
-Military/weapon targeting or tasking · private-person surveillance or
+Weapon targeting or tasking · fire control · private-person surveillance or
 pattern-of-life · doxxing · people-watchlists · CDR/telecom/SIGINT ingestion ·
 biometrics/facial recognition · predictive policing · any real classified data.
-The v1 site's decorative "FOR OFFICIAL USE ONLY" military banner has been
-**removed** — v2 uses civilian labels (Public OSINT, Demo data, Source
-confidence, Advisory).
+All data shown remains public and advisory (Public OSINT, Demo data, Source
+confidence, Advisory labels).
 
 ## Privacy model
 

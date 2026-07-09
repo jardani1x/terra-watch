@@ -72,12 +72,12 @@ These are the point of the product — preserve them in every change:
 - **Attribute every claim.** Each object shows source, timestamp, and freshness;
   the inspector renders a source card with license + link. Model-generated
   analysis (later slices) must be labeled **inference**, not fact, with citations.
-- **Civilian-only, permanently excluded:** military/weapon targeting or tasking,
-  private-person surveillance / pattern-of-life, doxxing, people-watchlists,
-  CDR/telecom/SIGINT ingestion, biometrics/face-rec, predictive policing, real
-  classified data. Use civilian labels (Public OSINT, Demo data, Advisory) — the
-  v1 militarized "FOR OFFICIAL USE ONLY" copy was removed. See
-  `docs/PRIVACY_AND_CIVILIAN_USE.md`.
+- **Public-OSINT posture, permanently excluded:** weapon targeting or tasking,
+  fire control, private-person surveillance / pattern-of-life, doxxing,
+  people-watchlists, CDR/telecom/SIGINT ingestion, biometrics/face-rec,
+  predictive policing, real classified data. Displaying public open data about
+  conflicts and military topics (news, event datasets, reference registries)
+  is in scope (amended 2026-07-09). See `docs/PRIVACY_AND_CIVILIAN_USE.md`.
 - **Keyless-first.** The app is fully useful with zero config. Any source needing
   a key is optional and user-supplied (stored locally only).
 - **No production placeholder panels.** Ship a feature functional or leave it out

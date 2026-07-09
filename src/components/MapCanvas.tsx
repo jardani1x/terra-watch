@@ -31,21 +31,20 @@ const STYLE: StyleSpecification = {
   ],
 };
 
-// GPS pin artwork: a SpaceX-Starship-style rocket (civilian craft by policy —
-// no military airframes), inline SVG so no sprite/image pipeline is needed.
-// Steel body, dark heat-shield flaps, engine glow at the base.
-const STARSHIP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="44" viewBox="0 0 26 44" aria-hidden="true">
-  <ellipse cx="13" cy="41" rx="5.5" ry="2.8" fill="#ff9a3d" opacity="0.9"/>
-  <ellipse cx="13" cy="40.6" rx="2.6" ry="1.5" fill="#ffe08a"/>
-  <path d="M8 34 L2.5 41 L2.5 43 L8 39 Z" fill="#343b42"/>
-  <path d="M18 34 L23.5 41 L23.5 43 L18 39 Z" fill="#2a3036"/>
-  <path d="M8 15 L3 20 L3 23.5 L8 20.5 Z" fill="#343b42"/>
-  <path d="M18 15 L23 20 L23 23.5 L18 20.5 Z" fill="#2a3036"/>
-  <path d="M8 13 C8 5.5 10.4 1.4 13 0 C15.6 1.4 18 5.5 18 13 L18 39 L8 39 Z" fill="#ccd4db"/>
-  <path d="M13 0 C10.4 1.4 8 5.5 8 13 L8 39 L13 39 Z" fill="#a7b1ba"/>
-  <path d="M13 0 C11.6 0.8 10.3 2.4 9.4 4.8 L13 4.8 Z" fill="#22262b"/>
-  <rect x="10.2" y="8" width="1.6" height="1.6" rx="0.8" fill="#3a444d"/>
-  <rect x="10.2" y="12" width="1.6" height="1.6" rx="0.8" fill="#3a444d"/>
+// GPS pin artwork: a top-down F-22 silhouette (original artwork, public-OSINT
+// posture — see PRIVACY_AND_CIVILIAN_USE). Inline SVG so no sprite/image
+// pipeline is needed. 24 px wide per spec (was 26).
+const F22_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30" aria-hidden="true">
+  <path d="M12 0 L13.6 5 L13.6 11 L12 13 L10.4 11 L10.4 5 Z" fill="#4a545e"/>
+  <path d="M12 3.2 L13 5.6 L12 7.6 L11 5.6 Z" fill="#1e2530"/>
+  <path d="M10.4 9 L1 16.5 L1 19 L10.4 16 Z" fill="#39424b"/>
+  <path d="M13.6 9 L23 16.5 L23 19 L13.6 16 Z" fill="#39424b"/>
+  <path d="M10.4 11 L10.4 24 L13.6 24 L13.6 11 L12 13 Z" fill="#4a545e"/>
+  <path d="M9.4 18 L5.5 25.5 L7 26.5 L10.4 21.5 Z" fill="#2f3841"/>
+  <path d="M14.6 18 L18.5 25.5 L17 26.5 L13.6 21.5 Z" fill="#2f3841"/>
+  <path d="M10.4 24 L8.5 29 L11 27.5 Z" fill="#39424b"/>
+  <path d="M13.6 24 L15.5 29 L13 27.5 Z" fill="#39424b"/>
+  <rect x="10.9" y="24.5" width="2.2" height="3" rx="1" fill="#8a5a2b"/>
 </svg>`;
 
 const ALERT_SIZE: Record<string, number> = { Extreme: 11, Severe: 9, Moderate: 7, Minor: 5 };
@@ -340,7 +339,7 @@ export default function MapCanvas() {
       const el = document.createElement('div');
       const inner = document.createElement('span');
       inner.className = 'gps-pin';
-      inner.innerHTML = STARSHIP_SVG;
+      inner.innerHTML = F22_SVG;
       el.appendChild(inner);
       el.title = 'Your device location (GPS · stays in this browser, never sent anywhere)';
       el.setAttribute('aria-label', 'Your device location');
