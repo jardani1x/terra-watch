@@ -46,6 +46,7 @@ export default function App() {
     refreshAll();
     void useStore.getState().loadSnapshots();
     void useStore.getState().loadCountryData();
+    void useStore.getState().loadConflictZones();
     void useStore.getState().loadFomcCalendar();
     const t = setInterval(refreshAll, 5 * 60 * 1000);
     return () => clearInterval(t);

@@ -10,6 +10,7 @@ import { prefersReducedMotion } from '../lib/a11y';
 import { nightPolygon } from '../lib/terminator';
 import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
 import { countryAtPoint } from '../lib/countries';
+import { countryAlertLevels, ALERT_COLORS } from '../lib/alertLevels';
 
 // Keyless CARTO raster basemaps (free, attribution required). Two looks ship:
 // 'vivid' (voyager, colorful — the default) and 'dark'; both live in the style
@@ -114,6 +115,8 @@ export default function MapCanvas() {
   const basemap = useStore((s) => s.basemap);
   const geo = useStore((s) => s.geo);
   const setGeoPos = useStore((s) => s.setGeoPos);
+  const showAlertLevels = useStore((s) => s.showAlertLevels);
+  const conflictZones = useStore((s) => s.conflictZones);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -195,6 +198,27 @@ export default function MapCanvas() {
     (map.getSource('events') as maplibregl.GeoJSONSource | undefined)?.setData(toFeatureCollection(windowed, layers, monitors));
   }, [events, layers, monitors, timeCursor]);
 
+  // derived country alert-level fill: recomputed whenever the live feed or
+  // the toggle changes; visibility off entirely when disabled or not loaded
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !map.getLayer('alert-fill')) return;
+    if (!showAlertLevels || !conflictZones) {
+      map.setLayoutProperty('alert-fill', 'visibility', 'none');
+      return;
+    }
+    map.setLayoutProperty('alert-fill', 'visibility', 'visible');
+    const levels = countryAlertLevels(events, conflictZones);
+    if (levels.size === 0) {
+      map.setPaintProperty('alert-fill', 'fill-color', 'rgba(0,0,0,0)');
+      return;
+    }
+    const expr: unknown[] = ['match', ['get', 'NAME']];
+    for (const [name, level] of levels) expr.push(name, ALERT_COLORS[level]);
+    expr.push('rgba(0,0,0,0)');
+    map.setPaintProperty('alert-fill', 'fill-color', expr as never);
+  }, [events, showAlertLevels, conflictZones, ready]);
+
   // countries: vendored boundaries become a selectable base layer, inserted
   // below the event markers so marker clicks always win
   useEffect(() => {
@@ -206,6 +230,12 @@ export default function MapCanvas() {
     });
     // invisible but hit-testable fill for click-to-select
     map.addLayer({ id: 'countries-fill', type: 'fill', source: 'countries', paint: { 'fill-opacity': 0 } }, 'events-layer');
+    // derived alert-level tint (Phase 1): painted per-country by NAME below
+    // the hover/selection layers; color expression set by the effect below
+    map.addLayer(
+      { id: 'alert-fill', type: 'fill', source: 'countries', paint: { 'fill-opacity': 0.25, 'fill-color': 'rgba(0,0,0,0)' } },
+      'countries-fill',
+    );
     // keyed by NAME, not ADM0_ISO: ISO codes are not unique in Natural Earth
     // (Kosovo shares SRB with Serbia; Somaliland/SOM, N. Cyprus/CYP, AUS ×3)
     const none = ['==', ['get', 'NAME'], '___none___'] as maplibregl.FilterSpecification;

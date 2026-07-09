@@ -863,3 +863,12 @@ test('side rails collapse and reopen', async ({ page }) => {
   await page.getByRole('button', { name: 'Expand left panels' }).click();
   await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).toBeVisible();
 });
+
+test('country alert-levels toggle with legend', async ({ page }) => {
+  await page.goto('/');
+  const checkbox = page.getByRole('checkbox', { name: /Country alert levels/i });
+  await expect(checkbox).toBeVisible();
+  await expect(checkbox).toBeChecked();
+  await expect(page.getByText('High alert', { exact: true })).toBeVisible();
+  await expect(page.getByText('Conflict zone', { exact: true })).toBeVisible();
+});

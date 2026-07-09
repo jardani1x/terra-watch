@@ -315,3 +315,7 @@ a { color: var(--accent); }
   .rail-toggle { display: none; }
   .rail.collapsed { width: auto; min-width: 0; }
 }
+
+/* ---- country alert-level legend (Phase 1) ---- */
+.alert-legend { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 4px 8px; font-size: 11px; }
+.alert-legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }

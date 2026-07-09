@@ -116,6 +116,10 @@ interface AppState {
   showTerminator: boolean;
   basemap: Basemap;
   geo: GeoSelf;
+  /** derived country alert-level fill (user toggle, persisted) */
+  showAlertLevels: boolean;
+  /** static conflict-zone country names; loaded once, never persisted */
+  conflictZones: string[] | null;
   /** vendored Natural Earth boundaries; loaded once, never persisted */
   countries: CountryFeature[] | null;
   /** vendored FOMC schedule; loaded once, never persisted */
@@ -153,6 +157,8 @@ interface AppState {
   setBasemap: (b: Basemap) => void;
   setGeoWatching: (on: boolean) => void;
   setGeoPos: (pos: GeoSelf['pos'], error: string | null) => void;
+  setShowAlertLevels: (on: boolean) => void;
+  loadConflictZones: () => Promise<void>;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -234,6 +240,8 @@ export const useStore = create<AppState>()(
       showTerminator: false,
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
+      showAlertLevels: true,
+      conflictZones: null,
       countries: null,
       fomcMeetings: null,
       capitals: null,
@@ -342,6 +350,18 @@ export const useStore = create<AppState>()(
 
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
+      setShowAlertLevels: (on) => set({ showAlertLevels: on }),
+      loadConflictZones: async () => {
+        if (get().conflictZones) return;
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}data/conflict_zones.json`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const j = (await res.json()) as { countries: string[] };
+          set({ conflictZones: j.countries });
+        } catch {
+          set({ conflictZones: [] }); // no fill rather than a stale/wrong fill
+        }
+      },
       toggleRail: (side) =>
         set((s) => ({ railCollapsed: { ...s.railCollapsed, [side]: !s.railCollapsed[side] } })),
       flyTo: (center, zoom) => set((s) => ({ mapCmd: { seq: (s.mapCmd?.seq ?? 0) + 1, center, zoom } })),
@@ -588,6 +608,7 @@ export const useStore = create<AppState>()(
         showTerminator: s.showTerminator,
         basemap: s.basemap,
         railCollapsed: s.railCollapsed,
+        showAlertLevels: s.showAlertLevels,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
         // (like monitors), not live-data caches, so they're persisted the same
@@ -607,6 +628,7 @@ export const useStore = create<AppState>()(
           showTerminator?: boolean;
           basemap?: Basemap;
           railCollapsed?: { left: boolean; right: boolean };
+          showAlertLevels?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
@@ -621,6 +643,7 @@ export const useStore = create<AppState>()(
           showTerminator: p.showTerminator ?? current.showTerminator,
           basemap: p.basemap ?? current.basemap,
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
+          showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,
