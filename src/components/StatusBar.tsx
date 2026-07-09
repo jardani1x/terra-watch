@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { utcClock } from '../lib/format';
+import { computeAlertIndex } from '../lib/signals';
 
 const MODE_LABEL: Record<string, { text: string; cls: string }> = {
   live: { text: 'LIVE · PUBLIC OSINT', cls: 'live' },
@@ -16,6 +17,7 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
   const setMobileRail = useStore((s) => s.setMobileRail);
   const view = useStore((s) => s.view);
   const setView = useStore((s) => s.setView);
+  const events = useStore((s) => s.events);
 
   useEffect(() => {
     const t = setInterval(() => setClock(utcClock()), 1000);
@@ -23,6 +25,7 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
   }, []);
 
   const mode = MODE_LABEL[overallMode] ?? MODE_LABEL.mock;
+  const alert = computeAlertIndex(events);
 
   return (
     <header className="statusbar">
@@ -37,6 +40,14 @@ export default function StatusBar({ onOpenPalette }: { onOpenPalette: () => void
 
       <span className={`mode-pill ${mode.cls}`} title="Data mode is derived from live provider health — never faked.">
         {mode.text}
+      </span>
+
+      <span
+        data-testid="alert-chip"
+        className={`alert-chip lvl-${alert.level}`}
+        title={`Derived from public feeds — not the official DEFCON.\n${alert.reasons.join('\n')}`}
+      >
+        DEFCON {alert.level} <small>DERIVED · UNOFFICIAL</small>
       </span>
 
       <div className="view-toggle" role="tablist" aria-label="Workspace view">

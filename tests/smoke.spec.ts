@@ -872,3 +872,10 @@ test('country alert-levels toggle with legend', async ({ page }) => {
   await expect(page.getByText('High alert', { exact: true })).toBeVisible();
   await expect(page.getByText('Conflict zone', { exact: true })).toBeVisible();
 });
+
+test('derived DEFCON-style chip shows in the status bar', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('alert-chip')).toBeVisible();
+  await expect(page.getByTestId('alert-chip')).toContainText(/DEFCON [1-5]/);
+  await expect(page.getByTestId('alert-chip')).toContainText('DERIVED');
+});

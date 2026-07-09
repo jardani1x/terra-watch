@@ -319,3 +319,11 @@ a { color: var(--accent); }
 /* ---- country alert-level legend (Phase 1) ---- */
 .alert-legend { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 4px 8px; font-size: 11px; }
 .alert-legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+/* ---- derived DEFCON-style chip (Phase 1) ---- */
+.alert-chip { font-weight: 600; font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); letter-spacing: 0.04em; white-space: nowrap; }
+.alert-chip small { opacity: 0.65; font-size: 9px; margin-left: 4px; }
+.alert-chip.lvl-5 { color: #45e0b0; } .alert-chip.lvl-4 { color: #ffe066; }
+.alert-chip.lvl-3 { color: #ffb454; } .alert-chip.lvl-2 { color: #ff7a3c; }
+.alert-chip.lvl-1 { color: #ff5a52; }
+@media (max-width: 860px) { .alert-chip small { display: none; } }
