@@ -95,3 +95,34 @@ export async function fetchMarkets(signal?: AbortSignal): Promise<MarketResult> 
   }
   return { quotes, mode: 'live', latencyMs, error: failures.length ? failures.join(' · ') : null };
 }
+
+export interface CoinRow {
+  id: string;
+  symbol: string;
+  price: number;
+  change24h: number | null;
+}
+
+const TOP_COINS_FEED = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=8&page=1&price_change_percentage=24h';
+
+/** Clearly-labelled MOCK sample for offline fallback (mode: 'mock'). */
+const COINS_MOCK: CoinRow[] = [
+  { id: 'bitcoin', symbol: 'BTC', price: 60000, change24h: 0 },
+  { id: 'ethereum', symbol: 'ETH', price: 3000, change24h: 0 },
+];
+
+interface CoinJson { id: string; symbol: string; current_price: number; price_change_percentage_24h: number | null }
+
+export async function fetchTopCoins(signal?: AbortSignal): Promise<{ coins: CoinRow[]; mode: DataMode; latencyMs: number; error: string | null }> {
+  const started = performance.now();
+  try {
+    const rows = await getJson<CoinJson[]>(TOP_COINS_FEED, signal);
+    const coins = rows.map((r) => ({ id: r.id, symbol: r.symbol.toUpperCase(), price: r.current_price, change24h: r.price_change_percentage_24h }));
+    const latencyMs = Math.round(performance.now() - started);
+    if (coins.length === 0) return { coins: COINS_MOCK, mode: 'mock', latencyMs, error: 'empty response' };
+    return { coins, mode: 'live', latencyMs, error: null };
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    return { coins: COINS_MOCK, mode: 'mock', latencyMs: Math.round(performance.now() - started), error: err instanceof Error ? err.message : 'fetch failed' };
+  }
+}

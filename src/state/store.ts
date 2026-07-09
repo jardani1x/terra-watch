@@ -5,7 +5,8 @@ import { fetchUsgs, USGS_META } from '../lib/providers/usgs';
 import { fetchEonet, EONET_META } from '../lib/providers/eonet';
 import { fetchNws, NWS_META } from '../lib/providers/nws';
 import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
-import { fetchMarkets, MARKETS_META, type MarketQuote } from '../lib/providers/markets';
+import { fetchMarkets, fetchTopCoins, MARKETS_META, type MarketQuote, type CoinRow } from '../lib/providers/markets';
+import { fetchGdeltNews, GDELT_META, REGION_QUERIES, type NewsArticle } from '../lib/providers/gdelt';
 import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
@@ -135,6 +136,11 @@ interface AppState {
   snapshotDelta: SnapshotDelta | null;
   /** non-geo market snapshot for the MARKETS panel; mode is real, never faked */
   market: { quotes: MarketQuote[]; mode: DataMode; error: string | null };
+  /** bottom-dock news/crypto snapshots; modes are real, never faked */
+  dockNews: { region: string; articles: NewsArticle[]; mode: DataMode; error: string | null };
+  dockCrypto: { coins: CoinRow[]; mode: DataMode; error: string | null };
+  /** bottom dock open/collapsed (persisted user setting) */
+  dockOpen: boolean;
   /** user-curated report workspace; citations frozen at pin time */
   dossier: Dossier;
   /** optional BYO-key AI analyst; local-rules fallback is always available */
@@ -190,6 +196,9 @@ interface AppState {
   clearAnalystKey: () => void;
   askAnalyst: (question: string) => Promise<void>;
   clearAnalystMessages: () => void;
+  setDockRegion: (region: string) => void;
+  refreshDock: () => Promise<void>;
+  toggleDock: () => void;
   setFirmsKey: (key: string | null) => void;
   checkFirmsHealth: () => Promise<void>;
 }
@@ -226,9 +235,10 @@ export const useStore = create<AppState>()(
       providers: {
         usgs: providerStub(USGS_META), eonet: providerStub(EONET_META), nws: providerStub(NWS_META),
         gdacs: providerStub(GDACS_META), markets: providerStub(MARKETS_META),
+        gdelt: providerStub(GDELT_META),
         'power-plants': providerStub(POWER_PLANTS_META), 'launch-sites': providerStub(LAUNCH_SITES_META),
       },
-      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true, 'power-plants': true, 'launch-sites': true },
+      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true, gdelt: true, 'power-plants': true, 'launch-sites': true },
       monitors: [],
       events: [],
       selected: null,
@@ -253,6 +263,9 @@ export const useStore = create<AppState>()(
       snapshots: [],
       snapshotDelta: null,
       market: { quotes: [], mode: 'loading', error: null },
+      dockNews: { region: 'World', articles: [], mode: 'loading', error: null },
+      dockCrypto: { coins: [], mode: 'loading', error: null },
+      dockOpen: true,
       dossier: { title: 'Terra Watch dossier', items: [] },
       analyst: { provider: null, apiKey: null, baseUrl: null, messages: [] },
       firmsKey: null,
@@ -351,6 +364,31 @@ export const useStore = create<AppState>()(
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
       setShowAlertLevels: (on) => set({ showAlertLevels: on }),
+      toggleDock: () => set((s) => ({ dockOpen: !s.dockOpen })),
+      setDockRegion: (region) => {
+        set((s) => ({ dockNews: { ...s.dockNews, region, mode: 'loading' } }));
+        void get().refreshDock();
+      },
+      refreshDock: async () => {
+        const region = get().dockNews.region;
+        const query = REGION_QUERIES[region] ?? REGION_QUERIES['World'];
+        const [news, coins] = await Promise.all([fetchGdeltNews(query), fetchTopCoins()]);
+        set((s) => ({
+          dockNews: { region: s.dockNews.region, articles: news.articles, mode: news.mode, error: news.error },
+          dockCrypto: { coins: coins.coins, mode: coins.mode, error: coins.error },
+          providers: {
+            ...s.providers,
+            gdelt: {
+              ...s.providers.gdelt,
+              status: news.mode,
+              lastSuccessAt: news.mode === 'live' ? Date.now() : s.providers.gdelt.lastSuccessAt,
+              latencyMs: news.latencyMs,
+              itemCount: news.articles.length,
+              error: news.error,
+            },
+          },
+        }));
+      },
       loadConflictZones: async () => {
         if (get().conflictZones) return;
         try {
@@ -609,6 +647,7 @@ export const useStore = create<AppState>()(
         basemap: s.basemap,
         railCollapsed: s.railCollapsed,
         showAlertLevels: s.showAlertLevels,
+        dockOpen: s.dockOpen,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
         // (like monitors), not live-data caches, so they're persisted the same
@@ -629,6 +668,7 @@ export const useStore = create<AppState>()(
           basemap?: Basemap;
           railCollapsed?: { left: boolean; right: boolean };
           showAlertLevels?: boolean;
+          dockOpen?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
           dossier?: Dossier;
@@ -644,6 +684,7 @@ export const useStore = create<AppState>()(
           basemap: p.basemap ?? current.basemap,
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
           showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,
+          dockOpen: p.dockOpen ?? current.dockOpen,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,
