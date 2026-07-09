@@ -1,1 +1,8 @@
 .claude/
+node_modules/
+dist/
+*.local
+.DS_Store
+playwright-report/
+test-results/
+.vite/
