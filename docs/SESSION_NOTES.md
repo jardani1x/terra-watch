@@ -519,3 +519,15 @@ npx playwright install chromium  # once
 npx vite preview --port 4173 &
 npx playwright test
 ```
+
+## 2026-07-09 — Phase 1 dashboard features (branch `feature/phase1-dashboard`)
+Merged v2 rebuild into `main` (v1 preserved under `legacy/`). Then shipped
+Phase 1 on this branch: F-22 GPS pin (24px, policy amended to public-OSINT
+posture in CLAUDE.md + PRIVACY_AND_CIVILIAN_USE), side-rail show/hide,
+derived country alert-level fill + legend, DEFCON-style DERIVED chip, and the
+bottom INTEL DOCK (GDELT world/regional news, click-to-load YouTube live TV,
+ECB FX, CoinGecko crypto). 48/48 Playwright tests green (4 new).
+Spec: docs/superpowers/specs/2026-07-09-phase1-dashboard-features-design.md
+Plan: docs/superpowers/plans/2026-07-09-phase1-dashboard.md
+Next: Phase 2 = triage the requested 37-layer catalog by data availability;
+Phase 3 = remaining dock panels (most need BYO-key AI or paid data).

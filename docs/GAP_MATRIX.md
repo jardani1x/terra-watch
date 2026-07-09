@@ -50,3 +50,8 @@ Legend for "vs" columns: does the capability have a public analogue in Gotham (G
 Military targeting, weapon tasking, private-person surveillance/pattern-of-life,
 doxxing, people-watchlists, CDR/telecom/SIGINT, biometrics/face-rec, predictive
 policing, "propaganda verdicts", real classified data. See `RESEARCH_MATRIX.md`.
+| Show/hide side rails | **Done** | P1 | — | ✓ | desktop chevron collapse for both rails, persisted, palette commands; mobile sheets untouched |
+| Country alert levels | **Done** | P1 | ✓ | ✓ | derived fill: GDACS weights via computeCountryRisk (monitoring/elevated/high) + static conflict_zones.json (UCDP-derived, source-labeled); DERIVED-tagged toggle + legend |
+| DEFCON-style alert chip | **Done** | P1 | ✓ | ✓ | composite index from GDACS/quake/signals, badged DERIVED · UNOFFICIAL with itemized reasons; never presented as official DEFCON |
+| Bottom intel dock | **Done** | P1 | ✓ | ✓ | world + regional news (GDELT, keyless CORS), click-to-load YouTube live TV (5 channels, youtube-nocookie), ECB FX, CoinGecko top coins; per-panel LIVE/DEMO badges |
+| Stock indices | **Deferred** | — | — | — | no keyless CORS live source; will ship BYO-key later — absent rather than faked |
