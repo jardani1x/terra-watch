@@ -333,7 +333,9 @@ a { color: var(--accent); }
 .dock-bar { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px; }
 .dock-bar-title { font-size: 11px; letter-spacing: 0.12em; opacity: 0.8; }
 .dock-strip { display: flex; gap: 10px; overflow-x: auto; padding: 6px 10px 10px; }
-.dock-panel { flex: 0 0 300px; max-height: 210px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+/* fixed height (not max): panels filling in as feeds resolve must not grow
+   the dock and resize the map underneath the user (or mid-e2e-click) */
+.dock-panel { flex: 0 0 300px; height: 210px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
 .dock-panel-head { display: flex; align-items: center; gap: 6px; position: sticky; top: 0; background: inherit; }
 .dock-panel-title { font-size: 11px; letter-spacing: 0.1em; font-weight: 600; }
 .demo-badge { font-size: 9px; color: #ffb454; border: 1px solid #ffb454; border-radius: 3px; padding: 1px 4px; }

@@ -19,6 +19,13 @@ function deleteDatabase(name: string): Promise<void> {
 /** Clears all local storage and reloads so every part of the UI re-derives
  *  from defaults in one consistent pass. */
 export async function clearAllLocalData(): Promise<void> {
+  // a slow in-flight feed (e.g. the dock news fetch) can resolve between the
+  // wipe and the reload and re-persist the store — block writes to the
+  // persistence key for the remainder of this document's life
+  const origSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = (k: string, v: string) => {
+    if (k !== PERSIST_STORAGE_KEY) origSetItem(k, v);
+  };
   localStorage.removeItem(PERSIST_STORAGE_KEY);
   await deleteDatabase(SNAPSHOTS_DB_NAME);
   window.location.reload();

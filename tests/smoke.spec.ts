@@ -302,7 +302,7 @@ test('market panel shows attributed quotes with a real mode label', async ({ pag
   await page.waitForTimeout(3500); // let feeds load
   await expect(page.locator('.health-chip', { hasText: 'USGS' })).not.toContainText('LOADING', { timeout: 20000 });
 
-  const panel = page.getByLabel('Markets');
+  const panel = page.getByLabel('Markets', { exact: true });
   await expect(panel.getByText('MARKETS')).toBeVisible();
   // mode tag is derived from the real fetch — LIVE or the honest SAMPLE label
   await expect(panel.locator('.tag')).toHaveText(/LIVE|SAMPLE/);
@@ -315,7 +315,7 @@ test('FOMC calendar shows the next upcoming meeting, attributed and honest', asy
   await page.goto('/');
   await page.waitForTimeout(3500); // let the vendored calendar load
 
-  const panel = page.getByLabel('Markets');
+  const panel = page.getByLabel('Markets', { exact: true });
   await expect(panel.getByText('FOMC CALENDAR')).toBeVisible();
   // 2026-07-05 "today" -> next meeting in the vendored 2026 schedule is Jul 28-29
   await expect(panel.getByText('Jul 28–29, 2026')).toBeVisible();
@@ -329,11 +329,11 @@ test('markets source toggle disables the panel honestly', async ({ page }) => {
   await expect(sourceCheckbox).toBeChecked();
   await sourceCheckbox.uncheck();
 
-  await expect(page.getByLabel('Markets').getByText('Source disabled')).toBeVisible();
+  await expect(page.getByLabel('Markets', { exact: true }).getByText('Source disabled')).toBeVisible();
   await expect(page.locator('.health-chip', { hasText: 'Markets' })).toContainText('OFF');
 
   await sourceCheckbox.check(); // leave state clean for other tests
-  await expect(page.getByLabel('Markets').getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel('Markets', { exact: true }).getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
 });
 
 test('dossier: pin from inspector, add note, export MD, unpin', async ({ page }) => {
@@ -402,7 +402,7 @@ test('timeline exports current events as CSV and JSON', async ({ page }) => {
 test('market panel exports quotes as CSV', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Markets').getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByLabel('Markets', { exact: true }).getByText('USD/EUR')).toBeVisible({ timeout: 15000 });
 
   const [csv] = await Promise.all([
     page.waitForEvent('download'),
@@ -760,15 +760,26 @@ test('GPS locate-me: opt-in pin appears at the device position and clears on tog
   // pin must now select Singapore itself, not Malaysia (the original bug:
   // 110m data omitted microstates entirely)
   test.setTimeout(90_000); // country layer + flyTo settle slowly on software GL
-  const canvas = page.locator('.maplibregl-canvas');
   const inspector = page.getByLabel('Object inspector');
+  // wait for the fix flyTo to actually settle — clicking mid-flight selects
+  // whatever country happens to slide under the point (seen: Malaysia)
+  await page.waitForFunction(() => {
+    const map = (window as unknown as { __terraMap?: import('maplibre-gl').Map }).__terraMap;
+    return !!map && map.getZoom() >= 8.5 && !map.isMoving();
+  }, undefined, { timeout: 30000 });
   await expect(async () => {
-    // clear of the pin (which sits at the exact fix) and of the simplified
-    // polygon's clipped SE corner: 30px north ≈ 9 km, mid-island
-    await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 - 30 } });
-    await expect(inspector.getByText('COUNTRY', { exact: true })).toBeVisible({ timeout: 2000 });
+    // project the fix through the live map (layout-independent — the bottom
+    // dock shrinks the canvas, so canvas-center math no longer equals the
+    // fix), then click 30px north: clear of the pin, still mid-island
+    const pos = await page.evaluate(() => {
+      const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+      const p = map.project([103.85, 1.29]);
+      const r = map.getCanvas().getBoundingClientRect();
+      return { x: r.left + p.x, y: r.top + p.y - 30 };
+    });
+    await page.mouse.click(pos.x, pos.y);
+    await expect(inspector.locator('.insp-title')).toHaveText('Singapore', { timeout: 2000 });
   }).toPass({ timeout: 45000 });
-  await expect(inspector.locator('.insp-title')).toHaveText('Singapore');
   await inspector.getByRole('button', { name: 'Clear selection' }).click();
 
   // off = pin gone, no stale fix kept

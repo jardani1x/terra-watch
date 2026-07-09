@@ -5,7 +5,7 @@ export default function DockPanel({ title, mode, source, children }: {
   title: string; mode?: DataMode; source?: string; children: ReactNode;
 }) {
   return (
-    <section className="dock-panel" aria-label={title}>
+    <section className="dock-panel" aria-label={`Dock: ${title}`}>
       <header className="dock-panel-head">
         <span className="dock-panel-title">{title}</span>
         {mode === 'mock' && <span className="demo-badge">DEMO</span>}
