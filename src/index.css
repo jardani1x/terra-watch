@@ -28,7 +28,7 @@ a { color: var(--accent); }
 /* ---- App shell grid: status bar / body / provider health ---- */
 .shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   height: 100vh;
   width: 100vw;
 }
@@ -327,3 +327,25 @@ a { color: var(--accent); }
 .alert-chip.lvl-3 { color: #ffb454; } .alert-chip.lvl-2 { color: #ff7a3c; }
 .alert-chip.lvl-1 { color: #ff5a52; }
 @media (max-width: 860px) { .alert-chip small { display: none; } }
+
+/* ---- bottom intel dock (Phase 1) ---- */
+.bottom-dock { border-top: 1px solid var(--line); background: var(--panel, #0c1116); }
+.dock-bar { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px; }
+.dock-bar-title { font-size: 11px; letter-spacing: 0.12em; opacity: 0.8; }
+.dock-strip { display: flex; gap: 10px; overflow-x: auto; padding: 6px 10px 10px; }
+.dock-panel { flex: 0 0 300px; max-height: 210px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.dock-panel-head { display: flex; align-items: center; gap: 6px; position: sticky; top: 0; background: inherit; }
+.dock-panel-title { font-size: 11px; letter-spacing: 0.1em; font-weight: 600; }
+.demo-badge { font-size: 9px; color: #ffb454; border: 1px solid #ffb454; border-radius: 3px; padding: 1px 4px; }
+.live-badge { font-size: 9px; color: #45e0b0; border: 1px solid #45e0b0; border-radius: 3px; padding: 1px 4px; }
+.dock-source { font-size: 9px; opacity: 0.55; margin-left: auto; }
+.dock-row { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 12px; text-decoration: none; color: inherit; padding: 2px 0; border-bottom: 1px dotted var(--line); }
+.dock-row-title { flex: 1 1 100%; }
+.dock-row small { opacity: 0.6; font-size: 10px; }
+.dock-row small.up { color: #45e0b0; } .dock-row small.down { color: #ff5a52; }
+.dock-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 4px; }
+.dock-tab { font-size: 10px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 3px; background: none; color: inherit; cursor: pointer; }
+.dock-tab.active { border-color: #45e0b0; color: #45e0b0; }
+.dock-video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 4px; }
+.dock-placeholder, .dock-note, .dock-err { font-size: 11px; opacity: 0.65; padding: 6px 0; }
+@media (max-width: 860px) { .dock-panel { flex-basis: 260px; } }

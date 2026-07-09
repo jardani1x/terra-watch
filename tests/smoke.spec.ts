@@ -879,3 +879,20 @@ test('derived DEFCON-style chip shows in the status bar', async ({ page }) => {
   await expect(page.getByTestId('alert-chip')).toContainText(/DEFCON [1-5]/);
   await expect(page.getByTestId('alert-chip')).toContainText('DERIVED');
 });
+
+test('bottom dock renders news, markets, crypto and youtube panels', async ({ page }) => {
+  await page.goto('/');
+  const dock = page.getByTestId('bottom-dock');
+  await expect(dock).toBeVisible();
+  await expect(dock.getByText('WORLD NEWS')).toBeVisible();
+  await expect(dock.getByText('REGIONAL NEWS')).toBeVisible();
+  await expect(dock.getByText('LIVE TV')).toBeVisible();
+  await expect(dock.getByText('CRYPTO')).toBeVisible();
+  // news rows or DEMO badge — either satisfies the "honest data" contract
+  await expect(dock.locator('.dock-row, .demo-badge').first()).toBeVisible({ timeout: 15000 });
+  // youtube loads only on explicit click
+  await expect(dock.getByText(/click a channel to load/i)).toBeVisible();
+  // collapse
+  await dock.getByRole('button', { name: 'Collapse dock' }).click();
+  await expect(dock.getByText('WORLD NEWS')).not.toBeVisible();
+});

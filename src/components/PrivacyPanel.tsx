@@ -16,6 +16,8 @@ export default function PrivacyPanel() {
         All Terra Watch data lives only in this browser (localStorage +
         IndexedDB). This clears settings, monitors, the link graph, the
         dossier, any saved analyst API key, and snapshots, then reloads.
+        LIVE TV embeds load YouTube (Google) content only after you click a
+        channel — nothing loads silently.
       </p>
       {confirming ? (
         <div className="graph-actions">

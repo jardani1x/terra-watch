@@ -20,6 +20,7 @@ import TimelineDrawer from './components/TimelineDrawer';
 import CommandPalette from './components/CommandPalette';
 import GraphWorkspace from './components/GraphWorkspace';
 import MapModeControls from './components/MapModeControls';
+import BottomDock from './components/BottomDock';
 
 // MapLibre (~800 kB) is the heaviest dependency; load it as its own async
 // chunk so the app shell paints without waiting for it.
@@ -121,6 +122,8 @@ export default function App() {
 
         <InspectorRail />
       </div>
+
+      <BottomDock />
 
       <ProviderHealthBar />
 
