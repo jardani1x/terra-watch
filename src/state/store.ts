@@ -120,6 +120,10 @@ interface AppState {
   /** collapsed layer-manager groups (persisted user setting) */
   groupCollapsed: Record<string, boolean>;
   toggleGroup: (group: string) => void;
+  /** derived map overlays (user toggles, persisted): signal hotspots,
+   *  chokepoint reference points, trade-route reference lines, instability fill */
+  derivedLayers: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean };
+  toggleDerived: (key: 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability') => void;
   /** derived country alert-level fill (user toggle, persisted) */
   showAlertLevels: boolean;
   /** static conflict-zone country names; loaded once, never persisted */
@@ -254,6 +258,7 @@ export const useStore = create<AppState>()(
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
       groupCollapsed: {},
+      derivedLayers: { hotspots: true, chokepoints: true, tradeRoutes: false, instability: false },
       showAlertLevels: true,
       conflictZones: null,
       countries: null,
@@ -367,6 +372,8 @@ export const useStore = create<AppState>()(
 
       setCountryTimeline: (on) => set({ countryTimeline: on }),
       setMobileRail: (r) => set({ mobileRail: r }),
+      toggleDerived: (key) =>
+        set((s) => ({ derivedLayers: { ...s.derivedLayers, [key]: !s.derivedLayers[key] } })),
       toggleGroup: (group) =>
         set((s) => ({ groupCollapsed: { ...s.groupCollapsed, [group]: !s.groupCollapsed[group] } })),
       setShowAlertLevels: (on) => set({ showAlertLevels: on }),
@@ -654,6 +661,7 @@ export const useStore = create<AppState>()(
         railCollapsed: s.railCollapsed,
         showAlertLevels: s.showAlertLevels,
         groupCollapsed: s.groupCollapsed,
+        derivedLayers: s.derivedLayers,
         dockOpen: s.dockOpen,
         layerEnabled: Object.fromEntries(s.layers.map((l) => [l.id, l.enabled])),
         // graph nodes and dossier items are deliberate user-curated workspaces
@@ -676,6 +684,7 @@ export const useStore = create<AppState>()(
           railCollapsed?: { left: boolean; right: boolean };
           showAlertLevels?: boolean;
           groupCollapsed?: Record<string, boolean>;
+          derivedLayers?: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean };
           dockOpen?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;
@@ -693,6 +702,7 @@ export const useStore = create<AppState>()(
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
           showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,
           groupCollapsed: p.groupCollapsed ?? current.groupCollapsed,
+          derivedLayers: p.derivedLayers ?? current.derivedLayers,
           dockOpen: p.dockOpen ?? current.dockOpen,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,

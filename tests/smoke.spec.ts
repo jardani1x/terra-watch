@@ -923,3 +923,40 @@ test('layer groups collapse and remember state', async ({ page }) => {
   await page.getByRole('button', { name: /natural events/i }).click();
   await expect(page.getByRole('checkbox', { name: 'Earthquakes (M2.5+, 24h)' })).toBeVisible();
 });
+
+test('derived overlay toggles drive map layer visibility and persist', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  const visibility = (layer: string) =>
+    page.evaluate((id) => {
+      const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+      return map.getLayoutProperty(id, 'visibility');
+    }, layer);
+  await page.waitForFunction(() => {
+    const map = (window as unknown as { __terraMap?: import('maplibre-gl').Map }).__terraMap;
+    return !!map && map.loaded() && !!map.getLayer('chokepoints');
+  }, undefined, { timeout: 45000 });
+
+  // defaults: hotspots + chokepoints on, trade routes + instability off
+  await expect(page.getByRole('checkbox', { name: /Intel hotspots/i })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /^⚓ Chokepoints$/ })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /Trade routes/i })).not.toBeChecked();
+  expect(await visibility('chokepoints')).toBe('visible');
+  expect(await visibility('trade-routes')).toBe('none');
+
+  // toggling flips the map layers
+  await page.getByRole('checkbox', { name: /Trade routes/i }).check();
+  await expect.poll(() => visibility('trade-routes')).toBe('visible');
+  await page.getByRole('checkbox', { name: /^⚓ Chokepoints$/ }).uncheck();
+  await expect.poll(() => visibility('chokepoints')).toBe('none');
+
+  // instability paints the country fill layer
+  await page.getByRole('checkbox', { name: /Instability index/i }).check();
+  await expect.poll(() => visibility('instability-fill'), { timeout: 15000 }).toBe('visible');
+
+  // persisted across reload
+  await page.reload();
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Trade routes/i })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: /^⚓ Chokepoints$/ })).not.toBeChecked();
+});

@@ -8,6 +8,15 @@ const DOT: Record<DataMode, string> = {
   live: 'live', cache: 'cache', mock: 'mock', offline: 'offline', loading: 'loading',
 };
 
+type DerivedKey = 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability';
+
+const DERIVED_ROWS: { key: DerivedKey; name: string; meta: string }[] = [
+  { key: 'hotspots', name: '🎯 Intel hotspots', meta: 'Multi-source event clusters · derived' },
+  { key: 'chokepoints', name: '⚓ Chokepoints', meta: 'Static maritime reference · public geography' },
+  { key: 'tradeRoutes', name: '⚓ Trade routes', meta: 'Great-circle reference lines · derived' },
+  { key: 'instability', name: '🌎 Instability index', meta: 'GDACS country risk composite · derived' },
+];
+
 export default function LayerManager() {
   const layers = useStore((s) => s.layers);
   const providers = useStore((s) => s.providers);
@@ -18,6 +27,8 @@ export default function LayerManager() {
   const setShowAlertLevels = useStore((s) => s.setShowAlertLevels);
   const groupCollapsed = useStore((s) => s.groupCollapsed);
   const toggleGroup = useStore((s) => s.toggleGroup);
+  const derivedLayers = useStore((s) => s.derivedLayers);
+  const toggleDerived = useStore((s) => s.toggleDerived);
 
   const counts = eventCounts(events, layers);
   const groups = layers.reduce<Record<string, typeof layers>>((acc, l) => {
@@ -94,6 +105,20 @@ export default function LayerManager() {
           ))}
         </div>
       )}
+      {DERIVED_ROWS.map((row) => (
+        <label className="layer-row" key={row.key}>
+          <input
+            type="checkbox"
+            checked={derivedLayers[row.key]}
+            onChange={() => toggleDerived(row.key)}
+            aria-label={row.name}
+          />
+          <span className="lr-body">
+            <div className="lr-name">{row.name}</div>
+            <div className="lr-meta">{row.meta}</div>
+          </span>
+        </label>
+      ))}
     </section>
   );
 }

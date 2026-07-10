@@ -11,6 +11,10 @@ import { nightPolygon } from '../lib/terminator';
 import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
 import { countryAtPoint } from '../lib/countries';
 import { countryAlertLevels, ALERT_COLORS } from '../lib/alertLevels';
+import { computeSignals } from '../lib/signals';
+import { computeCountryRisk } from '../lib/risk';
+import { CHOKEPOINTS } from '../lib/chokepoints';
+import { tradeRouteLines } from '../lib/routes';
 
 // Keyless CARTO raster basemaps (free, attribution required). Two looks ship:
 // 'vivid' (voyager, colorful — the default) and 'dark'; both live in the style
@@ -117,6 +121,7 @@ export default function MapCanvas() {
   const setGeoPos = useStore((s) => s.setGeoPos);
   const showAlertLevels = useStore((s) => s.showAlertLevels);
   const conflictZones = useStore((s) => s.conflictZones);
+  const derivedLayers = useStore((s) => s.derivedLayers);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -139,6 +144,39 @@ export default function MapCanvas() {
       // failure later in this handler then degrades to a bare basemap
       // instead of a permanently black canvas
       map.setLayoutProperty(st.basemap === 'dark' ? 'carto' : 'carto-vivid', 'visibility', 'visible');
+      // derived reference overlays (Phase 2A): static chokepoints + routes,
+      // recomputed signal hotspots; visibility driven by store toggles
+      map.addSource('chokepoints', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: CHOKEPOINTS.map((c) => ({
+            type: 'Feature', properties: { name: c.name, region: c.region },
+            geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
+          })),
+        } as FeatureCollection,
+      });
+      map.addSource('trade-routes', { type: 'geojson', data: tradeRouteLines() });
+      map.addSource('derived-hotspots', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as FeatureCollection });
+      map.addLayer({
+        id: 'trade-routes', type: 'line', source: 'trade-routes',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': '#6db3ff', 'line-width': 1.4, 'line-opacity': 0.6, 'line-dasharray': [2, 2] },
+      });
+      map.addLayer({
+        id: 'chokepoints', type: 'circle', source: 'chokepoints',
+        layout: { visibility: 'none' },
+        paint: { 'circle-radius': 5.5, 'circle-color': '#0c1116', 'circle-stroke-color': '#6db3ff', 'circle-stroke-width': 2 },
+      });
+      map.addLayer({
+        id: 'derived-hotspots', type: 'circle', source: 'derived-hotspots',
+        layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': ['+', 8, ['*', 2, ['get', 'types']]],
+          'circle-color': '#ff7a3c', 'circle-opacity': 0.18,
+          'circle-stroke-color': '#ff7a3c', 'circle-stroke-width': 1.2,
+        },
+      });
       map.addSource('events', { type: 'geojson', data: toFeatureCollection([], [], []) });
       map.addLayer({
         id: 'events-layer',
@@ -219,6 +257,50 @@ export default function MapCanvas() {
     map.setPaintProperty('alert-fill', 'fill-color', expr as never);
   }, [events, showAlertLevels, conflictZones, ready]);
 
+  // derived overlays (Phase 2A): visibility + recomputed data
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !ready || !map.getLayer('chokepoints')) return;
+    map.setLayoutProperty('chokepoints', 'visibility', derivedLayers.chokepoints ? 'visible' : 'none');
+    map.setLayoutProperty('trade-routes', 'visibility', derivedLayers.tradeRoutes ? 'visible' : 'none');
+    map.setLayoutProperty('derived-hotspots', 'visibility', derivedLayers.hotspots ? 'visible' : 'none');
+    if (derivedLayers.hotspots) {
+      const fc: FeatureCollection = {
+        type: 'FeatureCollection',
+        features: computeSignals(events).map((sig) => ({
+          type: 'Feature',
+          properties: { types: sig.types.length, count: sig.count },
+          geometry: { type: 'Point', coordinates: [sig.lon, sig.lat] },
+        })),
+      };
+      (map.getSource('derived-hotspots') as maplibregl.GeoJSONSource | undefined)?.setData(fc);
+    }
+  }, [derivedLayers, events, ready]);
+
+  // derived instability fill: normalized country-risk ramp (yellow → red)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !map.getLayer('instability-fill')) return;
+    if (!derivedLayers.instability) {
+      map.setLayoutProperty('instability-fill', 'visibility', 'none');
+      return;
+    }
+    map.setLayoutProperty('instability-fill', 'visibility', 'visible');
+    const risks = computeCountryRisk(events);
+    const max = risks[0]?.score ?? 0;
+    if (max === 0) {
+      map.setPaintProperty('instability-fill', 'fill-color', 'rgba(0,0,0,0)');
+      return;
+    }
+    const expr: unknown[] = ['match', ['get', 'NAME']];
+    for (const r of risks) {
+      const t = r.score / max;
+      expr.push(r.country, t >= 0.66 ? '#ff5a52' : t >= 0.33 ? '#ffb454' : '#ffe066');
+    }
+    expr.push('rgba(0,0,0,0)');
+    map.setPaintProperty('instability-fill', 'fill-color', expr as never);
+  }, [derivedLayers.instability, events, ready]);
+
   // countries: vendored boundaries become a selectable base layer, inserted
   // below the event markers so marker clicks always win
   useEffect(() => {
@@ -234,6 +316,11 @@ export default function MapCanvas() {
     // the hover/selection layers; color expression set by the effect below
     map.addLayer(
       { id: 'alert-fill', type: 'fill', source: 'countries', paint: { 'fill-opacity': 0.25, 'fill-color': 'rgba(0,0,0,0)' } },
+      'countries-fill',
+    );
+    // derived instability index fill (Phase 2A): continuous ramp, default off
+    map.addLayer(
+      { id: 'instability-fill', type: 'fill', source: 'countries', layout: { visibility: 'none' }, paint: { 'fill-opacity': 0.3, 'fill-color': 'rgba(0,0,0,0)' } },
       'countries-fill',
     );
     // keyed by NAME, not ADM0_ISO: ISO codes are not unique in Natural Earth
