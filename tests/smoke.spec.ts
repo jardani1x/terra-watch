@@ -1074,3 +1074,15 @@ test.describe('globe orient', () => {
     await page.getByRole('button', { name: '2D map view' }).click();
   });
 });
+
+test('aviation layer is opt-in and refuses a world-sized query honestly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  const checkbox = page.getByRole('checkbox', { name: 'Aircraft (live ADS-B)', exact: true });
+  // default OFF — no airplanes.live query without opt-in
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  // at the default world view the bbox guard reports an honest offline error
+  const chip = page.locator('.health-chip', { hasText: 'Aircraft (airplanes.live)' });
+  await expect(chip).toContainText(/offline/i, { timeout: 15000 });
+});

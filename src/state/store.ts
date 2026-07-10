@@ -13,6 +13,7 @@ import {
   ECON_CENTERS_META, AI_DATACENTERS_META, NUCLEAR_FUEL_META,
 } from '../lib/providers/registries';
 import { fetchMilitaryBases, OSM_MILITARY_META } from '../lib/providers/overpass';
+import { fetchAircraft, AVIATION_META } from '../lib/providers/aviation';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
 import { isEventVisible, type LayerDef } from '../lib/layers';
@@ -182,6 +183,8 @@ interface AppState {
   loadSanctions: () => Promise<void>;
   /** in-view OSM Overpass military-bases refresh (only when its layer is on) */
   refreshMilitary: () => Promise<void>;
+  /** in-view airplanes.live aircraft refresh (only when its layer is on) */
+  refreshAviation: () => Promise<void>;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -239,6 +242,8 @@ const DEFAULT_LAYERS: LayerDef[] = [
   { id: 'nuclear-fuel', name: 'Nuclear fuel-cycle sites', group: '🏗 Infrastructure', enabled: true, providerId: 'nuclear-fuel', eventTypes: ['nuclear-fuel-site'], color: '#ff9e3d' },
   // default OFF: in-view Overpass query only runs when the user opts in
   { id: 'military-bases', name: 'Military bases (OSM)', group: '🏛 Military', enabled: false, providerId: 'osm-military', eventTypes: ['military-base'], color: '#c08bff' },
+  // default OFF: in-view airplanes.live query only runs when the user opts in
+  { id: 'aviation', name: 'Aircraft (live ADS-B)', group: '✈ Transport', enabled: false, providerId: 'airplanes-live', eventTypes: ['aircraft'], color: '#7ec8ff' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
@@ -264,11 +269,12 @@ export const useStore = create<AppState>()(
         'power-plants': providerStub(POWER_PLANTS_META), 'launch-sites': providerStub(LAUNCH_SITES_META),
         'econ-centers': providerStub(ECON_CENTERS_META), 'ai-datacenters': providerStub(AI_DATACENTERS_META),
         'nuclear-fuel': providerStub(NUCLEAR_FUEL_META), 'osm-military': providerStub(OSM_MILITARY_META),
+        'airplanes-live': providerStub(AVIATION_META),
       },
       sources: {
         usgs: true, eonet: true, nws: true, gdacs: true, markets: true, gdelt: true,
         'power-plants': true, 'launch-sites': true, 'econ-centers': true, 'ai-datacenters': true, 'nuclear-fuel': true,
-        'osm-military': true,
+        'osm-military': true, 'airplanes-live': true,
       },
       monitors: [],
       events: [],
@@ -468,6 +474,40 @@ export const useStore = create<AppState>()(
               ...st.providers[OSM_MILITARY_META.id],
               status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
               lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[OSM_MILITARY_META.id].lastSuccessAt,
+            },
+          },
+        }));
+      },
+      refreshAviation: async () => {
+        const { viewBounds, layers, sources, providers } = get();
+        if (!(sources[AVIATION_META.id] ?? true)) return;
+        if (!layers.some((l) => l.providerId === AVIATION_META.id && l.enabled)) return;
+        if (!viewBounds) return;
+        const [w, s, e, n] = viewBounds;
+        if (e - w > 12 || n - s > 8) {
+          // the API is point+radius capped at 250 nm — a wider view would
+          // silently show only the center chunk; an honest error beats that
+          set((st) => ({
+            providers: {
+              ...st.providers,
+              [AVIATION_META.id]: { ...st.providers[AVIATION_META.id], status: 'offline', itemCount: 0, error: 'view too wide — zoom in to load aircraft' },
+            },
+          }));
+          return;
+        }
+        if (providers[AVIATION_META.id].status === 'loading') return; // one in-flight query at a time
+        set((st) => ({
+          providers: { ...st.providers, [AVIATION_META.id]: { ...st.providers[AVIATION_META.id], status: 'loading' } },
+        }));
+        const r = await fetchAircraft([s, w, n, e]);
+        set((st) => ({
+          events: [...st.events.filter((ev) => ev.sourceId !== AVIATION_META.id), ...r.events],
+          providers: {
+            ...st.providers,
+            [AVIATION_META.id]: {
+              ...st.providers[AVIATION_META.id],
+              status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
+              lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[AVIATION_META.id].lastSuccessAt,
             },
           },
         }));

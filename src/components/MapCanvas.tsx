@@ -252,6 +252,26 @@ export default function MapCanvas() {
     return () => clearTimeout(t);
   }, [militaryOn, viewBounds]);
 
+  // in-view airplanes.live aircraft refresh: same debounce pattern as the
+  // military layer — no query without opt-in
+  const aviationOn = layers.some((l) => l.id === 'aviation' && l.enabled);
+  useEffect(() => {
+    if (!aviationOn) return;
+    const t = setTimeout(() => { void useStore.getState().refreshAviation(); }, 1200);
+    return () => clearTimeout(t);
+  }, [aviationOn, viewBounds]);
+
+  // aircraft move ~7 km/min — re-poll every 20 s while enabled (well under
+  // the API's ~1 req/s guidance); paused while the tab is hidden
+  useEffect(() => {
+    if (!aviationOn) return;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void useStore.getState().refreshAviation();
+    }, 20_000);
+    return () => clearInterval(t);
+  }, [aviationOn]);
+
   // push data whenever events, layer visibility/colors, monitors, or playback cursor change
   useEffect(() => {
     const map = mapRef.current;

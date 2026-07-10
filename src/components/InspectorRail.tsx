@@ -12,6 +12,14 @@ const LABELS: Record<string, string> = {
   megawatts: 'Capacity (MW)',
   code: 'GCAT code',
   country: 'Country',
+  callsign: 'Callsign',
+  registration: 'Registration',
+  aircraftType: 'Type',
+  desc: 'Aircraft',
+  altitudeFt: 'Altitude (ft)',
+  speedKt: 'Ground speed (kt)',
+  track: 'Track (°)',
+  squawk: 'Squawk',
 };
 
 export default function InspectorRail() {
