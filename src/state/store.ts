@@ -16,6 +16,7 @@ import { fetchMilitaryBases, OSM_MILITARY_META } from '../lib/providers/overpass
 import { fetchAircraft, AVIATION_META } from '../lib/providers/aviation';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
+import { fetchTles, CELESTRAK_META, type TleSet } from '../lib/providers/celestrak';
 import { isEventVisible, type LayerDef } from '../lib/layers';
 import type { ViewBounds } from '../lib/viewport';
 import { findRelated } from '../lib/graph';
@@ -128,8 +129,8 @@ interface AppState {
   toggleGroup: (group: string) => void;
   /** derived map overlays (user toggles, persisted): signal hotspots,
    *  chokepoint reference points, trade-route reference lines, instability fill */
-  derivedLayers: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean; sanctions: boolean };
-  toggleDerived: (key: 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions') => void;
+  derivedLayers: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean; sanctions: boolean; satellites: boolean };
+  toggleDerived: (key: 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions' | 'satellites') => void;
   /** derived country alert-level fill (user toggle, persisted) */
   showAlertLevels: boolean;
   /** static conflict-zone country names; loaded once, never persisted */
@@ -185,6 +186,9 @@ interface AppState {
   refreshMilitary: () => Promise<void>;
   /** in-view airplanes.live aircraft refresh (only when its layer is on) */
   refreshAviation: () => Promise<void>;
+  /** parsed CelesTrak TLE sets; loaded once per session on toggle-on, never persisted */
+  satTles: TleSet[] | null;
+  loadSatellites: () => Promise<void>;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -288,8 +292,9 @@ export const useStore = create<AppState>()(
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
       groupCollapsed: {},
-      derivedLayers: { hotspots: true, chokepoints: true, tradeRoutes: false, instability: false, sanctions: false },
+      derivedLayers: { hotspots: true, chokepoints: true, tradeRoutes: false, instability: false, sanctions: false, satellites: false },
       showAlertLevels: true,
+      satTles: null,
       conflictZones: null,
       sanctions: null,
       countries: null,
@@ -508,6 +513,35 @@ export const useStore = create<AppState>()(
               ...st.providers[AVIATION_META.id],
               status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
               lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[AVIATION_META.id].lastSuccessAt,
+            },
+          },
+        }));
+      },
+      loadSatellites: async () => {
+        const { satTles, providers } = get();
+        if (satTles) return; // TLEs stay useful for days — one fetch per session
+        if (providers[CELESTRAK_META.id]?.status === 'loading') return;
+        set((st) => ({
+          providers: {
+            ...st.providers,
+            [CELESTRAK_META.id]: {
+              id: CELESTRAK_META.id, name: CELESTRAK_META.name, status: 'loading',
+              lastSuccessAt: null, latencyMs: null, itemCount: null, error: null,
+              license: CELESTRAK_META.license, homepage: CELESTRAK_META.homepage,
+            },
+          },
+        }));
+        const r = await fetchTles();
+        set((st) => ({
+          satTles: r.sats.length > 0 ? r.sats : null,
+          providers: {
+            ...st.providers,
+            [CELESTRAK_META.id]: {
+              ...st.providers[CELESTRAK_META.id],
+              status: r.mode, latencyMs: r.latencyMs,
+              itemCount: r.sats.length > 0 ? r.sats.length : null,
+              error: r.error,
+              lastSuccessAt: r.mode === 'live' ? Date.now() : null,
             },
           },
         }));
@@ -794,7 +828,7 @@ export const useStore = create<AppState>()(
           railCollapsed?: { left: boolean; right: boolean };
           showAlertLevels?: boolean;
           groupCollapsed?: Record<string, boolean>;
-          derivedLayers?: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean };
+          derivedLayers?: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean; sanctions: boolean; satellites: boolean };
           dockOpen?: boolean;
           layerEnabled?: Record<string, boolean>;
           graph?: GraphState;

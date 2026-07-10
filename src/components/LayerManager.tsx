@@ -8,7 +8,7 @@ const DOT: Record<DataMode, string> = {
   live: 'live', cache: 'cache', mock: 'mock', offline: 'offline', loading: 'loading',
 };
 
-type DerivedKey = 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions';
+type DerivedKey = 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions' | 'satellites';
 
 const DERIVED_ROWS: { key: DerivedKey; name: string; meta: string }[] = [
   { key: 'hotspots', name: '🎯 Intel hotspots', meta: 'Multi-source event clusters · derived' },
@@ -16,6 +16,7 @@ const DERIVED_ROWS: { key: DerivedKey; name: string; meta: string }[] = [
   { key: 'tradeRoutes', name: '⚓ Trade routes', meta: 'Great-circle reference lines · derived' },
   { key: 'instability', name: '🌎 Instability index', meta: 'GDACS country risk composite · derived' },
   { key: 'sanctions', name: '🚫 Sanctions', meta: 'OFAC/EU/UN country programs · static summary' },
+  { key: 'satellites', name: '🛰 Satellites (active catalog)', meta: 'CelesTrak GP elements · SGP4-propagated · ~16k objects' },
 ];
 
 export default function LayerManager() {
