@@ -1,0 +1,7 @@
+{
+  "source": "UCDP Georeferenced Event Dataset — countries with active state-based armed conflict (public summary)",
+  "homepage": "https://ucdp.uu.se/",
+  "retrieved": "2026-07-09",
+  "note": "Static curated list; refreshed manually. Advisory only.",
+  "countries": ["Ukraine", "Russia", "Israel", "Lebanon", "Syria", "Yemen", "Sudan", "Myanmar", "Dem. Rep. Congo", "Somalia", "Mali", "Burkina Faso", "Ethiopia", "Haiti"]
+}
