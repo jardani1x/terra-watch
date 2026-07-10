@@ -8,13 +8,14 @@ const DOT: Record<DataMode, string> = {
   live: 'live', cache: 'cache', mock: 'mock', offline: 'offline', loading: 'loading',
 };
 
-type DerivedKey = 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability';
+type DerivedKey = 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions';
 
 const DERIVED_ROWS: { key: DerivedKey; name: string; meta: string }[] = [
   { key: 'hotspots', name: '🎯 Intel hotspots', meta: 'Multi-source event clusters · derived' },
   { key: 'chokepoints', name: '⚓ Chokepoints', meta: 'Static maritime reference · public geography' },
   { key: 'tradeRoutes', name: '⚓ Trade routes', meta: 'Great-circle reference lines · derived' },
   { key: 'instability', name: '🌎 Instability index', meta: 'GDACS country risk composite · derived' },
+  { key: 'sanctions', name: '🚫 Sanctions', meta: 'OFAC/EU/UN country programs · static summary' },
 ];
 
 export default function LayerManager() {

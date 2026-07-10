@@ -1,0 +1,16 @@
+{
+  "source": "Terra Watch v1 ontology (own-origin registry) — major stock-exchange cities, public knowledge",
+  "homepage": "https://github.com/jardani1x/terra-watch",
+  "retrieved": "2026-07-10",
+  "note": "Reference registry of major global market centers; city-level coordinates.",
+  "centers": [
+    { "name": "New York", "exchange": "NYSE / Nasdaq", "tz": "America/New_York", "lon": -74.006, "lat": 40.713 },
+    { "name": "London", "exchange": "LSE", "tz": "Europe/London", "lon": -0.1276, "lat": 51.507 },
+    { "name": "Frankfurt", "exchange": "Deutsche Börse", "tz": "Europe/Berlin", "lon": 8.6821, "lat": 50.11 },
+    { "name": "Tokyo", "exchange": "JPX", "tz": "Asia/Tokyo", "lon": 139.692, "lat": 35.69 },
+    { "name": "Hong Kong", "exchange": "HKEX", "tz": "Asia/Hong_Kong", "lon": 114.169, "lat": 22.319 },
+    { "name": "Shanghai", "exchange": "SSE", "tz": "Asia/Shanghai", "lon": 121.474, "lat": 31.23 },
+    { "name": "Singapore", "exchange": "SGX", "tz": "Asia/Singapore", "lon": 103.852, "lat": 1.29 },
+    { "name": "Sydney", "exchange": "ASX", "tz": "Australia/Sydney", "lon": 151.209, "lat": -33.868 }
+  ]
+}

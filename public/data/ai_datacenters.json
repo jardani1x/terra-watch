@@ -1,0 +1,17 @@
+{
+  "source": "Hand-curated from public operator announcements and trade-press reporting (2024–2026)",
+  "retrieved": "2026-07-10",
+  "note": "Major publicly-reported hyperscale AI data-center campuses. City-level approximate coordinates; no capacity figures (public claims vary). Reference registry, not live status.",
+  "sites": [
+    { "name": "Stargate (Abilene)", "operator": "OpenAI / Oracle / Crusoe", "country": "United States of America", "lon": -99.73, "lat": 32.45 },
+    { "name": "Colossus (Memphis)", "operator": "xAI", "country": "United States of America", "lon": -90.05, "lat": 35.15 },
+    { "name": "Hyperion (Richland Parish)", "operator": "Meta", "country": "United States of America", "lon": -91.68, "lat": 32.4 },
+    { "name": "Prometheus (New Albany)", "operator": "Meta", "country": "United States of America", "lon": -82.81, "lat": 40.08 },
+    { "name": "Project Rainier (New Carlisle)", "operator": "Amazon / Anthropic", "country": "United States of America", "lon": -86.51, "lat": 41.7 },
+    { "name": "Fairwater (Mount Pleasant)", "operator": "Microsoft", "country": "United States of America", "lon": -87.9, "lat": 42.71 },
+    { "name": "Council Bluffs campus", "operator": "Google", "country": "United States of America", "lon": -95.86, "lat": 41.26 },
+    { "name": "Saint-Ghislain campus", "operator": "Google", "country": "Belgium", "lon": 3.86, "lat": 50.47 },
+    { "name": "Middenmeer campus", "operator": "Microsoft", "country": "Netherlands", "lon": 4.99, "lat": 52.8 },
+    { "name": "Abu Dhabi AI campus", "operator": "G42 / Microsoft", "country": "United Arab Emirates", "lon": 54.37, "lat": 24.45 }
+  ]
+}

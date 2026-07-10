@@ -122,6 +122,7 @@ export default function MapCanvas() {
   const showAlertLevels = useStore((s) => s.showAlertLevels);
   const conflictZones = useStore((s) => s.conflictZones);
   const derivedLayers = useStore((s) => s.derivedLayers);
+  const sanctions = useStore((s) => s.sanctions);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -301,6 +302,27 @@ export default function MapCanvas() {
     map.setPaintProperty('instability-fill', 'fill-color', expr as never);
   }, [derivedLayers.instability, events, ready]);
 
+  // static sanctions fill: two-tier country tint from the vendored OFAC/EU/UN
+  // summary (comprehensive vs sectoral programs)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !map.getLayer('sanctions-fill')) return;
+    if (!derivedLayers.sanctions || !sanctions) {
+      map.setLayoutProperty('sanctions-fill', 'visibility', 'none');
+      return;
+    }
+    map.setLayoutProperty('sanctions-fill', 'visibility', 'visible');
+    if (sanctions.comprehensive.length + sanctions.sectoral.length === 0) {
+      map.setPaintProperty('sanctions-fill', 'fill-color', 'rgba(0,0,0,0)');
+      return;
+    }
+    const expr: unknown[] = ['match', ['get', 'NAME']];
+    for (const name of sanctions.comprehensive) expr.push(name, '#c85bff');
+    for (const name of sanctions.sectoral) expr.push(name, '#7a5bd6');
+    expr.push('rgba(0,0,0,0)');
+    map.setPaintProperty('sanctions-fill', 'fill-color', expr as never);
+  }, [derivedLayers.sanctions, sanctions, ready]);
+
   // countries: vendored boundaries become a selectable base layer, inserted
   // below the event markers so marker clicks always win
   useEffect(() => {
@@ -321,6 +343,11 @@ export default function MapCanvas() {
     // derived instability index fill (Phase 2A): continuous ramp, default off
     map.addLayer(
       { id: 'instability-fill', type: 'fill', source: 'countries', layout: { visibility: 'none' }, paint: { 'fill-opacity': 0.3, 'fill-color': 'rgba(0,0,0,0)' } },
+      'countries-fill',
+    );
+    // static sanctions-program tint (Phase 2A Slice 3): two-tier, default off
+    map.addLayer(
+      { id: 'sanctions-fill', type: 'fill', source: 'countries', layout: { visibility: 'none' }, paint: { 'fill-opacity': 0.3, 'fill-color': 'rgba(0,0,0,0)' } },
       'countries-fill',
     );
     // keyed by NAME, not ADM0_ISO: ISO codes are not unique in Natural Earth

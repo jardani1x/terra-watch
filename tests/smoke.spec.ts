@@ -814,6 +814,10 @@ test('low-zoom country click selects the small country, not its neighbor', async
   test.setTimeout(300_000);
   await page.goto('/');
   await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  // the SGX economic-center marker sits exactly on Singapore and marker clicks
+  // win over country selection by design — turn that layer off so this test
+  // exercises the country hit-test, not the marker
+  await page.getByRole('checkbox', { name: 'Economic centers (exchanges)', exact: true }).uncheck();
   await page.waitForFunction(() => {
     const map = (window as unknown as { __terraMap?: import('maplibre-gl').Map }).__terraMap;
     return !!map && map.loaded() && !!map.getSource('countries');
@@ -959,4 +963,35 @@ test('derived overlay toggles drive map layer visibility and persist', async ({ 
   await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Trade routes/i })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: /^⚓ Chokepoints$/ })).not.toBeChecked();
+});
+
+test('curated static registries load with counts and sanctions tint toggles', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+
+  // three new reference layers exist, on by default, and their vendored JSON
+  // actually loaded (non-zero event counts — a broken fetch shows 0)
+  for (const [label, min] of [
+    ['Economic centers (exchanges)', 8],
+    ['AI data centers', 10],
+    ['Nuclear fuel-cycle sites', 14],
+  ] as const) {
+    const row = page.locator('.layer-row', { has: page.getByRole('checkbox', { name: label, exact: true }) });
+    await expect(row.getByRole('checkbox')).toBeChecked();
+    await expect(row.locator('.lr-count')).toHaveText(String(min), { timeout: 15000 });
+  }
+
+  // sanctions tint: off by default, toggling paints the country fill layer
+  const sanctions = page.getByRole('checkbox', { name: /Sanctions/i });
+  await expect(sanctions).not.toBeChecked();
+  await sanctions.check();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const map = (window as unknown as { __terraMap: import('maplibre-gl').Map }).__terraMap;
+        return map.getLayer('sanctions-fill') ? map.getLayoutProperty('sanctions-fill', 'visibility') : 'missing';
+      }),
+      { timeout: 15000 },
+    )
+    .toBe('visible');
 });

@@ -48,6 +48,7 @@ export default function App() {
     void useStore.getState().loadSnapshots();
     void useStore.getState().loadCountryData();
     void useStore.getState().loadConflictZones();
+    void useStore.getState().loadSanctions();
     void useStore.getState().loadFomcCalendar();
     void useStore.getState().refreshDock();
     const t = setInterval(() => {

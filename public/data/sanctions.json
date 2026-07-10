@@ -1,0 +1,8 @@
+{
+  "source": "US Treasury OFAC sanctions programs; EU restrictive measures; UN Security Council resolutions — public lists",
+  "homepage": "https://ofac.treasury.gov/sanctions-programs-and-country-information",
+  "retrieved": "2026-07-10",
+  "note": "Country-level summary for map shading only. 'comprehensive' = broad country-wide embargo programs; 'sectoral' = extensive targeted/sectoral programs (not a full embargo). Region-specific programs (e.g. Crimea) not shown at country level. Names match Natural Earth NAME.",
+  "comprehensive": ["Cuba", "Iran", "North Korea", "Syria"],
+  "sectoral": ["Russia", "Belarus", "Venezuela", "Myanmar"]
+}

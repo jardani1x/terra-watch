@@ -1,0 +1,21 @@
+{
+  "source": "Public reporting: IAEA safeguards statements, NTI facility profiles, World Nuclear Association",
+  "retrieved": "2026-07-10",
+  "note": "Publicly-documented uranium-enrichment and reprocessing (fuel-cycle) facilities. Site-level approximate coordinates from public sources. Reference registry only.",
+  "sites": [
+    { "name": "Natanz Fuel Enrichment Plant", "country": "Iran", "kind": "enrichment", "lon": 51.73, "lat": 33.72 },
+    { "name": "Fordow Fuel Enrichment Plant", "country": "Iran", "kind": "enrichment", "lon": 50.99, "lat": 34.885 },
+    { "name": "Urenco Gronau", "country": "Germany", "kind": "enrichment", "lon": 7.03, "lat": 52.21 },
+    { "name": "Urenco Almelo", "country": "Netherlands", "kind": "enrichment", "lon": 6.65, "lat": 52.33 },
+    { "name": "Urenco Capenhurst", "country": "United Kingdom", "kind": "enrichment", "lon": -2.95, "lat": 53.26 },
+    { "name": "Urenco USA (Eunice)", "country": "United States of America", "kind": "enrichment", "lon": -103.07, "lat": 32.43 },
+    { "name": "Orano Tricastin (Georges Besse II)", "country": "France", "kind": "enrichment", "lon": 4.72, "lat": 44.33 },
+    { "name": "Orano La Hague", "country": "France", "kind": "reprocessing", "lon": -1.88, "lat": 49.68 },
+    { "name": "Rokkasho complex", "country": "Japan", "kind": "enrichment + reprocessing", "lon": 141.33, "lat": 40.97 },
+    { "name": "Ural Electrochemical Combine (Novouralsk)", "country": "Russia", "kind": "enrichment", "lon": 60.08, "lat": 57.25 },
+    { "name": "Angarsk Electrolysis Chemical Combine", "country": "Russia", "kind": "enrichment", "lon": 103.91, "lat": 52.48 },
+    { "name": "Khan Research Laboratories (Kahuta)", "country": "Pakistan", "kind": "enrichment", "lon": 73.38, "lat": 33.59 },
+    { "name": "Yongbyon complex", "country": "North Korea", "kind": "fuel-cycle complex", "lon": 125.755, "lat": 39.797 },
+    { "name": "Lanzhou enrichment plant", "country": "China", "kind": "enrichment", "lon": 103.5, "lat": 36.1 }
+  ]
+}

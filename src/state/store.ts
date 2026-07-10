@@ -8,6 +8,10 @@ import { fetchGdacs, GDACS_META } from '../lib/providers/gdacs';
 import { fetchMarkets, fetchTopCoins, MARKETS_META, type MarketQuote, type CoinRow } from '../lib/providers/markets';
 import { fetchGdeltNews, GDELT_META, REGION_QUERIES, type NewsArticle } from '../lib/providers/gdelt';
 import { fetchPowerPlants, fetchLaunchSites, POWER_PLANTS_META, LAUNCH_SITES_META } from '../lib/providers/infrastructure';
+import {
+  fetchEconCenters, fetchAiDatacenters, fetchNuclearFuelSites,
+  ECON_CENTERS_META, AI_DATACENTERS_META, NUCLEAR_FUEL_META,
+} from '../lib/providers/registries';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
 import { isEventVisible, type LayerDef } from '../lib/layers';
@@ -122,12 +126,14 @@ interface AppState {
   toggleGroup: (group: string) => void;
   /** derived map overlays (user toggles, persisted): signal hotspots,
    *  chokepoint reference points, trade-route reference lines, instability fill */
-  derivedLayers: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean };
-  toggleDerived: (key: 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability') => void;
+  derivedLayers: { hotspots: boolean; chokepoints: boolean; tradeRoutes: boolean; instability: boolean; sanctions: boolean };
+  toggleDerived: (key: 'hotspots' | 'chokepoints' | 'tradeRoutes' | 'instability' | 'sanctions') => void;
   /** derived country alert-level fill (user toggle, persisted) */
   showAlertLevels: boolean;
   /** static conflict-zone country names; loaded once, never persisted */
   conflictZones: string[] | null;
+  /** static sanctions-program country lists; loaded once, never persisted */
+  sanctions: { comprehensive: string[]; sectoral: string[] } | null;
   /** vendored Natural Earth boundaries; loaded once, never persisted */
   countries: CountryFeature[] | null;
   /** vendored FOMC schedule; loaded once, never persisted */
@@ -172,6 +178,7 @@ interface AppState {
   setGeoPos: (pos: GeoSelf['pos'], error: string | null) => void;
   setShowAlertLevels: (on: boolean) => void;
   loadConflictZones: () => Promise<void>;
+  loadSanctions: () => Promise<void>;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -224,6 +231,9 @@ const DEFAULT_LAYERS: LayerDef[] = [
   { id: 'disaster-alerts', name: 'Disaster alerts (GDACS)', group: '⚠ Advisories', enabled: true, providerId: 'gdacs', eventTypes: ['disaster-alert'], color: '#f06e9c' },
   { id: 'nuclear-plants', name: 'Nuclear power plants', group: '🏗 Infrastructure', enabled: true, providerId: 'power-plants', eventTypes: ['nuclear-plant'], color: '#ffb703' },
   { id: 'launch-sites', name: 'Space launch sites', group: '🏗 Infrastructure', enabled: true, providerId: 'launch-sites', eventTypes: ['launch-site'], color: '#00d4ff' },
+  { id: 'econ-centers', name: 'Economic centers (exchanges)', group: '🏗 Infrastructure', enabled: true, providerId: 'econ-centers', eventTypes: ['econ-center'], color: '#ffd166' },
+  { id: 'ai-datacenters', name: 'AI data centers', group: '🏗 Infrastructure', enabled: true, providerId: 'ai-datacenters', eventTypes: ['ai-datacenter'], color: '#9d7bff' },
+  { id: 'nuclear-fuel', name: 'Nuclear fuel-cycle sites', group: '🏗 Infrastructure', enabled: true, providerId: 'nuclear-fuel', eventTypes: ['nuclear-fuel-site'], color: '#ff9e3d' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
@@ -233,6 +243,9 @@ const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetch
   gdacs: fetchGdacs,
   'power-plants': fetchPowerPlants,
   'launch-sites': fetchLaunchSites,
+  'econ-centers': fetchEconCenters,
+  'ai-datacenters': fetchAiDatacenters,
+  'nuclear-fuel': fetchNuclearFuelSites,
 };
 
 export const useStore = create<AppState>()(
@@ -244,8 +257,13 @@ export const useStore = create<AppState>()(
         gdacs: providerStub(GDACS_META), markets: providerStub(MARKETS_META),
         gdelt: providerStub(GDELT_META),
         'power-plants': providerStub(POWER_PLANTS_META), 'launch-sites': providerStub(LAUNCH_SITES_META),
+        'econ-centers': providerStub(ECON_CENTERS_META), 'ai-datacenters': providerStub(AI_DATACENTERS_META),
+        'nuclear-fuel': providerStub(NUCLEAR_FUEL_META),
       },
-      sources: { usgs: true, eonet: true, nws: true, gdacs: true, markets: true, gdelt: true, 'power-plants': true, 'launch-sites': true },
+      sources: {
+        usgs: true, eonet: true, nws: true, gdacs: true, markets: true, gdelt: true,
+        'power-plants': true, 'launch-sites': true, 'econ-centers': true, 'ai-datacenters': true, 'nuclear-fuel': true,
+      },
       monitors: [],
       events: [],
       selected: null,
@@ -258,9 +276,10 @@ export const useStore = create<AppState>()(
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
       groupCollapsed: {},
-      derivedLayers: { hotspots: true, chokepoints: true, tradeRoutes: false, instability: false },
+      derivedLayers: { hotspots: true, chokepoints: true, tradeRoutes: false, instability: false, sanctions: false },
       showAlertLevels: true,
       conflictZones: null,
+      sanctions: null,
       countries: null,
       fomcMeetings: null,
       capitals: null,
@@ -411,6 +430,17 @@ export const useStore = create<AppState>()(
           set({ conflictZones: j.countries });
         } catch {
           set({ conflictZones: [] }); // no fill rather than a stale/wrong fill
+        }
+      },
+      loadSanctions: async () => {
+        if (get().sanctions) return;
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}data/sanctions.json`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const j = (await res.json()) as { comprehensive: string[]; sectoral: string[] };
+          set({ sanctions: { comprehensive: j.comprehensive, sectoral: j.sectoral } });
+        } catch {
+          set({ sanctions: { comprehensive: [], sectoral: [] } }); // no fill rather than a wrong fill
         }
       },
       toggleRail: (side) =>
@@ -702,7 +732,8 @@ export const useStore = create<AppState>()(
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
           showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,
           groupCollapsed: p.groupCollapsed ?? current.groupCollapsed,
-          derivedLayers: p.derivedLayers ?? current.derivedLayers,
+          // spread: persisted state from an older version may lack newer keys
+          derivedLayers: { ...current.derivedLayers, ...p.derivedLayers },
           dockOpen: p.dockOpen ?? current.dockOpen,
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
