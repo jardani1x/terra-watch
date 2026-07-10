@@ -20,6 +20,9 @@ const LABELS: Record<string, string> = {
   speedKt: 'Ground speed (kt)',
   track: 'Track (°)',
   squawk: 'Squawk',
+  noradId: 'NORAD ID',
+  altitudeKm: 'Altitude (km)',
+  periodMin: 'Orbital period (min)',
 };
 
 export default function InspectorRail() {

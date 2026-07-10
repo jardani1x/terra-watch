@@ -135,6 +135,13 @@ export default function MapCanvas() {
   const derivedLayers = useStore((s) => s.derivedLayers);
   const sanctions = useStore((s) => s.sanctions);
   const viewBounds = useStore((s) => s.viewBounds);
+  const satOn = useStore((s) => s.derivedLayers.satellites);
+  const satTles = useStore((s) => s.satTles);
+
+  // satellite identity (from the worker's ready message) + last positions —
+  // refs, not state: they change every tick and must not re-render React
+  const satMetaRef = useRef<{ names: string[]; ids: string[]; periods: number[] }>({ names: [], ids: [], periods: [] });
+  const satPosRef = useRef<Float64Array | null>(null);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -203,6 +210,14 @@ export default function MapCanvas() {
           'circle-stroke-color': ['case', ['has', 'monitorColor'], ['get', 'monitorColor'], 'rgba(255,255,255,0.5)'],
         },
       });
+      // satellite dots: fed by the SGP4 worker, never store events. Added
+      // below events-layer so event markers keep visual + click priority.
+      map.addSource('satellites', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as FeatureCollection });
+      map.addLayer({
+        id: 'satellites-layer', type: 'circle', source: 'satellites',
+        layout: { visibility: 'none' },
+        paint: { 'circle-radius': 1.6, 'circle-color': '#9fe8ff', 'circle-opacity': 0.85 },
+      }, 'events-layer');
       // day/night terminator: pure client-side astronomy, no data source, so it
       // sits under the country layer/events (added before them, below "events-layer")
       map.addSource('terminator', { type: 'geojson', data: nightPolygon() });
@@ -229,6 +244,35 @@ export default function MapCanvas() {
       });
       map.on('mouseenter', 'events-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'events-layer', () => { map.getCanvas().style.cursor = ''; });
+
+      map.on('click', 'satellites-layer', (ev) => {
+        // event markers win over a satellite dot at the same point
+        if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer'] }).length > 0) return;
+        const idx = ev.features?.[0]?.properties?.idx as number | undefined;
+        if (idx == null) return;
+        const meta = satMetaRef.current;
+        const pos = satPosRef.current;
+        const alt = pos ? pos[idx * 3 + 2] : NaN;
+        useStore.getState().select({
+          id: `celestrak:${meta.ids[idx]}`,
+          type: 'satellite',
+          category: 'Satellite (SGP4-propagated)',
+          lon: ev.lngLat.lng,
+          lat: ev.lngLat.lat,
+          title: meta.names[idx] ?? `NORAD ${meta.ids[idx]}`,
+          time: Date.now(),
+          reference: true,
+          sourceId: 'celestrak',
+          props: {
+            noradId: meta.ids[idx],
+            altitudeKm: Number.isNaN(alt) ? undefined : Math.round(alt),
+            periodMin: meta.periods[idx],
+            note: 'Position propagated from TLE epoch (SGP4) — a computed prediction, not an observation.',
+          },
+        });
+      });
+      map.on('mouseenter', 'satellites-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'satellites-layer', () => { map.getCanvas().style.cursor = ''; });
 
       // keep the store's viewport bounds current so view-scoped search (palette)
       // always reflects what the user is actually looking at
@@ -271,6 +315,50 @@ export default function MapCanvas() {
     }, 20_000);
     return () => clearInterval(t);
   }, [aviationOn]);
+
+  // satellites: fetch TLEs once the derived toggle turns on
+  useEffect(() => {
+    if (satOn) void useStore.getState().loadSatellites();
+  }, [satOn]);
+
+  // satellites: worker lifecycle — spawn on (toggle && TLEs), propagate every
+  // 2 s (paused while hidden), terminate on toggle-off/unmount
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!alive(map) || !ready) return;
+    if (!satOn || !satTles) {
+      if (map.getLayer('satellites-layer')) map.setLayoutProperty('satellites-layer', 'visibility', 'none');
+      return;
+    }
+    map.setLayoutProperty('satellites-layer', 'visibility', 'visible');
+    const worker = new Worker(new URL('../workers/sgp4.worker.ts', import.meta.url), { type: 'module' });
+    let timer: number | undefined;
+    worker.onmessage = (ev: MessageEvent<{ type: 'ready'; names: string[]; ids: string[]; periods: number[] } | { type: 'positions'; buf: ArrayBuffer }>) => {
+      const msg = ev.data;
+      if (msg.type === 'ready') {
+        satMetaRef.current = { names: msg.names, ids: msg.ids, periods: msg.periods };
+        worker.postMessage({ type: 'tick', now: Date.now() });
+        timer = window.setInterval(() => {
+          if (document.hidden) return; // no propagation for a tab nobody sees
+          worker.postMessage({ type: 'tick', now: Date.now() });
+        }, 2000);
+        return;
+      }
+      const pos = new Float64Array(msg.buf);
+      satPosRef.current = pos;
+      const m = mapRef.current;
+      if (!alive(m)) return;
+      const features: Feature[] = [];
+      for (let i = 0; i < pos.length / 3; i++) {
+        const lonV = pos[i * 3], latV = pos[i * 3 + 1];
+        if (Number.isNaN(lonV) || Number.isNaN(latV)) continue;
+        features.push({ type: 'Feature', properties: { idx: i }, geometry: { type: 'Point', coordinates: [lonV, latV] } });
+      }
+      (m.getSource('satellites') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features });
+    };
+    worker.postMessage({ type: 'init', sats: satTles });
+    return () => { if (timer) clearInterval(timer); worker.terminate(); };
+  }, [satOn, satTles, ready]);
 
   // push data whenever events, layer visibility/colors, monitors, or playback cursor change
   useEffect(() => {
@@ -422,8 +510,8 @@ export default function MapCanvas() {
     const slopDeg = () => (8 * 360) / (512 * Math.pow(2, map.getZoom()));
 
     map.on('click', 'countries-fill', (ev) => {
-      // event markers take priority over the country underneath them
-      if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer'] }).length > 0) return;
+      // event markers and satellite dots take priority over the country underneath them
+      if (map.queryRenderedFeatures(ev.point, { layers: ['events-layer', 'satellites-layer'] }).length > 0) return;
       const st = useStore.getState();
       // resolve by full-resolution geometry, not the rendered feature: tile
       // simplification at low zoom can swallow tiny countries, making the

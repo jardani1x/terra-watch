@@ -1086,3 +1086,32 @@ test('aviation layer is opt-in and refuses a world-sized query honestly', async 
   const chip = page.locator('.health-chip', { hasText: 'Aircraft (airplanes.live)' });
   await expect(chip).toContainText(/offline/i, { timeout: 15000 });
 });
+
+test('satellites overlay: opt-in toggle → CelesTrak chip, dots actually render', async ({ page }) => {
+  test.setTimeout(240_000); // 2.7 MB TLE fetch + ~16k satrec init on slow hardware
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  const toggle = page.getByRole('checkbox', { name: '🛰 Satellites (active catalog)' });
+  // default OFF, and no CelesTrak health row before opt-in (FIRMS precedent)
+  await expect(toggle).not.toBeChecked();
+  await expect(page.locator('.health-chip', { hasText: 'Satellites (CelesTrak)' })).toHaveCount(0);
+  await toggle.check();
+  const chip = page.locator('.health-chip', { hasText: 'Satellites (CelesTrak)' });
+  await expect(chip).toContainText(/live|offline/i, { timeout: 90_000 });
+  const chipText = (await chip.textContent()) ?? '';
+  if (/live/i.test(chipText)) {
+    // fetch succeeded → the worker round-trip must actually paint dots
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const m = (window as unknown as { __terraMap: { querySourceFeatures(id: string): unknown[] } }).__terraMap;
+            return m.querySourceFeatures('satellites').length;
+          }),
+        { timeout: 90_000 },
+      )
+      .toBeGreaterThan(0);
+  }
+  // honest either way: offline chip with no dots is a pass (no mock, no fake)
+  await toggle.uncheck(); // leave persisted state clean
+});
