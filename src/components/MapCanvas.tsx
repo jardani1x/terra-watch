@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useStore, type Monitor } from '../state/store';
 import type { GeoEvent } from '../lib/providers/types';
 import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
+import { homePosition } from '../lib/orient';
 import { matchMonitor } from '../lib/monitors';
 import { prefersReducedMotion } from '../lib/a11y';
 import { nightPolygon } from '../lib/terminator';
@@ -96,6 +97,16 @@ function toFeatureCollection(events: GeoEvent[], layers: LayerDef[], monitors: M
  *  a dead map degrades to a blank canvas instead of a dead app. */
 function alive(m: maplibregl.Map | null): m is maplibregl.Map {
   return !!m && !!(m as unknown as { style: unknown }).style;
+}
+
+/** Entering 3D orients the globe to the user: GPS fix if the locate watch
+ *  has one, else the browser-timezone longitude. One-shot per switch — the
+ *  user keeps full manual control afterwards. Zoom is left untouched. */
+function orientGlobe(map: maplibregl.Map) {
+  const home = homePosition(useStore.getState().geo.pos);
+  const cam = { center: [home.lon, home.lat] as [number, number] };
+  if (prefersReducedMotion()) map.jumpTo(cam);
+  else map.easeTo({ ...cam, duration: 1200, essential: true });
 }
 
 export default function MapCanvas() {
@@ -206,7 +217,10 @@ export default function MapCanvas() {
       // apply the persisted projection once the style is ready (mercator is
       // already the default, so only call out when the user chose globe);
       // camera, sources, and layers are unaffected by projection switches
-      if (st.projection === '3d') map.setProjection({ type: 'globe' });
+      if (st.projection === '3d') {
+        map.setProjection({ type: 'globe' });
+        orientGlobe(map);
+      }
 
       map.on('click', 'events-layer', (ev) => {
         const id = ev.features?.[0]?.properties?.id as string | undefined;
@@ -515,6 +529,7 @@ export default function MapCanvas() {
     const map = mapRef.current;
     if (!alive(map) || !readyRef.current) return;
     map.setProjection({ type: projection === '3d' ? 'globe' : 'mercator' });
+    if (projection === '3d') orientGlobe(map);
   }, [projection]);
 
   // terminator: toggle visibility from the store

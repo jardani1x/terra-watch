@@ -1049,3 +1049,28 @@ test('military bases layer is opt-in and refuses a world-sized query honestly', 
   const chip = page.locator('.health-chip', { hasText: 'Military bases (OSM Overpass)' });
   await expect(chip).toContainText(/offline/i, { timeout: 15000 });
 });
+
+test.describe('globe orient', () => {
+  // fixed timezone so the expected longitude is deterministic:
+  // Asia/Singapore = UTC+8 → 8 × 15 = 120°E
+  test.use({ timezoneId: 'Asia/Singapore' });
+
+  test('entering 3D orients the globe to the timezone longitude', async ({ page }) => {
+    test.setTimeout(90_000); // globe projection switch is slow on software GL
+    await page.goto('/');
+    await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: '3D globe view' }).click();
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const m = (window as unknown as { __terraMap: { getCenter(): { lng: number } } }).__terraMap;
+            return Math.abs(m.getCenter().lng - 120);
+          }),
+        { timeout: 30_000 },
+      )
+      .toBeLessThan(1);
+    // leave state clean for later tests (projection persists)
+    await page.getByRole('button', { name: '2D map view' }).click();
+  });
+});
