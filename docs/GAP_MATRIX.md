@@ -55,3 +55,8 @@ policing, "propaganda verdicts", real classified data. See `RESEARCH_MATRIX.md`.
 | DEFCON-style alert chip | **Done** | P1 | ✓ | ✓ | composite index from GDACS/quake/signals, badged DERIVED · UNOFFICIAL with itemized reasons; never presented as official DEFCON |
 | Bottom intel dock | **Done** | P1 | ✓ | ✓ | world + regional news (GDELT, keyless CORS), click-to-load YouTube live TV (5 channels, youtube-nocookie), ECB FX, CoinGecko top coins; per-panel LIVE/DEMO badges |
 | Stock indices | **Deferred** | — | — | — | no keyless CORS live source; will ship BYO-key later — absent rather than faked |
+| Collapsible layer groups | **Done** | P2A | ✓ | ✓ | emoji group headers with caret + enabled count, collapse state persisted |
+| Derived overlays (hotspots / chokepoints / trade routes / instability) | **Done** | P2A | ✓ | ✓ | all computed client-side from data already fetched, badged derived/reference; great-circle trade routes between chokepoint pairs; instability = computeCountryRisk ramp |
+| Curated static registries (econ centers / AI data centers / nuclear fuel-cycle / sanctions) | **Done** | P2A | ✓ | ✓ | source-labeled vendored JSON with retrieved dates, no invented numeric claims; sanctions two-tier country tint (OFAC/EU/UN public lists), default off |
+| Undersea cables | **Deferred** | — | — | — | TeleGeography public GitHub repo is gone (404, checked 2026-07-10); mirrors have unclear licensing — deferred rather than fabricated or license-washed |
+| Military bases (OSM Overpass) | **Done** | P2A | ✓ | ✓ | opt-in (default off), in-view debounced bbox query, world-view guard reports honest offline error, no mock fallback |

@@ -531,3 +531,31 @@ Spec: docs/superpowers/specs/2026-07-09-phase1-dashboard-features-design.md
 Plan: docs/superpowers/plans/2026-07-09-phase1-dashboard.md
 Next: Phase 2 = triage the requested 37-layer catalog by data availability;
 Phase 3 = remaining dock panels (most need BYO-key AI or paid data).
+
+## 2026-07-10 — Phase 2A layer overlays (branch `feature/phase2a-layers`)
+Tranche A shipped in 4 slices (Slice 4 deferred honestly):
+- Slice 1 (`9e3376e`): collapsible emoji layer groups, persisted `groupCollapsed`.
+- Slice 2 (`d3957bc`): derived overlays — 🎯 intel hotspots (computeSignals
+  circles), ⚓ chokepoints + ⚓ great-circle trade routes (new src/lib/routes.ts),
+  🌎 instability country ramp (computeCountryRisk); store `derivedLayers` +
+  `toggleDerived`, persisted.
+- Slice 3 (`88b355d`): curated static registries as source-labeled
+  public/data/*.json — 💰 economic centers (8, ported from v1 ontology),
+  🖥 AI data centers (10, public press reports, no capacity claims),
+  ☢ nuclear fuel-cycle sites (14, IAEA/NTI public reporting), 🚫 sanctions
+  two-tier country tint (OFAC/EU/UN, default off). New
+  src/lib/providers/registries.ts (reference-provider pattern).
+- Slice 4 — DEFERRED: TeleGeography undersea-cables repo is gone from GitHub
+  (404, checked 2026-07-10); mirrors exist but licensing unclear — never
+  fabricate. GAP_MATRIX row added.
+- Slice 5 (`0102518`): 🏛 military bases via OSM Overpass — opt-in (default
+  off), in-view debounced refresh, world-view bbox guard with honest offline
+  error, NO mock fallback (fabricated base points worse than an OFFLINE badge).
+52/52 Playwright tests green. Gotcha for future tests: the SGX econ-center
+marker sits exactly on Singapore — marker clicks win over country selection,
+so country-click tests must disable that layer first.
+Triage: docs/superpowers/specs/2026-07-09-phase2-layer-triage.md
+Plan: docs/superpowers/plans/2026-07-09-phase2a-layers.md
+Next: Tranche B keyless live layers (aviation, satellites, UCDP, protests,
+displacement, radiation, disease, weather — CORS-probe each first), then
+Tranche C BYO-key (ships, internet disruptions, webcams), then Phase 3 panels.
