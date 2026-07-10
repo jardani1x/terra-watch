@@ -12,6 +12,7 @@ import {
   fetchEconCenters, fetchAiDatacenters, fetchNuclearFuelSites,
   ECON_CENTERS_META, AI_DATACENTERS_META, NUCLEAR_FUEL_META,
 } from '../lib/providers/registries';
+import { fetchMilitaryBases, OSM_MILITARY_META } from '../lib/providers/overpass';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
 import { isEventVisible, type LayerDef } from '../lib/layers';
@@ -179,6 +180,8 @@ interface AppState {
   setShowAlertLevels: (on: boolean) => void;
   loadConflictZones: () => Promise<void>;
   loadSanctions: () => Promise<void>;
+  /** in-view OSM Overpass military-bases refresh (only when its layer is on) */
+  refreshMilitary: () => Promise<void>;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -234,6 +237,8 @@ const DEFAULT_LAYERS: LayerDef[] = [
   { id: 'econ-centers', name: 'Economic centers (exchanges)', group: '🏗 Infrastructure', enabled: true, providerId: 'econ-centers', eventTypes: ['econ-center'], color: '#ffd166' },
   { id: 'ai-datacenters', name: 'AI data centers', group: '🏗 Infrastructure', enabled: true, providerId: 'ai-datacenters', eventTypes: ['ai-datacenter'], color: '#9d7bff' },
   { id: 'nuclear-fuel', name: 'Nuclear fuel-cycle sites', group: '🏗 Infrastructure', enabled: true, providerId: 'nuclear-fuel', eventTypes: ['nuclear-fuel-site'], color: '#ff9e3d' },
+  // default OFF: in-view Overpass query only runs when the user opts in
+  { id: 'military-bases', name: 'Military bases (OSM)', group: '🏛 Military', enabled: false, providerId: 'osm-military', eventTypes: ['military-base'], color: '#c08bff' },
 ];
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
@@ -258,11 +263,12 @@ export const useStore = create<AppState>()(
         gdelt: providerStub(GDELT_META),
         'power-plants': providerStub(POWER_PLANTS_META), 'launch-sites': providerStub(LAUNCH_SITES_META),
         'econ-centers': providerStub(ECON_CENTERS_META), 'ai-datacenters': providerStub(AI_DATACENTERS_META),
-        'nuclear-fuel': providerStub(NUCLEAR_FUEL_META),
+        'nuclear-fuel': providerStub(NUCLEAR_FUEL_META), 'osm-military': providerStub(OSM_MILITARY_META),
       },
       sources: {
         usgs: true, eonet: true, nws: true, gdacs: true, markets: true, gdelt: true,
         'power-plants': true, 'launch-sites': true, 'econ-centers': true, 'ai-datacenters': true, 'nuclear-fuel': true,
+        'osm-military': true,
       },
       monitors: [],
       events: [],
@@ -431,6 +437,40 @@ export const useStore = create<AppState>()(
         } catch {
           set({ conflictZones: [] }); // no fill rather than a stale/wrong fill
         }
+      },
+      refreshMilitary: async () => {
+        const { viewBounds, layers, sources, providers } = get();
+        if (!(sources[OSM_MILITARY_META.id] ?? true)) return;
+        if (!layers.some((l) => l.providerId === OSM_MILITARY_META.id && l.enabled)) return;
+        if (!viewBounds) return;
+        const [w, s, e, n] = viewBounds;
+        if (e - w > 60 || n - s > 40) {
+          // a world-sized Overpass query would time out or hammer the public
+          // endpoint — an honest error beats silently showing nothing
+          set((st) => ({
+            providers: {
+              ...st.providers,
+              [OSM_MILITARY_META.id]: { ...st.providers[OSM_MILITARY_META.id], status: 'offline', itemCount: 0, error: 'view too wide — zoom in to load bases' },
+            },
+          }));
+          return;
+        }
+        if (providers[OSM_MILITARY_META.id].status === 'loading') return; // one in-flight query at a time
+        set((st) => ({
+          providers: { ...st.providers, [OSM_MILITARY_META.id]: { ...st.providers[OSM_MILITARY_META.id], status: 'loading' } },
+        }));
+        const r = await fetchMilitaryBases([s, w, n, e]);
+        set((st) => ({
+          events: [...st.events.filter((ev) => ev.sourceId !== OSM_MILITARY_META.id), ...r.events],
+          providers: {
+            ...st.providers,
+            [OSM_MILITARY_META.id]: {
+              ...st.providers[OSM_MILITARY_META.id],
+              status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
+              lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[OSM_MILITARY_META.id].lastSuccessAt,
+            },
+          },
+        }));
       },
       loadSanctions: async () => {
         if (get().sanctions) return;

@@ -123,6 +123,7 @@ export default function MapCanvas() {
   const conflictZones = useStore((s) => s.conflictZones);
   const derivedLayers = useStore((s) => s.derivedLayers);
   const sanctions = useStore((s) => s.sanctions);
+  const viewBounds = useStore((s) => s.viewBounds);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -227,6 +228,15 @@ export default function MapCanvas() {
 
     return () => { map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [select]);
+
+  // in-view Overpass military-bases refresh: debounced on view changes, only
+  // while its (default-off) layer is enabled — no query without opt-in
+  const militaryOn = layers.some((l) => l.id === 'military-bases' && l.enabled);
+  useEffect(() => {
+    if (!militaryOn) return;
+    const t = setTimeout(() => { void useStore.getState().refreshMilitary(); }, 1200);
+    return () => clearTimeout(t);
+  }, [militaryOn, viewBounds]);
 
   // push data whenever events, layer visibility/colors, monitors, or playback cursor change
   useEffect(() => {

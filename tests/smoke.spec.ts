@@ -995,3 +995,16 @@ test('curated static registries load with counts and sanctions tint toggles', as
     )
     .toBe('visible');
 });
+
+test('military bases layer is opt-in and refuses a world-sized query honestly', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+  const checkbox = page.getByRole('checkbox', { name: 'Military bases (OSM)', exact: true });
+  // default OFF — no Overpass query without opt-in
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.check();
+  // at the default world view the bbox guard reports an honest offline error
+  // instead of firing an unanswerable query at the public endpoint
+  const chip = page.locator('.health-chip', { hasText: 'Military bases (OSM Overpass)' });
+  await expect(chip).toContainText(/offline/i, { timeout: 15000 });
+});
