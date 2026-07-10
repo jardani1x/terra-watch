@@ -996,6 +996,47 @@ test('curated static registries load with counts and sanctions tint toggles', as
     .toBe('visible');
 });
 
+test('event timeline never overlaps the intel dock, collapsed or expanded', async ({ page }) => {
+  // regression: the collapsed timeline's translateY trick pushed its body
+  // ("No events loaded yet.") past the map area with nothing clipping it,
+  // so it painted on top of the INTEL DOCK region underneath. .map-wrap now
+  // clips overflow and .bottom-dock sits at a higher z-index. This probes
+  // the actual painted element across the dock's top band (where the leak
+  // landed) — not the transform-skewed layout box — and asserts the dock,
+  // never the timeline, is what's on top there.
+  await page.goto('/');
+  await expect(page.getByText('TERRA WATCH', { exact: true })).toBeVisible();
+  const dock = page.getByTestId('bottom-dock');
+  await expect(dock).toBeVisible();
+  await expect(dock.getByText('INTEL DOCK')).toBeVisible();
+
+  // sample points across the dock's top band, spanning the timeline's own
+  // horizontal range (it starts after the left rail, so far-left points miss it)
+  const timelineLeaksOverDock = () =>
+    page.evaluate(() => {
+      const dockEl = document.querySelector('[data-testid="bottom-dock"]');
+      if (!dockEl) return true;
+      const d = dockEl.getBoundingClientRect();
+      for (let i = 1; i < 10; i++) {
+        const x = d.left + (d.width * i) / 10;
+        for (const y of [d.top + 6, d.top + 24, d.top + 48]) {
+          const el = document.elementFromPoint(x, y);
+          if (el?.closest('.timeline')) return true; // timeline painted over the dock
+        }
+      }
+      return false;
+    });
+
+  // collapsed (default state)
+  expect(await timelineLeaksOverDock()).toBe(false);
+
+  // expanded — the failure mode specifically showed up when the timeline
+  // body ("No events loaded yet.") was visible
+  await page.getByText('EVENT TIMELINE').click();
+  await expect(page.getByText('No events loaded yet.')).toBeVisible();
+  expect(await timelineLeaksOverDock()).toBe(false);
+});
+
 test('military bases layer is opt-in and refuses a world-sized query honestly', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });

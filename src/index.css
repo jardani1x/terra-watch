@@ -38,7 +38,7 @@ a { color: var(--accent); }
   grid-template-columns: 260px 1fr 320px;
   min-height: 0;
 }
-.map-wrap { position: relative; min-width: 0; }
+.map-wrap { position: relative; min-width: 0; overflow: hidden; }
 
 /* ---- Status bar ---- */
 .statusbar {
@@ -329,7 +329,7 @@ a { color: var(--accent); }
 @media (max-width: 860px) { .alert-chip small { display: none; } }
 
 /* ---- bottom intel dock (Phase 1) ---- */
-.bottom-dock { border-top: 1px solid var(--line); background: var(--panel, #0c1116); }
+.bottom-dock { position: relative; z-index: 9; border-top: 1px solid var(--line); background: var(--panel, #0c1116); }
 .dock-bar { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px; }
 .dock-bar-title { font-size: 11px; letter-spacing: 0.12em; opacity: 0.8; }
 .dock-strip { display: flex; gap: 10px; overflow-x: auto; padding: 6px 10px 10px; }
