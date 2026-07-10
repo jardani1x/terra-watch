@@ -9,6 +9,12 @@ const CHANNELS: { name: string; channelId: string }[] = [
   { name: 'DW News', channelId: 'UCknLrEdhRCp1aegoMqRaCZg' },
   { name: 'France 24', channelId: 'UCQfwfsi5VrQ8yKZ-UWmAEFg' },
   { name: 'ABC News', channelId: 'UCBi2mrWuNuyYy4gbM6fU18Q' },
+  { name: 'BBC News', channelId: 'UC16niRr50-MSBwiO3YDb3RA' },
+  { name: 'CNN', channelId: 'UCupvZG-5ko_eiXAupbDfxWw' },
+  { name: 'Fox News', channelId: 'UCXIJgqnII2ZOINSWNOGFThA' },
+  { name: 'MSNBC', channelId: 'UCaXkIU1QidjPwiAYu6GcHjg' },
+  { name: 'Bloomberg', channelId: 'UCIALMKvObZNtJ6AmdCLP7Lg' },
+  { name: 'WSJ', channelId: 'UCK7tptUDHh-RYDsdxO1-5QQ' },
 ];
 
 export default function YouTubeNews() {
