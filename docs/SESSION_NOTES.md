@@ -559,3 +559,100 @@ Plan: docs/superpowers/plans/2026-07-09-phase2a-layers.md
 Next: Tranche B keyless live layers (aviation, satellites, UCDP, protests,
 displacement, radiation, disease, weather — CORS-probe each first), then
 Tranche C BYO-key (ships, internet disruptions, webcams), then Phase 3 panels.
+
+## 2026-07-10/11 — Phase 2B: flight/satellite/globe-orient (branch `feature/flight-satellite-globe`)
+First slice of Tranche B keyless live layers, plus a globe UX fix, shipped in
+5 tasks:
+
+- **Task 1 (`a957b88`)**: 3D globe orient. `src/lib/orient.ts` —
+  `homePosition(pos, offsetMinutes?)`, pure function: GPS fix if the opt-in
+  locate watch has one, else timezone-inferred longitude
+  (`(-offsetMinutes/60)*15°`, 20°N default latitude). Wired into
+  `MapCanvas.tsx`'s `map.on('load')` (when 3D is the persisted projection)
+  and the `[projection]` effect (on 2D→3D switch) via a shared
+  `orientGlobe(map)` helper — `easeTo` (1200ms, essential) normally,
+  `jumpTo` under `prefers-reduced-motion`. 1 new Playwright test (fixed
+  `Asia/Singapore` timezone, asserts globe center lands within 1° of 120°E).
+- **Task 2 (`1141f58`)**: ✈ Aviation (row 17 of the Phase 2 triage). New
+  `src/lib/providers/aviation.ts` — `fetchAircraft(bbox, signal?)` against
+  airplanes.live's keyless point+radius ADS-B API; `refreshAviation` store
+  action debounces in-view queries (1200ms) and polls every 20s while the
+  layer is on and the tab visible; new opt-in (default off) layer
+  "✈ Transport" → "Aircraft (live ADS-B)"; no mock fallback. 1 new
+  Playwright test (default-off checkbox, honest OFFLINE at world zoom).
+- **Task 3 (`a8d130e`)**: 🛰 Orbital surveillance provider + worker (row 31).
+  New `src/lib/providers/celestrak.ts` (`fetchTles` against CelesTrak's
+  active-group GP element endpoint, TLE format, once-per-session) and
+  `src/workers/sgp4.worker.ts` — the repo's **first Web Worker**, `init`/
+  `tick` message protocol, `satellite.js` imported only inside the worker so
+  it never touches the main bundle. New `derivedLayers.satellites` toggle
+  (persisted) + lazy provider-health row (created on toggle-on, FIRMS
+  precedent), `satTles` kept transient (never persisted).
+- **Task 4 (`1dad25d`)**: satellite rendering. New `'satellites'` GeoJSON
+  source + dot layer in `MapCanvas.tsx`, worker spawned/terminated with the
+  toggle, ticking every 2s while visible and paused on `document.hidden`;
+  click → transient `GeoEvent` card (NORAD ID, altitude, period) carrying
+  the fixed note "propagated from TLE epoch (SGP4)" — never presented as a
+  live tracked fix. `events-layer` click priority extended to include
+  `satellites-layer`. 1 new Playwright test.
+- **Task 5 (this entry)**: docs + full-suite verification. Build +
+  typecheck clean. Full suite (56 tests): 42 passed, 3 failed under load,
+  11 skipped after a Chromium worker-process crash mid-run (shared-hardware
+  flakiness, the known Slice 13 caveat); all 3 failures and all 11 skipped
+  tests pass in isolated reruns → 56/56 green counting reruns. `npm run
+  lint` has one pre-existing error (`react-hooks/purity`, `Date.now()` in
+  a `TimelineDrawer` onClick — predates this branch, not chased here).
+
+### Gotchas actually hit
+- **`vite.config.ts` had to change, app-wide** (Task 4): `sgp4.worker.ts`'s
+  first `new Worker(new URL(...))` instantiation was the first thing in the
+  repo to exercise Vite's worker-bundling path, and it broke twice.
+  `satellite.js`'s barrel re-exports a wasm loader that uses top-level
+  `await` internally — even though the worker only ever calls the pure-JS
+  SGP4 path. First failure: the default worker output format (`iife`)
+  can't emit top-level await at all → fixed with `worker: { format: 'es' }`.
+  Second failure: Vite's default esbuild target (`safari14` etc.) predates
+  top-level-await even under `'es'` output → fixed by raising
+  `build.target` to `'es2022'`. Vite 6 has **no per-worker target**, so the
+  `es2022` bump is app-wide, not scoped to the worker chunk — it raises the
+  whole app's minimum-browser floor to roughly Chrome 89 / Safari 15 /
+  Firefox 89 (2021-era). `tsconfig.json` already targeted ES2022 so the
+  stated intent already matched; this just makes the runtime floor honest
+  and explicit rather than silently narrower than the type-checker assumed.
+- **CelesTrak rate-limited us mid-implementation**: `gp.php` returned a
+  clean 200 on the morning CORS probe (2026-07-10) but was returning `403`
+  from the same IP by the time Task 4's test ran, reproduced directly with
+  `curl` (`HTTP:403` on the ~2.7 MB active-group pull). The app only fetches
+  once per session, so real users are unlikely to trip this, but it means
+  **dev/test must not hammer the endpoint** repeatedly in one day. Practical
+  effect: the satellites Playwright test's live branch (worker spawns,
+  dots > 0 via `querySourceFeatures`) has not been exercised end-to-end in
+  this environment — the offline branch (fetch fails → provider marked
+  `offline`, chip shows it honestly, live-branch code skipped) passed
+  legitimately. Re-checked 2026-07-11: plain `curl` gets 200 again from this
+  IP, but the same request with a browser User-Agent (+ Origin) still gets
+  403 — once tripped, the block appears UA-keyed, so the in-browser fetch
+  keeps failing even after curl recovers. The live path is verified by code
+  review against the worker's documented message contract only, pending an
+  unblocked network.
+- **Aviation's view-bbox guard is tighter than the other in-view layers**:
+  12°×8° vs. military bases' 60°×40°, because airplanes.live is a
+  point+radius API capped at ≤250 nm — a wide guard would silently return
+  only the aircraft near the view center instead of the whole visible area,
+  which is exactly the kind of silent-partial-data failure this app refuses
+  to ship. World-sized queries are refused with an honest OFFLINE
+  "view too wide" instead.
+
+### Docs
+`docs/DATA_SOURCES.md`: added **airplanes.live** and **CelesTrak** rows
+under Implemented; struck through the old OpenSky and Celestrak-TLE rows
+under Planned, noting the OpenSky/adsb.lol "no CORS-usable ADS-B" finding
+(Slice 6b) is superseded by airplanes.live. `docs/GAP_MATRIX.md`: Transport
+panel (row 17, ✈ AVIATION) flipped Deferred→Done; new row added for
+🛰 Orbital surveillance (row 31, Done) — both dated.
+
+Triage: docs/superpowers/specs/2026-07-09-phase2-layer-triage.md
+Design: docs/superpowers/specs/2026-07-10-flight-satellite-globe-design.md
+Plan: docs/superpowers/plans/2026-07-10-flight-satellite-globe.md
+Next: remaining Tranche B keyless live layers (UCDP, protests, displacement,
+radiation, disease, weather), then Tranche C BYO-key, then Phase 3 panels.

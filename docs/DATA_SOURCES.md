@@ -17,6 +17,8 @@ offline fallback), or `offline`.
 | **CoinGecko** | BTC/ETH spot + 24h change (MARKETS panel, not the map) | none (rate-limited free tier) | price data by CoinGecko (attribution shown in panel) | Live; on failure → labeled `mock` sample | 6b |
 | **CARTO dark basemap** | raster map tiles | none | © OpenStreetMap contributors © CARTO (shown on map) | Basemap only, not an event source | 1 |
 | **AI analyst (Anthropic / OpenAI-compatible)** | cited, inference-labeled Q&A over the current public feed | none required (BYO key optional) | user's own provider account | Always-on local-rules brief with zero key; optional key calls the provider **directly from the browser** (no Terra Watch backend); LLM failures fall back to the local brief with the real error shown, never hidden | 9 |
+| **airplanes.live** | live ADS-B aircraft (point + radius query, in-view) | none (keyless) | airplanes.live — non-commercial use, attribution shown in inspector | CORS `*` verified 2026-07-10; opt-in layer, default OFF; radius-capped at ≤250 nm so the app enforces a tight 12°×8° view-bbox guard (tighter than the 60°×40° world/military layers use) and refuses world-sized queries with an honest OFFLINE "view too wide" instead of silently showing only the center chunk; polled every 20 s (well under the API's ~1 req/s ceiling); no mock fallback | Phase 2B |
+| **CelesTrak** | active-catalog satellite GP element sets (TLE format), positions computed client-side via SGP4 | none (keyless) | CelesTrak (T.S. Kelso) — public data, attribution shown in inspector | CORS `*` verified 2026-07-10; ~2.69 MB / 15,985 objects, fetched **once per session** (not polled) to stay well clear of CelesTrak's rate limiting; propagation runs in a dedicated Web Worker (`src/workers/sgp4.worker.ts`, the app's first) via `satellite.js`, ticking every 2 s while the tab is visible; every rendered position and inspector card is labeled "propagated from TLE epoch (SGP4)" — never presented as a live tracked fix | Phase 2B |
 
 - USGS feed: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`
 - EONET feed: `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=200`
@@ -34,8 +36,8 @@ offline fallback), or `offline`.
 | ReliefWeb | humanitarian reports/news | approved appname required | dropped as keyless default 2026-07-02: v2 API returns 403 without an approved appname; could return as an optional BYO-appname source |
 | NASA FIRMS | active wildfire detections (hi-res) | key (free) → optional | 6b+ |
 | Open-Meteo | weather (global forecast) | none | 6b+ |
-| OpenSky | aircraft ADS-B | anonymous tier | dropped 2026-07-02: CORS locked to `opensky-network.org` — unusable from a browser client (adsb.lol probed too: no CORS header at all) |
-| Celestrak TLE + SGP4 | satellite positions (computed in-browser) | none | Phase 2 |
+| ~~OpenSky~~ | aircraft ADS-B | anonymous tier | dropped 2026-07-02: CORS locked to `opensky-network.org` — unusable from a browser client (adsb.lol probed too: no CORS header at all). **Superseded 2026-07-10**: transport is now unblocked via airplanes.live (see Implemented, above) — the "no CORS-usable ADS-B" finding no longer applies. |
+| ~~Celestrak TLE + SGP4~~ | satellite positions (computed in-browser) | none | shipped 2026-07-10 — see Implemented, above |
 | REST Countries / Natural Earth | country metadata + boundaries | none | 2/7 |
 | World Bank / FRED | structural indicators for risk score | none/free key | 7 (country risk) |
 | AISStream | vessel AIS | **user-supplied key** | Phase 2 (opt-in) |
