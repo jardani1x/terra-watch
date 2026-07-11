@@ -109,6 +109,48 @@ function orientGlobe(map: maplibregl.Map) {
   else map.easeTo({ ...cam, duration: 1200, essential: true });
 }
 
+/** Idle spin for the 3D globe: the camera longitude falls slowly, so the
+ *  surface drifts west→east the way the real Earth turns. Chained off
+ *  moveend (each 1 s linear ease triggers the next) so it stays smooth and
+ *  never fights an in-flight camera animation. Any pointer/wheel input on
+ *  the map ends the spin until the next 3D entry — manual control always
+ *  wins. Skipped entirely under prefers-reduced-motion. */
+const SPIN_DEG_PER_SEC = 1.5;
+const SPIN_MAX_ZOOM = 5; // spinning a zoomed-in view is disorienting
+
+function startGlobeSpin(map: maplibregl.Map): () => void {
+  if (prefersReducedMotion()) return () => {};
+  let stopped = false;
+  let retryTimer = 0;
+  const spin = () => {
+    if (stopped || !alive(map)) return;
+    if (map.isMoving()) return; // that move's own moveend re-enters the chain
+    if (map.getZoom() >= SPIN_MAX_ZOOM) {
+      // don't kill the chain — resume if the camera comes back out
+      retryTimer = window.setTimeout(spin, 2000);
+      return;
+    }
+    const c = map.getCenter();
+    map.easeTo({ center: [c.lng - SPIN_DEG_PER_SEC, c.lat], duration: 1000, easing: (n) => n, essential: false });
+  };
+  const stop = () => {
+    stopped = true;
+    window.clearTimeout(retryTimer);
+    map.off('moveend', spin);
+    map.off('mousedown', stop);
+    map.off('wheel', stop);
+    map.off('touchstart', stop);
+    map.off('dragstart', stop);
+  };
+  map.on('moveend', spin); // the entry orient's moveend kicks the chain off
+  map.on('mousedown', stop);
+  map.on('wheel', stop);
+  map.on('touchstart', stop);
+  map.on('dragstart', stop);
+  retryTimer = window.setTimeout(spin, 1600); // fallback kick if orient was a no-op
+  return stop;
+}
+
 export default function MapCanvas() {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -142,6 +184,9 @@ export default function MapCanvas() {
   // refs, not state: they change every tick and must not re-render React
   const satMetaRef = useRef<{ names: string[]; ids: string[]; periods: number[] }>({ names: [], ids: [], periods: [] });
   const satPosRef = useRef<Float64Array | null>(null);
+
+  // active globe idle-spin teardown; a noop when no spin is running
+  const spinStopRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
@@ -235,6 +280,8 @@ export default function MapCanvas() {
       if (st.projection === '3d') {
         map.setProjection({ type: 'globe' });
         orientGlobe(map);
+        spinStopRef.current();
+        spinStopRef.current = startGlobeSpin(map);
       }
 
       map.on('click', 'events-layer', (ev) => {
@@ -286,7 +333,7 @@ export default function MapCanvas() {
       pushBounds();
     });
 
-    return () => { map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { spinStopRef.current(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [select]);
 
   // in-view Overpass military-bases refresh: debounced on view changes, only
@@ -645,7 +692,13 @@ export default function MapCanvas() {
     const map = mapRef.current;
     if (!alive(map) || !readyRef.current) return;
     map.setProjection({ type: projection === '3d' ? 'globe' : 'mercator' });
-    if (projection === '3d') orientGlobe(map);
+    if (projection === '3d') {
+      orientGlobe(map);
+      spinStopRef.current();
+      spinStopRef.current = startGlobeSpin(map);
+      return () => spinStopRef.current();
+    }
+    spinStopRef.current();
   }, [projection]);
 
   // terminator: toggle visibility from the store

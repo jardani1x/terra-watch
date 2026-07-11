@@ -656,3 +656,15 @@ Design: docs/superpowers/specs/2026-07-10-flight-satellite-globe-design.md
 Plan: docs/superpowers/plans/2026-07-10-flight-satellite-globe.md
 Next: remaining Tranche B keyless live layers (UCDP, protests, displacement,
 radiation, disease, weather), then Tranche C BYO-key, then Phase 3 panels.
+
+## 2026-07-12 — 3D globe idle spin (main)
+
+`startGlobeSpin(map)` in `MapCanvas.tsx`: after the entry orient lands, the
+globe drifts west→east like the real Earth (center lng −1.5°/s, chained 1 s
+linear `easeTo`s off `moveend` so it never fights an in-flight animation).
+Any pointer/wheel/drag input on the map stops the spin until the next 3D
+entry; ≥ zoom 5 pauses it (2 s retry keeps the chain alive); skipped under
+`prefers-reduced-motion`. Teardown via `spinStopRef` on 2D switch and map
+unmount. 1 new Playwright test (drift below 118°E from the 120°E orient,
+then stability after a synthetic mousedown). TDD red→green; regression run
+over the 6 projection/camera tests green.

@@ -1073,6 +1073,37 @@ test.describe('globe orient', () => {
     // leave state clean for later tests (projection persists)
     await page.getByRole('button', { name: '2D map view' }).click();
   });
+
+  test('globe idle-spins westward after orient and stops on user interaction', async ({ page }) => {
+    test.setTimeout(120_000); // globe projection + spin sampling on software GL
+    await page.goto('/');
+    await expect(page.locator('.maplibregl-canvas')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: '3D globe view' }).click();
+    const lng = () =>
+      page.evaluate(() => {
+        const m = (window as unknown as { __terraMap: { getCenter(): { lng: number } } }).__terraMap;
+        return m.getCenter().lng;
+      });
+    // orient arrives at the timezone longitude first (Asia/Singapore → 120°E)
+    await expect.poll(async () => Math.abs((await lng()) - 120), { timeout: 30_000 }).toBeLessThan(1);
+    // natural earth rotation: surface drifts east under a fixed camera, so the
+    // center longitude falls — wait for a clear westward drift, not jitter
+    await expect.poll(async () => lng(), { timeout: 30_000 }).toBeLessThan(118);
+    // any user pointer interaction hands control back and ends the spin
+    const canvas = page.locator('.maplibregl-canvas');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas has no bounding box');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(1500); // let any in-flight ease settle
+    const before = await lng();
+    await page.waitForTimeout(2500);
+    const after = await lng();
+    expect(Math.abs(after - before)).toBeLessThan(0.3);
+    // leave state clean for later tests (projection persists)
+    await page.getByRole('button', { name: '2D map view' }).click();
+  });
 });
 
 test('aviation layer is opt-in and refuses a world-sized query honestly', async ({ page }) => {
