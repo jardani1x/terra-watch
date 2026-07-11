@@ -13,7 +13,7 @@ import {
   ECON_CENTERS_META, AI_DATACENTERS_META, NUCLEAR_FUEL_META,
 } from '../lib/providers/registries';
 import { fetchMilitaryBases, OSM_MILITARY_META } from '../lib/providers/overpass';
-import { fetchAircraft, AVIATION_META } from '../lib/providers/aviation';
+import { fetchAircraft, requiredRadiusNm, AVIATION_META } from '../lib/providers/aviation';
 import { fetchFomcCalendar, FOMC_META, type FomcMeeting } from '../lib/econcalendar';
 import { checkFirms, FIRMS_META } from '../lib/providers/firms';
 import { fetchTles, CELESTRAK_META, type TleSet } from '../lib/providers/celestrak';
@@ -189,6 +189,9 @@ interface AppState {
   /** parsed CelesTrak TLE sets; loaded once per session on toggle-on, never persisted */
   satTles: TleSet[] | null;
   loadSatellites: () => Promise<void>;
+  /** the SGP4 worker crashed (uncaught exception) — surface it as an honest
+   *  offline provider row instead of leaving satellites silently frozen */
+  setSatWorkerError: (msg: string) => void;
   loadCountryData: () => Promise<void>;
   loadFomcCalendar: () => Promise<void>;
   selectCountry: (c: CountryFeature | null) => void;
@@ -249,6 +252,14 @@ const DEFAULT_LAYERS: LayerDef[] = [
   // default OFF: in-view airplanes.live query only runs when the user opts in
   { id: 'aviation', name: 'Aircraft (live ADS-B)', group: '✈ Transport', enabled: false, providerId: 'airplanes-live', eventTypes: ['aircraft'], color: '#7ec8ff' },
 ];
+
+// Module-level in-flight guards for the two in-view refreshers below. Neither
+// provider is in FETCHERS, so nothing else ever clears a 'loading' provider
+// status — using that status as the in-flight check would deadlock the very
+// first fetch after the layer is enabled at an already-zoomed-in view (the
+// stub starts 'loading' and stays there). A plain boolean avoids that.
+let aviationInFlight = false;
+let militaryInFlight = false;
 
 const FETCHERS: Record<string, (signal?: AbortSignal) => ReturnType<typeof fetchUsgs>> = {
   usgs: fetchUsgs,
@@ -450,7 +461,7 @@ export const useStore = create<AppState>()(
         }
       },
       refreshMilitary: async () => {
-        const { viewBounds, layers, sources, providers } = get();
+        const { viewBounds, layers, sources } = get();
         if (!(sources[OSM_MILITARY_META.id] ?? true)) return;
         if (!layers.some((l) => l.providerId === OSM_MILITARY_META.id && l.enabled)) return;
         if (!viewBounds) return;
@@ -466,32 +477,37 @@ export const useStore = create<AppState>()(
           }));
           return;
         }
-        if (providers[OSM_MILITARY_META.id].status === 'loading') return; // one in-flight query at a time
+        if (militaryInFlight) return; // one in-flight query at a time
+        militaryInFlight = true;
         set((st) => ({
           providers: { ...st.providers, [OSM_MILITARY_META.id]: { ...st.providers[OSM_MILITARY_META.id], status: 'loading' } },
         }));
-        const r = await fetchMilitaryBases([s, w, n, e]);
-        set((st) => ({
-          events: [...st.events.filter((ev) => ev.sourceId !== OSM_MILITARY_META.id), ...r.events],
-          providers: {
-            ...st.providers,
-            [OSM_MILITARY_META.id]: {
-              ...st.providers[OSM_MILITARY_META.id],
-              status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
-              lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[OSM_MILITARY_META.id].lastSuccessAt,
+        try {
+          const r = await fetchMilitaryBases([s, w, n, e]);
+          set((st) => ({
+            events: [...st.events.filter((ev) => ev.sourceId !== OSM_MILITARY_META.id), ...r.events],
+            providers: {
+              ...st.providers,
+              [OSM_MILITARY_META.id]: {
+                ...st.providers[OSM_MILITARY_META.id],
+                status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
+                lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[OSM_MILITARY_META.id].lastSuccessAt,
+              },
             },
-          },
-        }));
+          }));
+        } finally {
+          militaryInFlight = false;
+        }
       },
       refreshAviation: async () => {
-        const { viewBounds, layers, sources, providers } = get();
+        const { viewBounds, layers, sources } = get();
         if (!(sources[AVIATION_META.id] ?? true)) return;
         if (!layers.some((l) => l.providerId === AVIATION_META.id && l.enabled)) return;
         if (!viewBounds) return;
         const [w, s, e, n] = viewBounds;
         if (e - w > 12 || n - s > 8) {
-          // the API is point+radius capped at 250 nm — a wider view would
-          // silently show only the center chunk; an honest error beats that
+          // cheap pre-check: an obviously world-sized view skips the haversine
+          // call below and fails fast with the same honest error
           set((st) => ({
             providers: {
               ...st.providers,
@@ -500,22 +516,41 @@ export const useStore = create<AppState>()(
           }));
           return;
         }
-        if (providers[AVIATION_META.id].status === 'loading') return; // one in-flight query at a time
+        // authoritative check: the API is point+radius capped at 250 nm, but
+        // the circumscribed-circle radius for a 12°×8° bbox can exceed that
+        // (diagonal > either linear dimension — up to ~432 nm at the equator).
+        // Refuse honestly here instead of letting fetchAircraft's clamp
+        // silently under-cover the requested view.
+        if (requiredRadiusNm([s, w, n, e]) > 250) {
+          set((st) => ({
+            providers: {
+              ...st.providers,
+              [AVIATION_META.id]: { ...st.providers[AVIATION_META.id], status: 'offline', itemCount: 0, error: 'view too wide — zoom in to load aircraft' },
+            },
+          }));
+          return;
+        }
+        if (aviationInFlight) return; // one in-flight query at a time
+        aviationInFlight = true;
         set((st) => ({
           providers: { ...st.providers, [AVIATION_META.id]: { ...st.providers[AVIATION_META.id], status: 'loading' } },
         }));
-        const r = await fetchAircraft([s, w, n, e]);
-        set((st) => ({
-          events: [...st.events.filter((ev) => ev.sourceId !== AVIATION_META.id), ...r.events],
-          providers: {
-            ...st.providers,
-            [AVIATION_META.id]: {
-              ...st.providers[AVIATION_META.id],
-              status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
-              lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[AVIATION_META.id].lastSuccessAt,
+        try {
+          const r = await fetchAircraft([s, w, n, e]);
+          set((st) => ({
+            events: [...st.events.filter((ev) => ev.sourceId !== AVIATION_META.id), ...r.events],
+            providers: {
+              ...st.providers,
+              [AVIATION_META.id]: {
+                ...st.providers[AVIATION_META.id],
+                status: r.mode, latencyMs: r.latencyMs, itemCount: r.events.length, error: r.error,
+                lastSuccessAt: r.mode === 'live' ? Date.now() : st.providers[AVIATION_META.id].lastSuccessAt,
+              },
             },
-          },
-        }));
+          }));
+        } finally {
+          aviationInFlight = false;
+        }
       },
       loadSatellites: async () => {
         const { satTles, providers } = get();
@@ -546,6 +581,13 @@ export const useStore = create<AppState>()(
           },
         }));
       },
+      setSatWorkerError: (msg) =>
+        set((s) => ({
+          providers: {
+            ...s.providers,
+            [CELESTRAK_META.id]: { ...(s.providers[CELESTRAK_META.id] ?? providerStub(CELESTRAK_META)), status: 'offline', itemCount: null, error: msg },
+          },
+        })),
       loadSanctions: async () => {
         if (get().sanctions) return;
         try {
@@ -629,7 +671,11 @@ export const useStore = create<AppState>()(
       },
 
       takeSnapshot: async () => {
-        const { events } = get();
+        // reference objects (aircraft/satellite/registry positions) are
+        // position snapshots, not events — churning them would poison the
+        // added/removed delta the same way they're already excluded from
+        // the timeline and signals
+        const events = get().events.filter((e) => !e.reference);
         const at = Date.now();
         const snap = { id: `${at}`, name: `${hhmm(at)} · ${events.length} events`, at, events };
         await putSnapshot(snap);
@@ -647,7 +693,8 @@ export const useStore = create<AppState>()(
       compareSnapshot: async (id) => {
         const snap = await getSnapshot(id);
         if (!snap) return;
-        set({ snapshotDelta: diffSnapshot(snap, get().events) });
+        const current = get().events.filter((e) => !e.reference);
+        set({ snapshotDelta: diffSnapshot(snap, current) });
       },
 
       pinToDossier: (e) =>

@@ -266,7 +266,9 @@ export default function MapCanvas() {
           props: {
             noradId: meta.ids[idx],
             altitudeKm: Number.isNaN(alt) ? undefined : Math.round(alt),
-            periodMin: meta.periods[idx],
+            // the worker pushes 0 for a degenerate/unusable period — omit
+            // rather than show a bogus "0 min" orbit
+            ...(meta.periods[idx] > 0 ? { periodMin: meta.periods[idx] } : {}),
             note: 'Position propagated from TLE epoch (SGP4) — a computed prediction, not an observation.',
           },
         });
@@ -333,6 +335,12 @@ export default function MapCanvas() {
     map.setLayoutProperty('satellites-layer', 'visibility', 'visible');
     const worker = new Worker(new URL('../workers/sgp4.worker.ts', import.meta.url), { type: 'module' });
     let timer: number | undefined;
+    worker.onerror = (ev: ErrorEvent) => {
+      // an uncaught worker exception (e.g. a corrupt TLE set) must not leave
+      // satellites silently frozen — surface it as an honest offline row
+      if (timer) clearInterval(timer);
+      useStore.getState().setSatWorkerError(ev.message || 'satellite worker crashed');
+    };
     worker.onmessage = (ev: MessageEvent<{ type: 'ready'; names: string[]; ids: string[]; periods: number[] } | { type: 'positions'; buf: ArrayBuffer }>) => {
       const msg = ev.data;
       if (msg.type === 'ready') {

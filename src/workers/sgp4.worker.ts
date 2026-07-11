@@ -28,8 +28,11 @@ ctx.onmessage = (ev) => {
         recs.push(rec);
         names.push(s.name);
         ids.push(String(rec.satnum));
-        // satrec.no is mean motion in radians/minute → period in minutes
-        periods.push(Math.round((2 * Math.PI) / rec.no));
+        // satrec.no is mean motion in radians/minute → period in minutes;
+        // degenerate mean motion (near-zero/NaN) would divide out to
+        // Infinity/NaN — push 0 (treated as absent) rather than a garbage value
+        const period = Math.round((2 * Math.PI) / rec.no);
+        periods.push(Number.isFinite(period) ? period : 0);
       } catch { /* malformed element set — skip */ }
     }
     ctx.postMessage({ type: 'ready', count: recs.length, names, ids, periods });

@@ -233,10 +233,15 @@ export default function InspectorRail() {
               {selected.props.depthKm != null && (
                 <div className="insp-kv"><span>Depth</span><b>{Number(selected.props.depthKm).toFixed(0)} km</b></div>
               )}
-              <div className="insp-kv"><span>Observed</span><b>{hhmm(selected.time)} · {ago(selected.time)}</b></div>
+              <div className="insp-kv"><span>{selected.reference ? 'As of' : 'Observed'}</span><b>{hhmm(selected.time)} · {ago(selected.time)}</b></div>
               {extra.filter(([k]) => k !== 'magnitudeUnit').map(([k, v]) => (
                 <div className="insp-kv" key={k}><span>{LABELS[k] ?? k}</span><b>{String(v)}</b></div>
               ))}
+              {selected.props.note != null && (
+                <div style={{ color: 'var(--muted)', fontSize: 11, lineHeight: 1.5, marginTop: 6 }}>
+                  {String(selected.props.note)}
+                </div>
+              )}
             </div>
 
             <div className="source-card">

@@ -39,6 +39,18 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return 2 * EARTH_KM * Math.asin(Math.sqrt(a));
 }
 
+/** Radius (nm) of the circle circumscribing [south, west, north, east] around
+ *  its center — the actual query the point+radius API needs to cover the
+ *  view, uncapped. Exported so callers can refuse honestly when it exceeds
+ *  the API's 250 nm ceiling instead of relying on fetchAircraft's clamp,
+ *  which would silently under-cover a too-wide view. */
+export function requiredRadiusNm(bbox: [number, number, number, number]): number {
+  const [s, w, n, e] = bbox;
+  const lat = (s + n) / 2;
+  const lon = (w + e) / 2;
+  return Math.max(1, Math.ceil(haversineKm(lat, lon, n, e) * NM_PER_KM));
+}
+
 /** Aircraft currently inside [south, west, north, east], approximated as the
  *  circumscribed circle around the view center (the API is point+radius),
  *  capped at the API's 250 nm maximum. */
@@ -47,7 +59,7 @@ export async function fetchAircraft(bbox: [number, number, number, number], sign
   const [s, w, n, e] = bbox;
   const lat = (s + n) / 2;
   const lon = (w + e) / 2;
-  const radiusNm = Math.min(250, Math.max(1, Math.ceil(haversineKm(lat, lon, n, e) * NM_PER_KM)));
+  const radiusNm = Math.min(250, requiredRadiusNm(bbox));
   try {
     const res = await fetch(`https://api.airplanes.live/v2/point/${lat.toFixed(4)}/${lon.toFixed(4)}/${radiusNm}`, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
