@@ -124,6 +124,7 @@ function startGlobeSpin(map: maplibregl.Map): () => void {
   if (prefersReducedMotion()) return () => {};
   let stopped = false;
   let retryTimer = 0;
+  let logStep = 0; // steps are ~1 s; log only every 10th to keep the console quiet
   const spin = () => {
     if (stopped || !alive(map)) return;
     if (map.isMoving()) return; // that move's own moveend re-enters the chain
@@ -133,7 +134,7 @@ function startGlobeSpin(map: maplibregl.Map): () => void {
       return;
     }
     const c = map.getCenter();
-    console.log(`[globe-spin] lng ${c.lng.toFixed(4)} -> ${(c.lng - SPIN_DEG_PER_SEC).toFixed(4)} (sidereal ${SPIN_DEG_PER_SEC.toFixed(6)} deg/s)`);
+    if (logStep++ % 10 === 0) console.log(`[globe-spin] lng ${c.lng.toFixed(4)} -> ${(c.lng - SPIN_DEG_PER_SEC).toFixed(4)} (sidereal ${SPIN_DEG_PER_SEC.toFixed(6)} deg/s)`);
     map.easeTo({ center: [c.lng - SPIN_DEG_PER_SEC, c.lat], duration: 1000, easing: (n) => n, essential: false });
   };
   const stop = () => {
