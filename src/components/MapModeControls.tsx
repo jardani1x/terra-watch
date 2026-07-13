@@ -15,6 +15,9 @@ export default function MapModeControls() {
   const geo = useStore((s) => s.geo);
   const setGeoWatching = useStore((s) => s.setGeoWatching);
   const [fullscreen, setFullscreen] = useState(false);
+  // phones: the six-button bar crowds the small map, so it folds behind a ⚙
+  // expander (CSS-hidden on desktop); intentionally not persisted
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement != null);
@@ -30,7 +33,15 @@ export default function MapModeControls() {
   };
 
   return (
-    <div className="map-mode-controls" role="group" aria-label="Map view controls">
+    <div className={`map-mode-controls ${mobileOpen ? 'open' : ''}`} role="group" aria-label="Map view controls">
+      <button
+        className="mmc-btn mmc-expand"
+        aria-expanded={mobileOpen}
+        aria-label={mobileOpen ? 'Hide map view controls' : 'Show map view controls'}
+        onClick={() => setMobileOpen((o) => !o)}
+      >
+        ⚙
+      </button>
       <button
         className={`mmc-btn ${projection === '2d' ? 'active' : ''}`}
         aria-pressed={projection === '2d'}

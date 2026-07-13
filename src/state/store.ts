@@ -321,7 +321,9 @@ export const useStore = create<AppState>()(
       market: { quotes: [], mode: 'loading', error: null },
       dockNews: { region: 'World', articles: [], mode: 'loading', error: null },
       dockCrypto: { coins: [], mode: 'loading', error: null },
-      dockOpen: true,
+      // phones start with the dock folded so the map isn't buried; a persisted
+      // user choice overrides this default on rehydrate
+      dockOpen: !window.matchMedia('(max-width: 860px)').matches,
       dossier: { title: 'Terra Watch dossier', items: [] },
       analyst: { provider: null, apiKey: null, baseUrl: null, messages: [] },
       firmsKey: null,
@@ -895,7 +897,10 @@ export const useStore = create<AppState>()(
           groupCollapsed: p.groupCollapsed ?? current.groupCollapsed,
           // spread: persisted state from an older version may lack newer keys
           derivedLayers: { ...current.derivedLayers, ...p.derivedLayers },
-          dockOpen: p.dockOpen ?? current.dockOpen,
+          // phones always start folded — a persisted `true` is usually just the
+          // old desktop default, and an open dock buries the map on a phone;
+          // the in-session toggle still works normally
+          dockOpen: window.matchMedia('(max-width: 860px)').matches ? false : (p.dockOpen ?? current.dockOpen),
           layers: current.layers.map((l) => (p.layerEnabled && l.id in p.layerEnabled ? { ...l, enabled: p.layerEnabled[l.id] } : l)),
           graph: p.graph ?? current.graph,
           dossier: p.dossier ?? current.dossier,

@@ -668,3 +668,27 @@ entry; ≥ zoom 5 pauses it (2 s retry keeps the chain alive); skipped under
 unmount. 1 new Playwright test (drift below 118°E from the 120°E orient,
 then stability after a synthetic mousedown). TDD red→green; regression run
 over the 6 projection/camera tests green.
+
+## 2026-07-13 - Sidereal spin + mobile UX pass (main)
+
+Spec: docs/superpowers/specs/2026-07-13-sidereal-spin-mobile-ux-design.md
+
+- `SPIN_DEG_PER_SEC` is now the true sidereal rate `360 / 86164` (~0.00418 deg/s,
+  one revolution per 23h56m4s) - realism over theatrics. Spin test rewritten to
+  assert a 0.04 deg drop below the settled baseline and exact stillness (<0.005
+  deg / 2.5s) after user input.
+- Root-cause layout fix: `.shell > * { min-width: 0 }` - the intel dock strip's
+  content min-width was forcing the whole page to ~1260px on phones (and ~1550px
+  on small desktops), pushing the 2D/3D mode bar off-screen right. Statusbar
+  wraps on <=860px.
+- Mobile (<=860px): mode bar folds behind a gear expander button; intel dock
+  starts folded (rehydrate forces it closed on phones - a persisted `true` is
+  usually the stale desktop default); dock panels 240x150; healthbar is one
+  scrollable row; timeline head hides CSV/JSON + note and never clips.
+- Timeline collapsed state now sizes to its header (`transform: none` + list
+  `display: none`) instead of a fixed 34px reveal that clipped wrapped heads.
+- SOURCES panel header is a collapsible group-toggle (persisted under
+  `groupCollapsed['panel:sources']`).
+- Palette view-scope test updated: the default camera honestly shows ~half the
+  world now, so the test jumps to a whole-world view before searching.
+- Full Playwright suite: 57/57 green.

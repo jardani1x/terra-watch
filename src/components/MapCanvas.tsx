@@ -109,13 +109,15 @@ function orientGlobe(map: maplibregl.Map) {
   else map.easeTo({ ...cam, duration: 1200, essential: true });
 }
 
-/** Idle spin for the 3D globe: the camera longitude falls slowly, so the
- *  surface drifts west→east the way the real Earth turns. Chained off
- *  moveend (each 1 s linear ease triggers the next) so it stays smooth and
- *  never fights an in-flight camera animation. Any pointer/wheel input on
- *  the map ends the spin until the next 3D entry — manual control always
- *  wins. Skipped entirely under prefers-reduced-motion. */
-const SPIN_DEG_PER_SEC = 1.5;
+/** Idle spin for the 3D globe: the camera longitude falls at the Earth's true
+ *  sidereal rate (one revolution per 23 h 56 m 4 s ≈ 0.004178 °/s), so the
+ *  surface drifts west→east exactly as fast as the real planet turns —
+ *  deliberately subtle, realism over theatrics. Chained off moveend (each
+ *  1 s linear ease triggers the next) so it stays smooth and never fights an
+ *  in-flight camera animation. Any pointer/wheel input on the map ends the
+ *  spin until the next 3D entry — manual control always wins. Skipped
+ *  entirely under prefers-reduced-motion. */
+const SPIN_DEG_PER_SEC = 360 / 86164; // sidereal day = 86 164 s
 const SPIN_MAX_ZOOM = 5; // spinning a zoomed-in view is disorienting
 
 function startGlobeSpin(map: maplibregl.Map): () => void {

@@ -100,7 +100,7 @@ export default function TimelineDrawer() {
           )}
         </span>
 
-        <span onClick={(e) => e.stopPropagation()} className="tl-controls" style={{ marginLeft: 'auto' }}>
+        <span onClick={(e) => e.stopPropagation()} className="tl-controls tl-exports" style={{ marginLeft: 'auto' }}>
           <button
             className="kbd"
             disabled={windowed.length === 0}
@@ -118,7 +118,7 @@ export default function TimelineDrawer() {
             ⤓ JSON
           </button>
         </span>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', fontWeight: 400 }}>
+        <span className="tl-note" style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', fontWeight: 400 }}>
           rolling 24h · newest first
         </span>
       </div>

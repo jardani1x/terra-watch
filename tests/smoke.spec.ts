@@ -648,11 +648,19 @@ test('command palette searches events scoped to the current view', async ({ page
   const term = title.split(/\s+/).find((w) => w.length >= 3) ?? title.slice(0, 3);
   expect(term.length).toBeGreaterThanOrEqual(2);
 
+  // the default camera only shows part of the world (the map column is honest
+  // about its width now) — jump to a whole-world view so the searched event is
+  // guaranteed inside the palette's view-scoped bounds
+  await page.evaluate(() => {
+    (window as unknown as { __terraMap: { jumpTo(o: object): void } }).__terraMap.jumpTo({ center: [0, 20], zoom: 0.2 });
+  });
+  await page.waitForTimeout(600); // moveend pushes fresh viewBounds to the store
+
   await page.keyboard.press('Control+k');
   const input = page.getByPlaceholder(/Type a command/i);
   await input.fill(term);
 
-  // at default world view every loaded event is in view, so the searched
+  // at a world view every loaded event is in view, so the searched
   // title must appear as an event result, explicitly labeled as view-scoped
   const eventOption = page.getByRole('option').filter({ hasText: 'event · in view' }).first();
   await expect(eventOption).toBeVisible();
@@ -1087,8 +1095,12 @@ test.describe('globe orient', () => {
     // orient arrives at the timezone longitude first (Asia/Singapore → 120°E)
     await expect.poll(async () => Math.abs((await lng()) - 120), { timeout: 30_000 }).toBeLessThan(1);
     // natural earth rotation: surface drifts east under a fixed camera, so the
-    // center longitude falls — wait for a clear westward drift, not jitter
-    await expect.poll(async () => lng(), { timeout: 30_000 }).toBeLessThan(118);
+    // center longitude falls. The spin runs at the true sidereal rate
+    // (360°/86164 s ≈ 0.00418 °/s), so a clear-but-small drop below the settled
+    // baseline is the signal — 0.04° takes ~10 s of spin
+    await page.waitForTimeout(2000); // let the orient ease fully settle
+    const base = await lng();
+    await expect.poll(async () => lng(), { timeout: 45_000 }).toBeLessThan(base - 0.04);
     // any user pointer interaction hands control back and ends the spin
     const canvas = page.locator('.maplibregl-canvas');
     const box = await canvas.boundingBox();
@@ -1100,7 +1112,9 @@ test.describe('globe orient', () => {
     const before = await lng();
     await page.waitForTimeout(2500);
     const after = await lng();
-    expect(Math.abs(after - before)).toBeLessThan(0.3);
+    // a still-running sidereal spin would move ~0.010° in 2.5 s; a stopped one
+    // moves exactly 0 — 0.005 splits them deterministically
+    expect(Math.abs(after - before)).toBeLessThan(0.005);
     // leave state clean for later tests (projection persists)
     await page.getByRole('button', { name: '2D map view' }).click();
   });

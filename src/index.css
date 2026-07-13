@@ -188,7 +188,11 @@ a { color: var(--accent); }
   max-height: 42%; display: flex; flex-direction: column;
   transition: transform 0.2s ease;
 }
-.timeline.collapsed { transform: translateY(calc(100% - 34px)); }
+/* collapsed = header-only: sizing to the head (instead of a fixed-height
+   translate reveal) survives any viewport width — the head may wrap taller on
+   narrow screens and list rows can never peek through underneath */
+.timeline.collapsed { transform: none; }
+.timeline.collapsed .timeline-list { display: none; }
 .timeline-head {
   display: flex; align-items: center; gap: 12px; padding: 7px 12px; cursor: pointer;
   font-size: 11px; letter-spacing: 1.5px; font-weight: 700;
@@ -263,6 +267,17 @@ a { color: var(--accent); }
 .mmc-btn + .mmc-btn { border-left: 1px solid var(--line); }
 .mmc-btn:hover { color: var(--text); }
 .mmc-btn.active { color: var(--accent); background: rgba(69, 224, 176, 0.08); }
+/* ⚙ expander exists only on phones; desktop always shows the full bar. It is
+   the first child, so suppress the divider the next button would draw against
+   its display:none box */
+.mmc-expand { display: none; }
+.mmc-expand + .mmc-btn { border-left: 0; }
+@media (max-width: 860px) {
+  .map-mode-controls { top: 8px; right: 8px; }
+  .mmc-expand { display: block; }
+  .map-mode-controls.open .mmc-expand + .mmc-btn { border-left: 1px solid var(--line); }
+  .map-mode-controls:not(.open) .mmc-btn:not(.mmc-expand) { display: none; }
+}
 
 /* ---- Map lazy-load placeholder ---- */
 .map-loading {
@@ -353,9 +368,33 @@ a { color: var(--accent); }
 .dock-tab.active { border-color: #45e0b0; color: #45e0b0; }
 .dock-video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 4px; }
 .dock-placeholder, .dock-note, .dock-err { font-size: 11px; opacity: 0.65; padding: 6px 0; }
-@media (max-width: 860px) { .dock-panel { flex-basis: 260px; } }
+@media (max-width: 860px) {
+  /* smaller panels + single scrollable row keep the map visible on phones */
+  .dock-panel { flex: 0 0 240px; height: 150px; }
+  .healthbar { flex-wrap: nowrap; overflow-x: auto; }
+  .healthbar .health-chip { flex: none; white-space: nowrap; }
+}
+
+/* phones: the timeline head must fit its 34px collapsed reveal in one row —
+   drop the export buttons and the rolling-24h note, shrink the scrubber */
+@media (max-width: 860px) {
+  .timeline-head { flex-wrap: nowrap; gap: 8px; overflow: hidden; }
+  .tl-controls input[type='range'] { width: 80px; }
+  .tl-exports, .tl-note { display: none; }
+}
+
+/* shell children must not propagate their content's min-width into the grid —
+   otherwise the dock strip / statusbar force the whole page (and the map with
+   its absolutely-positioned controls) wider than the viewport */
+.shell > * { min-width: 0; }
+@media (max-width: 860px) {
+  .statusbar { flex-wrap: wrap; row-gap: 5px; }
+}
 
 /* ---- collapsible layer groups (Phase 2A) ---- */
 .group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; color: inherit; cursor: pointer; text-align: left; }
 .group-caret { opacity: 0.7; font-size: 10px; }
 .group-count { margin-left: auto; opacity: 0.55; font-size: 10px; }
+/* section-header variant: buttons don't inherit typography, so carry the
+   rail-sec-title look through; width auto keeps the ON tag on the same row */
+.sec-toggle { font: inherit; font-weight: inherit; letter-spacing: inherit; width: auto; }
