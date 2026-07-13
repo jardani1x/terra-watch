@@ -133,6 +133,7 @@ function startGlobeSpin(map: maplibregl.Map): () => void {
       return;
     }
     const c = map.getCenter();
+    console.log(`[globe-spin] lng ${c.lng.toFixed(4)} -> ${(c.lng - SPIN_DEG_PER_SEC).toFixed(4)} (sidereal ${SPIN_DEG_PER_SEC.toFixed(6)} deg/s)`);
     map.easeTo({ center: [c.lng - SPIN_DEG_PER_SEC, c.lat], duration: 1000, easing: (n) => n, essential: false });
   };
   const stop = () => {

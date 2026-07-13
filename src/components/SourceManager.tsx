@@ -24,6 +24,7 @@ export default function SourceManager() {
         >
           <span className="group-caret">{collapsed ? '▸' : '▾'}</span>
           SOURCES
+          <span className="sec-hide-chip">{collapsed ? 'SHOW' : 'HIDE'}</span>
         </button>
         <span className="tag">{onCount}/{list.length} ON</span>
       </div>
