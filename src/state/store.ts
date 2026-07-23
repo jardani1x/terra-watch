@@ -78,10 +78,11 @@ const MONITOR_COLORS = ['#45e0b0', '#ffb454', '#6db3ff', '#ff7a3c', '#b39ddb', '
 
 interface MapCmd { seq: number; center: [number, number]; zoom: number }
 
-/** Map projection mode: '2d' = mercator, '3d' = globe. A user setting —
- *  switching must never reset layers, selection, filters, or time window
- *  (all of that lives in this store, not in the map). */
-export type MapProjection = '2d' | '3d';
+/** Map view mode: '2d' = mercator, '3d' = globe (both MapLibre), 'sat' =
+ *  the CesiumJS photoreal satellite globe. A user setting — switching must
+ *  never reset layers, selection, filters, or time window (all of that lives
+ *  in this store, not in the map). */
+export type MapProjection = '2d' | '3d' | 'sat';
 
 /** Basemap look: 'vivid' = CARTO voyager (colorful), 'dark' = CARTO dark. A
  *  persisted user setting like projection. */
@@ -122,6 +123,8 @@ interface AppState {
   projection: MapProjection;
   /** day/night terminator overlay: a user setting, persisted like projection */
   showTerminator: boolean;
+  /** real-time Sun marker on the globe (subsolar point); persisted user setting */
+  showSun: boolean;
   basemap: Basemap;
   geo: GeoSelf;
   /** collapsed layer-manager groups (persisted user setting) */
@@ -176,6 +179,7 @@ interface AppState {
   setViewBounds: (b: ViewBounds | null) => void;
   setProjection: (p: MapProjection) => void;
   setShowTerminator: (on: boolean) => void;
+  setShowSun: (on: boolean) => void;
   setBasemap: (b: Basemap) => void;
   setGeoWatching: (on: boolean) => void;
   setGeoPos: (pos: GeoSelf['pos'], error: string | null) => void;
@@ -300,6 +304,7 @@ export const useStore = create<AppState>()(
       viewBounds: null,
       projection: '2d',
       showTerminator: false,
+      showSun: true,
       basemap: 'vivid',
       geo: { watching: false, pos: null, error: null },
       groupCollapsed: {},
@@ -607,6 +612,7 @@ export const useStore = create<AppState>()(
       setViewBounds: (b) => set({ viewBounds: b }),
       setProjection: (p) => set({ projection: p }),
       setShowTerminator: (on) => set({ showTerminator: on }),
+      setShowSun: (on) => set({ showSun: on }),
       setBasemap: (b) => set({ basemap: b }),
       // turning the watch off also drops the fix — no stale pin, nothing kept
       setGeoWatching: (on) =>
@@ -850,6 +856,7 @@ export const useStore = create<AppState>()(
         monitors: s.monitors,
         projection: s.projection,
         showTerminator: s.showTerminator,
+        showSun: s.showSun,
         basemap: s.basemap,
         railCollapsed: s.railCollapsed,
         showAlertLevels: s.showAlertLevels,
@@ -873,6 +880,7 @@ export const useStore = create<AppState>()(
           monitors?: Monitor[];
           projection?: MapProjection;
           showTerminator?: boolean;
+          showSun?: boolean;
           basemap?: Basemap;
           railCollapsed?: { left: boolean; right: boolean };
           showAlertLevels?: boolean;
@@ -891,6 +899,7 @@ export const useStore = create<AppState>()(
           monitors: p.monitors ?? current.monitors,
           projection: p.projection ?? current.projection,
           showTerminator: p.showTerminator ?? current.showTerminator,
+          showSun: p.showSun ?? current.showSun,
           basemap: p.basemap ?? current.basemap,
           railCollapsed: p.railCollapsed ?? current.railCollapsed,
           showAlertLevels: p.showAlertLevels ?? current.showAlertLevels,

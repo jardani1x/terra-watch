@@ -10,6 +10,8 @@ export default function MapModeControls() {
   const setProjection = useStore((s) => s.setProjection);
   const showTerminator = useStore((s) => s.showTerminator);
   const setShowTerminator = useStore((s) => s.setShowTerminator);
+  const showSun = useStore((s) => s.showSun);
+  const setShowSun = useStore((s) => s.setShowSun);
   const basemap = useStore((s) => s.basemap);
   const setBasemap = useStore((s) => s.setBasemap);
   const geo = useStore((s) => s.geo);
@@ -59,12 +61,30 @@ export default function MapModeControls() {
         3D
       </button>
       <button
+        className={`mmc-btn ${projection === 'sat' ? 'active' : ''}`}
+        aria-pressed={projection === 'sat'}
+        aria-label="Satellite globe view (CesiumJS)"
+        title="Photoreal satellite globe (CesiumJS)"
+        onClick={() => setProjection('sat')}
+      >
+        SAT
+      </button>
+      <button
         className={`mmc-btn ${showTerminator ? 'active' : ''}`}
         aria-pressed={showTerminator}
         aria-label={showTerminator ? 'Hide day/night terminator' : 'Show day/night terminator'}
         onClick={() => setShowTerminator(!showTerminator)}
       >
         ◐
+      </button>
+      <button
+        className={`mmc-btn ${showSun ? 'active' : ''}`}
+        aria-pressed={showSun}
+        aria-label={showSun ? 'Hide the Sun (3D globe)' : 'Show the Sun (3D globe)'}
+        title="Real-time Sun over the daylit hemisphere (3D globe)"
+        onClick={() => setShowSun(!showSun)}
+      >
+        ☀
       </button>
       <button
         className={`mmc-btn ${basemap === 'vivid' ? 'active' : ''}`}

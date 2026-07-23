@@ -8,7 +8,8 @@ import { layerIdForEvent, isEventVisible, type LayerDef } from '../lib/layers';
 import { homePosition } from '../lib/orient';
 import { matchMonitor } from '../lib/monitors';
 import { prefersReducedMotion } from '../lib/a11y';
-import { nightPolygon } from '../lib/terminator';
+import { nightPolygon, solarPosition } from '../lib/terminator';
+import { celestialConfig, getAstronomyTime } from '../lib/celestial';
 import { firmsWmsTileUrl, FIRMS_META } from '../lib/providers/firms';
 import { countryAtPoint } from '../lib/countries';
 import { countryAlertLevels, ALERT_COLORS } from '../lib/alertLevels';
@@ -171,6 +172,7 @@ export default function MapCanvas() {
   const countries = useStore((s) => s.countries);
   const selectedCountry = useStore((s) => s.selectedCountry);
   const showTerminator = useStore((s) => s.showTerminator);
+  const showSun = useStore((s) => s.showSun);
   const firmsKey = useStore((s) => s.firmsKey);
   const firmsOn = useStore((s) => s.sources[FIRMS_META.id] ?? true);
   const basemap = useStore((s) => s.basemap);
@@ -275,6 +277,20 @@ export default function MapCanvas() {
         layout: { visibility: st.showTerminator ? 'visible' : 'none' },
         paint: { 'fill-color': '#03060b', 'fill-opacity': 0.38 },
       }, 'events-layer');
+      // subtle space backdrop for the globe — MapLibre's native atmosphere/sky.
+      // Feature-guarded: older maplibre builds lack setSky. (A true star sky
+      // lives on the Cesium "Satellite" view now.)
+      const skyCapable = map as unknown as { setSky?: (s: Record<string, unknown>) => void };
+      skyCapable.setSky?.({
+        'sky-color': '#0a1526',
+        'sky-horizon-blend': 0.5,
+        'horizon-color': '#0d1a2b',
+        'horizon-fog-blend': 0.6,
+        'fog-color': '#05080d',
+        'fog-ground-blend': 0.1,
+        // fade the atmosphere out as the camera zooms in, so it never washes the surface
+        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 0.8, 5, 0.2, 7, 0],
+      });
       readyRef.current = true;
       setReady(true);
       (map.getSource('events') as maplibregl.GeoJSONSource)?.setData(toFeatureCollection(st.events, st.layers, st.monitors));
@@ -654,7 +670,7 @@ export default function MapCanvas() {
     return () => navigator.geolocation.clearWatch(id);
   }, [geo.watching, setGeoPos]);
 
-  // the Starship pin: a DOM marker so it needs no sprite/image pipeline
+  // the F-22 pin: a DOM marker so it needs no sprite/image pipeline
   const gpsMarkerRef = useRef<maplibregl.Marker | null>(null);
   const flownToFixRef = useRef(false);
   useEffect(() => {
@@ -691,7 +707,8 @@ export default function MapCanvas() {
   }, [geo.pos, ready]);
 
   // 2D↔3D switch: projection is style-level in maplibre v5 — the events
-  // source/layer, camera, and all store state survive the switch untouched
+  // source/layer, camera, and all store state survive the switch untouched.
+  // ('sat' unmounts this component entirely; only 2d/3d reach here.)
   useEffect(() => {
     const map = mapRef.current;
     if (!alive(map) || !readyRef.current) return;
@@ -712,17 +729,84 @@ export default function MapCanvas() {
     map.setLayoutProperty('terminator-layer', 'visibility', showTerminator ? 'visible' : 'none');
   }, [showTerminator, ready]);
 
-  // terminator: recompute the night polygon periodically (sub-degree drift
-  // over minutes, so a coarse refresh is plenty) — pure client astronomy,
-  // no network involved
+  // Real-time Sun marker at the subsolar point (the lon/lat where the Sun is
+  // directly overhead, from UTC — see solarPosition). Only meaningful on the 3D
+  // globe, and only when the user leaves it on. A DOM Marker, like the GPS pin,
+  // so it needs no sprite/image pipeline. Its position is refreshed by the
+  // shared astronomy tick below and on tab resume — never per frame.
+  const sunMarkerRef = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (projection !== '3d' || !showSun) {
+      sunMarkerRef.current?.remove();
+      sunMarkerRef.current = null;
+      return;
+    }
+    if (!sunMarkerRef.current) {
+      // maplibre owns the outer element's transform (positioning), so the disc
+      // lives on an inner span; glow scales with the configured intensity
+      const el = document.createElement('div');
+      const inner = document.createElement('span');
+      inner.className = 'sun-marker';
+      const g = celestialConfig.sunGlowIntensity;
+      inner.style.opacity = String(Math.min(1, 0.6 + g));
+      inner.style.transform = `scale(${0.85 + g})`;
+      el.appendChild(inner);
+      el.setAttribute('aria-label', 'The Sun (subsolar point)');
+      sunMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat([0, 0]).addTo(map);
+    }
+    const s = solarPosition(getAstronomyTime());
+    sunMarkerRef.current.setLngLat([s.subsolarLon + celestialConfig.earthLongitudeOffset, s.subsolarLat]);
+    return () => {
+      sunMarkerRef.current?.remove();
+      sunMarkerRef.current = null;
+    };
+  }, [projection, showSun, ready]);
+
+  // Shared astronomy tick: recompute the night polygon and reposition the Sun
+  // from the same UTC instant (getAstronomyTime), on the configured interval and
+  // immediately whenever the tab becomes visible again — so a slept tab snaps
+  // back to the correct orientation instead of waiting out the interval. Pure
+  // client astronomy, no network. Drift is sub-degree over a minute, so this is
+  // cheap; nothing here runs per frame.
   useEffect(() => {
     if (!ready) return;
-    const t = setInterval(() => {
+    const apply = () => {
       const map = mapRef.current;
       if (!alive(map)) return;
-      (map.getSource('terminator') as maplibregl.GeoJSONSource | undefined)?.setData(nightPolygon());
-    }, 5 * 60 * 1000);
-    return () => clearInterval(t);
+      const now = getAstronomyTime();
+      (map.getSource('terminator') as maplibregl.GeoJSONSource | undefined)?.setData(nightPolygon(now));
+      const s = solarPosition(now);
+      const sunLon = s.subsolarLon + celestialConfig.earthLongitudeOffset;
+      sunMarkerRef.current?.setLngLat([sunLon, s.subsolarLat]);
+
+      // dev-only: a subsolar debug dot + one console line of the raw angles
+      if (import.meta.env.DEV && celestialConfig.showDebugSubsolarPoint) {
+        const fc = {
+          type: 'FeatureCollection',
+          features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [sunLon, s.subsolarLat] } }],
+        } as FeatureCollection;
+        const src = map.getSource('subsolar-debug') as maplibregl.GeoJSONSource | undefined;
+        if (src) src.setData(fc);
+        else {
+          map.addSource('subsolar-debug', { type: 'geojson', data: fc });
+          map.addLayer({
+            id: 'subsolar-debug', type: 'circle', source: 'subsolar-debug',
+            paint: { 'circle-radius': 6, 'circle-color': '#ff3b3b', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
+          });
+        }
+        console.log(`[celestial] UTC ${now.toISOString()} RA ${s.raDeg.toFixed(2)}° Dec ${s.decDeg.toFixed(2)}° GST ${s.gstDeg.toFixed(2)}° subsolar ${s.subsolarLat.toFixed(2)},${s.subsolarLon.toFixed(2)} offset ${celestialConfig.earthLongitudeOffset}°`);
+      }
+    };
+    apply(); // sync immediately so a fresh mount is correct without waiting a full interval
+    const interval = window.setInterval(apply, celestialConfig.astronomyUpdateIntervalMs);
+    const onVisible = () => { if (document.visibilityState === 'visible') apply(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [ready]);
 
   // command-palette / region-driven map navigation

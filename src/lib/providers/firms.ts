@@ -23,7 +23,10 @@ export const FIRMS_META = {
 /** VIIRS S-NPP detections from the last 24h — the standard NRT layer. */
 export const FIRMS_WMS_LAYER = 'fires_viirs_snpp_24';
 
-const BASE = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires';
+/** WMS endpoint root — CesiumCanvas builds a WebMapServiceImageryProvider
+ *  from `${FIRMS_WMS_BASE}/${key}/` directly. */
+export const FIRMS_WMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires';
+const BASE = FIRMS_WMS_BASE;
 
 /** MapLibre raster-tile URL template ({bbox-epsg-3857} is expanded per tile). */
 export function firmsWmsTileUrl(mapKey: string): string {

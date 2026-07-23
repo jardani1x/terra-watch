@@ -22,9 +22,11 @@ import GraphWorkspace from './components/GraphWorkspace';
 import MapModeControls from './components/MapModeControls';
 import BottomDock from './components/BottomDock';
 
-// MapLibre (~800 kB) is the heaviest dependency; load it as its own async
-// chunk so the app shell paints without waiting for it.
+// The map engines are the heaviest dependencies — each loads as its own async
+// chunk so the app shell paints without waiting, and only the active view's
+// engine is ever downloaded. MapLibre serves 2D/3D; Cesium serves 'sat'.
 const MapCanvas = lazy(() => import('./components/MapCanvas'));
+const CesiumCanvas = lazy(() => import('./components/CesiumCanvas'));
 
 export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -34,6 +36,7 @@ export default function App() {
   const railCollapsed = useStore((s) => s.railCollapsed);
   const toggleRail = useStore((s) => s.toggleRail);
   const view = useStore((s) => s.view);
+  const projection = useStore((s) => s.projection);
   const selected = useStore((s) => s.selected);
   const selectedCountry = useStore((s) => s.selectedCountry);
 
@@ -111,7 +114,7 @@ export default function App() {
           {view === 'map' ? (
             <>
               <Suspense fallback={<div className="map-loading">LOADING MAP…</div>}>
-                <MapCanvas />
+                {projection === 'sat' ? <CesiumCanvas /> : <MapCanvas />}
               </Suspense>
               <MapModeControls />
               <TimelineDrawer />
